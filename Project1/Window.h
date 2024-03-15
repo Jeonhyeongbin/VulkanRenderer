@@ -13,6 +13,12 @@ namespace jhb {
 		Window(const Window&) = delete;
 		Window& operator=(const Window&) = delete;
 
+		void creatWindowSurface(VkInstance instance, VkSurfaceKHR* surface);
+		GLFWwindow& GetGLFWwindow()
+		{
+			return *window;
+		}
+
 	private:
 		void initWindow();
 		const int width;
