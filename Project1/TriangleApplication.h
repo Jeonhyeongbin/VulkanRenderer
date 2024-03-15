@@ -2,6 +2,7 @@
 #include "Window.h"
 #include "Pipeline.h"
 #include "Device.h"
+#include "SwapChain.h"
 
 #include <stdint.h>
 
@@ -15,6 +16,9 @@ namespace jhb {
 	private:
 		Window window{ 800, 600, "TriangleApp!" };
 		Device device{ window };
-		Pipeline pipeline{ device, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv",  Pipeline::defaultPipelineConfigInfo(800, 600) };
+		SwapChain swapchain{ device, window.getExtent() };
+		std::unique_ptr<Pipeline> pipeline;
+		VkPipelineLayout pipelineLayout;
+		std::vector<VkCommandBuffer> commandBuffer;
 	};
 }

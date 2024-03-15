@@ -13,9 +13,9 @@ namespace jhb {
 
 	Pipeline::~Pipeline()
 	{
-		vkDestroyShaderModule(device.getDevice(), fragShaderModule, nullptr);
-		vkDestroyShaderModule(device.getDevice(), vertShaderModule, nullptr);
-		vkDestroyPipeline(device.getDevice(), graphicsPipeline, nullptr);
+		vkDestroyShaderModule(device.getLogicalDevice(), fragShaderModule, nullptr);
+		vkDestroyShaderModule(device.getLogicalDevice(), vertShaderModule, nullptr);
+		vkDestroyPipeline(device.getLogicalDevice(), graphicsPipeline, nullptr);
 	}
 
 	PipelineConfigInfo Pipeline::defaultPipelineConfigInfo(uint32_t width, uint32_t height)
@@ -35,12 +35,6 @@ namespace jhb {
 
 		configInfo.scissor.offset = { 0, 0 };
 		configInfo.scissor.extent = { width, height };
-
-		configInfo.viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		configInfo.viewportInfo.viewportCount = 1;
-		configInfo.viewportInfo.pViewports = &configInfo.viewport;
-		configInfo.viewportInfo.scissorCount = 1;
-		configInfo.viewportInfo.pScissors = &configInfo.scissor;
 
 		configInfo.rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 		configInfo.rasterizationInfo.depthClampEnable = VK_FALSE;
@@ -126,6 +120,13 @@ namespace jhb {
 		createShaderModule(vertCode, &vertShaderModule);
 		createShaderModule(fragCode, &fragShaderModule);
 
+		VkPipelineViewportStateCreateInfo viewportInfo{}; 
+		viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+		viewportInfo.viewportCount = 1;
+		viewportInfo.pViewports = &configInfo.viewport;
+		viewportInfo.scissorCount = 1;
+		viewportInfo.pScissors = &configInfo.scissor;
+
 		VkPipelineShaderStageCreateInfo shaderStages[2];
 		shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -155,7 +156,7 @@ namespace jhb {
 		pipelineInfo.pStages = shaderStages;
 		pipelineInfo.pVertexInputState = &vertexInputInfo;
 		pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;
-		pipelineInfo.pViewportState = &configInfo.viewportInfo;
+		pipelineInfo.pViewportState = &viewportInfo;
 		pipelineInfo.pRasterizationState = &configInfo.rasterizationInfo;
 		pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;
 		pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;
@@ -170,7 +171,7 @@ namespace jhb {
 		pipelineInfo.basePipelineIndex = -1;               // Optional
 
 		if (vkCreateGraphicsPipelines(
-			device.getDevice(),
+			device.getLogicalDevice(),
 			VK_NULL_HANDLE,
 			1,
 			&pipelineInfo,
@@ -187,7 +188,7 @@ namespace jhb {
 		createInfo.codeSize = code.size();
 		createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
-		if (vkCreateShaderModule(device.getDevice(), &createInfo, nullptr, shaderModule) != VK_SUCCESS) {
+		if (vkCreateShaderModule(device.getLogicalDevice(), &createInfo, nullptr, shaderModule) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create shader module");
 		}
 	}

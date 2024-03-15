@@ -38,16 +38,10 @@ namespace jhb {
 
 			return VK_FALSE;
 		}
-
+	public:
 		struct QueueFamilyIndexes {
 			std::optional<uint32_t> graphicsFamily;
 			std::optional<uint32_t> presentFamily;
-		};
-
-		struct SwapChainSupportDetails {
-			VkSurfaceCapabilitiesKHR capabilities;
-			std::vector<VkSurfaceFormatKHR> formats;
-			std::vector<VkPresentModeKHR> presentModes;
 		};
 
 	public:
@@ -60,10 +54,12 @@ namespace jhb {
 		Device(Device&&) = delete;
 		Device& operator=(Device&&) = delete;
 
-		VkDevice getDevice() { return logicalDevice; }
-		VkSurfaceKHR getSurface() { return surface; }
-		VkQueue getGraphicsQueue() { return graphicsQueue; }
-		VkQueue getPresentQueue() { return presentQueue; }
+		Window& getWindow() const { return window; }
+		VkDevice getLogicalDevice() const  { return logicalDevice; }
+		VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
+		VkSurfaceKHR getSurface() const { return surface; }
+		VkQueue getGraphicsQueue() const { return graphicsQueue; }
+		VkQueue getPresentQueue() const { return presentQueue; }
 
 		void createInstance();
 		bool checkValidationLayerSupport();
@@ -71,16 +67,12 @@ namespace jhb {
 		void setupDebugMessenger();
 		VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
 		void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
-		void createSwapChain();
 		void createSurface();
 		void createLogicalDevice();
 		QueueFamilyIndexes findQueueFamilies(VkPhysicalDevice device);
 		std::vector<const char*> getRequiredExtensions();
 		void pickPhysicalDevice();
-		SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
-		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
-		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilites);
+
 		bool isDeviceSuitable(VkPhysicalDevice device);
 		bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 		void cleanup();
