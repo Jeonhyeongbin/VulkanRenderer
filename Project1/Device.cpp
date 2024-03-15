@@ -5,6 +5,10 @@ namespace jhb {
 	{
 	}
 
+	Device::~Device()
+	{
+	}
+
 	void Device::createInstance() {
 		// using for optimizatgion my applciation (optional)
 		if (enableValidationLayers && !checkValidationLayerSupport())

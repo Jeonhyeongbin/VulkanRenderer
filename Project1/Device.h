@@ -52,6 +52,19 @@ namespace jhb {
 
 	public:
 		Device(Window& window);
+		~Device();
+
+		// Not copyable or movable
+		Device(const Device&) = delete;
+		void operator=(const Device&) = delete;
+		Device(Device&&) = delete;
+		Device& operator=(Device&&) = delete;
+
+		VkDevice getDevice() { return logicalDevice; }
+		VkSurfaceKHR getSurface() { return surface; }
+		VkQueue getGraphicsQueue() { return graphicsQueue; }
+		VkQueue getPresentQueue() { return presentQueue; }
+
 		void createInstance();
 		bool checkValidationLayerSupport();
 		void initVulkan();

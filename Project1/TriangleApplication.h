@@ -15,6 +15,6 @@ namespace jhb {
 	private:
 		Window window{ 800, 600, "TriangleApp!" };
 		Device device{ window };
-		Pipeline pipeline{ device, };
+		Pipeline pipeline{ device, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv",  Pipeline::defaultPipelineConfigInfo(800, 600) };
 	};
 }
