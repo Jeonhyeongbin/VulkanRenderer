@@ -23,10 +23,8 @@ namespace jhb {
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 	}
 
-	PipelineConfigInfo Pipeline::defaultPipelineConfigInfo(uint32_t width, uint32_t height)
+	void Pipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height)
 	{
-		PipelineConfigInfo configInfo{};
-
 		configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
@@ -37,6 +35,12 @@ namespace jhb {
 		configInfo.viewport.height = static_cast<float>(height);
 		configInfo.viewport.minDepth = 0.0f;
 		configInfo.viewport.maxDepth = 1.0f;
+
+		configInfo.viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+		configInfo.viewportInfo.viewportCount = 1;
+		configInfo.viewportInfo.pViewports = &configInfo.viewport;
+		configInfo.viewportInfo.scissorCount = 1;
+		configInfo.viewportInfo.pScissors = &configInfo.scissor;
 
 		configInfo.scissor.offset = { 0, 0 };
 		configInfo.scissor.extent = { width, height };
@@ -92,10 +96,6 @@ namespace jhb {
 		configInfo.depthStencilInfo.stencilTestEnable = VK_FALSE;
 		configInfo.depthStencilInfo.front = {};  // Optional
 		configInfo.depthStencilInfo.back = {};   // Optional
-
-
-
-		return configInfo;
 	}
 
 	std::vector<char> jhb::Pipeline::readFile(const std::string& filepath)
@@ -119,18 +119,18 @@ namespace jhb {
 
 	void jhb::Pipeline::createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo)
 	{
+		assert(
+			configInfo.pipelineLayout != VK_NULL_HANDLE &&
+			"Cannot create graphics pipeline: no pipelineLayout provided in configInfo");
+		assert(
+			configInfo.renderPass != VK_NULL_HANDLE &&
+			"Cannot create graphics pipeline: no renderPass provided in configInfo");
+
 		auto vertCode = readFile(vertFilepath);
 		auto fragCode = readFile(fragFilepath);
 
 		createShaderModule(vertCode, &vertShaderModule);
 		createShaderModule(fragCode, &fragShaderModule);
-
-		VkPipelineViewportStateCreateInfo viewportInfo{}; 
-		viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewportInfo.viewportCount = 1;
-		viewportInfo.pViewports = &configInfo.viewport;
-		viewportInfo.scissorCount = 1;
-		viewportInfo.pScissors = &configInfo.scissor;
 
 		VkPipelineShaderStageCreateInfo shaderStages[2];
 		shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -161,7 +161,7 @@ namespace jhb {
 		pipelineInfo.pStages = shaderStages;
 		pipelineInfo.pVertexInputState = &vertexInputInfo;
 		pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;
-		pipelineInfo.pViewportState = &viewportInfo;
+		pipelineInfo.pViewportState = &configInfo.viewportInfo;
 		pipelineInfo.pRasterizationState = &configInfo.rasterizationInfo;
 		pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;
 		pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;

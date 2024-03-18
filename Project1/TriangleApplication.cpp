@@ -21,6 +21,8 @@ namespace jhb {
 			glfwPollEvents();
 			drawFrame();
 		}
+
+		vkDeviceWaitIdle(device.getLogicalDevice());
 	}
 	void HelloTriangleApplication::createPipeLineLayout()
 	{
@@ -37,8 +39,8 @@ namespace jhb {
 	}
 	void HelloTriangleApplication::createPipeline()
 	{
-		auto pipelineConfig =
-			Pipeline::defaultPipelineConfigInfo(swapChain.getSwapChainExtent().width, swapChain.getSwapChainExtent().height);
+		PipelineConfigInfo pipelineConfig{};
+		Pipeline::defaultPipelineConfigInfo(pipelineConfig, swapChain.getSwapChainExtent().width, swapChain.getSwapChainExtent().height);
 		pipelineConfig.renderPass = swapChain.getRenderPass();
 		pipelineConfig.pipelineLayout = pipelineLayout;
 		pipeline = std::make_unique<Pipeline>(

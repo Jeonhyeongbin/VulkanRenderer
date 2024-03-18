@@ -142,6 +142,16 @@
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+
+  <PropertyGroup>
+    <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
+  </PropertyGroup>
+  <ItemGroup>
+    <CustomBuild Include="compile.bat">
+      <Message>Compile Shaders...</Message>
+      <Command>compile.bat</Command>
+    </CustomBuild>
+  </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="Main.cpp" />
@@ -158,7 +168,6 @@
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="compile.bat" />
     <None Include="shader.frag" />
     <None Include="shader.vert" />
   </ItemGroup>
