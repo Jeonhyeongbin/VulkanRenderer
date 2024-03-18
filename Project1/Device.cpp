@@ -11,6 +11,20 @@ namespace jhb {
 	{
 	}
 
+	uint32_t Device::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+	{
+		VkPhysicalDeviceMemoryProperties memProperties;
+		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+			if ((typeFilter & (1 << i)) &&
+				(memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+				return i;
+			}
+		}
+
+		throw std::runtime_error("failed to find suitable memory type!");
+	}
+
 	void Device::createInstance() {
 		// using for optimizatgion my applciation (optional)
 		if (enableValidationLayers && !checkValidationLayerSupport())
@@ -66,6 +80,29 @@ namespace jhb {
 		}
 	}
 
+	void Device::createImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
+	{
+		if (vkCreateImage(logicalDevice, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create image!");
+		}
+
+		VkMemoryRequirements memRequirements;
+		vkGetImageMemoryRequirements(logicalDevice, image, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+		if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate image memory!");
+		}
+
+		if (vkBindImageMemory(logicalDevice, image, imageMemory, 0) != VK_SUCCESS) {
+			throw std::runtime_error("failed to bind image memory!");
+		}
+	}
+
 	bool Device::checkValidationLayerSupport()
 	{
 		uint32_t layerCount;
@@ -99,6 +136,7 @@ namespace jhb {
 		createSurface();
 		pickPhysicalDevice();
 		createLogicalDevice();
+		createCommandPool();
 	}
 
 	void Device::setupDebugMessenger() {
@@ -186,6 +224,21 @@ namespace jhb {
 		vkGetDeviceQueue(logicalDevice, familyindexs.presentFamily.value(), 0, &presentQueue);
 	}
 
+	void Device::createCommandPool()
+	{
+		QueueFamilyIndexes queueFamilyIndices = findQueueFamilies(physicalDevice);
+
+		VkCommandPoolCreateInfo poolInfo = {};
+		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+		poolInfo.flags =
+			VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+		if (vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create command pool!");
+		}
+	}
+
 	Device::QueueFamilyIndexes Device::findQueueFamilies(VkPhysicalDevice device) {
 		QueueFamilyIndexes QueueFamilyIndexes;
 
@@ -260,6 +313,23 @@ namespace jhb {
 		{
 			throw std::runtime_error("failed to find a suitable GPU!");
 		}
+	}
+
+	VkFormat Device::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+	{
+		for (VkFormat format : candidates) {
+			VkFormatProperties props;
+			vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+
+			if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+				return format;
+			}
+			else if (
+				tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+				return format;
+			}
+		}
+		throw std::runtime_error("failed to find supported format!");
 	}
 
 	bool Device::isDeviceSuitable(VkPhysicalDevice device)

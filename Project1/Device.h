@@ -60,8 +60,16 @@ namespace jhb {
 		VkSurfaceKHR getSurface() const { return surface; }
 		VkQueue getGraphicsQueue() const { return graphicsQueue; }
 		VkQueue getPresentQueue() const { return presentQueue; }
+		VkCommandPool getCommnadPool() { return commandPool; }
 
+		uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 		void createInstance();
+		void createImageWithInfo(
+			const VkImageCreateInfo& imageInfo,
+			VkMemoryPropertyFlags properties,
+			VkImage& image,
+			VkDeviceMemory& imageMemory);
+
 		bool checkValidationLayerSupport();
 		void initVulkan();
 		void setupDebugMessenger();
@@ -69,9 +77,13 @@ namespace jhb {
 		void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 		void createSurface();
 		void createLogicalDevice();
+		void createCommandPool();
 		QueueFamilyIndexes findQueueFamilies(VkPhysicalDevice device);
 		std::vector<const char*> getRequiredExtensions();
 		void pickPhysicalDevice();
+
+		VkFormat findSupportedFormat(
+			const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
 		bool isDeviceSuitable(VkPhysicalDevice device);
 		bool checkDeviceExtensionSupport(VkPhysicalDevice device);
@@ -87,6 +99,7 @@ namespace jhb {
 		VkQueue presentQueue;
 		VkSwapchainKHR swapChain;
 		VkDebugUtilsMessengerEXT debugMessenger;
+		VkCommandPool commandPool;
 
 		const std::vector<const char*> validationLayers = {
 		"VK_LAYER_KHRONOS_validation"
