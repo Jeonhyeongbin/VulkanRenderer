@@ -5,13 +5,17 @@ namespace jhb {
 	SwapChain::SwapChain(Device& device, VkExtent2D extent)
 		:device{ device }, swapChainExtent{ extent }
 	{
-		createSwapChain();
-		createImageViews();
-		createRenderPass();
-		createDepthResources();
-		createFrameBuffers();
-		createSyncObjects();
+		init();
 	}
+
+	SwapChain::SwapChain(Device& device, VkExtent2D extent, std::shared_ptr<SwapChain> prevSwapchain)
+		:device{ device }, swapChainExtent{ extent }, oldSwapchain(prevSwapchain)
+	{
+		init();
+		oldSwapchain = nullptr; // clean up  old swap chain since it's no longer needed
+	}
+
+	
 
 	SwapChain::~SwapChain()
 	{
@@ -41,6 +45,16 @@ namespace jhb {
 			vkDestroyFence(device.getLogicalDevice(), inFlightFences[i], nullptr);
 		}
 
+	}
+
+	void SwapChain::init()
+	{
+		createSwapChain();
+		createImageViews();
+		createRenderPass();
+		createDepthResources();
+		createFrameBuffers();
+		createSyncObjects();
 	}
 
 	VkResult SwapChain::acquireNextImage(uint32_t* imageIndex)
@@ -140,7 +154,7 @@ namespace jhb {
 		createInfo.imageColorSpace = surfaceFormat.colorSpace;
 		createInfo.imageExtent = extent;
 		createInfo.imageArrayLayers = 1; //always 1
-		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // direct render to images, if want to like a PostProcessing, then use VK_IMAGE_USAGE_TRANSFER_DST_BIT flag.
+		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // direct render to images, if you want to like a PostProcessing, then use VK_IMAGE_USAGE_TRANSFER_DST_BIT flag.
 
 		jhb::Device::QueueFamilyIndexes indices = device.findQueueFamilies(device.getPhysicalDevice());
 		uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
@@ -161,7 +175,7 @@ namespace jhb {
 		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // ignore alpha channl
 		createInfo.presentMode = presentMode;
 		createInfo.clipped = VK_TRUE; // dont care about obscured pixes color
-		createInfo.oldSwapchain = VK_NULL_HANDLE; // TODO : cause of window resizing
+		createInfo.oldSwapchain = oldSwapchain == nullptr ? VK_NULL_HANDLE : oldSwapchain->swapChain; // TODO : cause of window resizing
 
 		if (vkCreateSwapchainKHR(device.getLogicalDevice(), &createInfo, nullptr, &swapChain) != VK_SUCCESS)
 		{

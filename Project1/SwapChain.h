@@ -16,7 +16,10 @@ namespace jhb {
 	public:
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 		SwapChain(Device& device, VkExtent2D extent);
+		SwapChain(Device& device, VkExtent2D extent, std::shared_ptr<SwapChain> prevSwapchain);
 		~SwapChain();
+
+		void init();
 
 		static SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface);
 		VkExtent2D getSwapChainExtent() { return swapChainExtent; }
@@ -50,6 +53,8 @@ namespace jhb {
 		VkSwapchainKHR swapChain;
 		VkFormat swapChainImageFormat;
 		VkRenderPass renderPass;
+
+		std::shared_ptr<SwapChain> oldSwapchain;
 
 		std::vector<VkFramebuffer> swapChainFramebuffers;
 		std::vector<VkImage> swapChainImages; // images created by swapchain config
