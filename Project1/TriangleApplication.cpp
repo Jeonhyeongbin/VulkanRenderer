@@ -28,9 +28,9 @@ namespace jhb {
 	void HelloTriangleApplication::loadModels()
 	{
 		std::vector<Model::Vertex> vertices{
-			{{0.0f, -0.5f}},
-			{ {-0.5f, 0.5f} },
-			{ {0.5f, 0.5f} }
+			{{0.0f, -0.5f}, { 1.0f, 0.f, 0.f }},
+			{ {-0.5f, 0.5f},{ 0.0f, 1.f, 0.f } },
+			{ {0.5f, 0.5f}, { 0.0f, 0.f, 1.f } }
 		};
 
 		model = std::make_unique<jhb::Model>(device, vertices);

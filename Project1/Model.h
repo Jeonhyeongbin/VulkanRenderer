@@ -13,7 +13,10 @@ namespace jhb {
 	public:
 		struct Vertex {
 			glm::vec2 position;
+			glm::vec3 color;
 
+			// binding은 여러 버텍스 버퍼를 사용할때
+			// attribute는 한 버텍스 안에서 메모리구조를 정의할때
 			static std::vector<VkVertexInputBindingDescription> getBindingDescriptions();
 			static std::vector<VkVertexInputAttributeDescription> getAttrivuteDescriptions();
 		};
@@ -36,4 +39,3 @@ namespace jhb {
 		uint32_t vertexCount;
 	};
 }
-
