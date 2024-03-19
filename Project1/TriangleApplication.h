@@ -1,4 +1,9 @@
 ﻿#pragma once
+#define GLM_FORCE_RADIANS // not use degree;
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
+#include <glm/glm.hpp>
+
 #include "Window.h"
 #include "Pipeline.h"
 #include "Device.h"
@@ -8,6 +13,11 @@
 #include <stdint.h>
 
 namespace jhb {
+	struct SimplePushConstantData {
+		glm::vec2 offset;
+		alignas(16) glm::vec3 color;
+	};
+
 	class HelloTriangleApplication {
 	public:
 		HelloTriangleApplication(uint32_t width, uint32_t height);
