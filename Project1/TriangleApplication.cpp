@@ -4,7 +4,7 @@
 
 namespace jhb {
 	HelloTriangleApplication::HelloTriangleApplication(uint32_t width, uint32_t height) {
-		loadModels();
+		loadGameObjects();
 		createPipeLineLayout();
 		recreateSwapChain();
 		createCommandBuffers();
@@ -25,7 +25,7 @@ namespace jhb {
 
 		vkDeviceWaitIdle(device.getLogicalDevice());
 	}
-	void HelloTriangleApplication::loadModels()
+	void HelloTriangleApplication::loadGameObjects()
 	{
 		std::vector<Model::Vertex> vertices{
 			{{0.0f, -0.5f}, { 1.0f, 0.f, 0.f }},
@@ -33,8 +33,18 @@ namespace jhb {
 			{ {0.5f, 0.5f}, { 0.0f, 0.f, 1.f } }
 		};
 
-		model = std::make_unique<jhb::Model>(device, vertices);
+		auto model = std::make_shared<Model>(device, vertices);
+
+		auto triangle = GameObject::createGameObject();
+		triangle.model = model;
+		triangle.color = { .1f, .9f, .1f };
+		triangle.transform2d.translation.x = .2f;
+		triangle.transform2d.scale = { 2.f, .5f };
+		triangle.transform2d.rotation = .25f * glm::two_pi<float>();
+
+		gameObjects.push_back(std::move(triangle));
 	}
+
 	void HelloTriangleApplication::createPipeLineLayout()
 	{
 		VkPushConstantRange pushConstantRange{};
@@ -148,9 +158,6 @@ namespace jhb {
 	}
 	void HelloTriangleApplication::recordCommandBuffer(int imageIndex)
 	{
-		static int frame = 0;
-		frame = (frame + 1) % 1000;
-
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -185,22 +192,30 @@ namespace jhb {
 		vkCmdSetViewport(commandBuffers[imageIndex], 0, 1, &viewport);
 		vkCmdSetScissor(commandBuffers[imageIndex], 0, 1, &scissor);
 
-		pipeline->bind(commandBuffers[imageIndex]);
-		model->bind(commandBuffers[imageIndex]);
-
-		for (int j = 0; j < 4; j++)
-		{
-			SimplePushConstantData push{};
-			push.offset = { -0.5f + frame*0.02, -0.4f + j * 0.25f };
-			push.color = { 0.0f, 0.f, 0.2f + 0.2f * j };
-
-			vkCmdPushConstants(commandBuffers[imageIndex], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
-			model->draw(commandBuffers[imageIndex]);
-		}
+		renderGameObjects(commandBuffers[imageIndex]);
 
 		vkCmdEndRenderPass(commandBuffers[imageIndex]);
 		if (vkEndCommandBuffer(commandBuffers[imageIndex]) != VK_SUCCESS) {
 			throw std::runtime_error("failed to record command buffer!");
+		}
+	}
+	void HelloTriangleApplication::renderGameObjects(VkCommandBuffer commandBuffer)
+	{
+		pipeline->bind(commandBuffer);
+
+		for (auto& obj : gameObjects)
+		{
+			obj.transform2d.rotation = glm::mod(obj.transform2d.rotation + 0.01f, glm::two_pi<float>());
+
+			SimplePushConstantData push{};
+			push.offset = obj.transform2d.translation;
+			push.color = obj.color;
+			push.transform = obj.transform2d.mat2();
+
+			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
+
+			obj.model->bind(commandBuffer);
+			obj.model->draw(commandBuffer);
 		}
 	}
 }

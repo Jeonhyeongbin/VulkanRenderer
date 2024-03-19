@@ -3,17 +3,20 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 
 #include "Window.h"
 #include "Pipeline.h"
 #include "Device.h"
 #include "SwapChain.h"
 #include "Model.h"
+#include "GameObject.h"
 
 #include <stdint.h>
 
 namespace jhb {
 	struct SimplePushConstantData {
+		glm::mat2 transform{1.f};
 		glm::vec2 offset;
 		alignas(16) glm::vec3 color;
 	};
@@ -30,7 +33,7 @@ namespace jhb {
 		void Run();
 
 	private:
-		void loadModels();
+		void loadGameObjects();
 		void createPipeLineLayout();
 		void createPipeline();
 		void createCommandBuffers();
@@ -39,6 +42,7 @@ namespace jhb {
 
 		void recreateSwapChain();
 		void recordCommandBuffer(int imageIndex);
+		void renderGameObjects(VkCommandBuffer commandBuffer);
 
 		// init top to bottom
 		Window window{ 800, 600, "TriangleApp!" };
@@ -47,6 +51,6 @@ namespace jhb {
 		std::unique_ptr<Pipeline> pipeline;
 		VkPipelineLayout pipelineLayout;
 		std::vector<VkCommandBuffer> commandBuffers;
-		std::unique_ptr<Model> model;
+		std::vector<GameObject> gameObjects;
 	};
 }
