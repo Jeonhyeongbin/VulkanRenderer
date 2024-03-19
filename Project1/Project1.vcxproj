@@ -142,7 +142,6 @@
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
-
   <PropertyGroup>
     <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
   </PropertyGroup>
@@ -155,6 +154,7 @@
   <ItemGroup>
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Model.cpp" />
     <ClCompile Include="Pipeline.cpp" />
     <ClCompile Include="SwapChain.cpp" />
     <ClCompile Include="TriangleApplication.cpp" />
@@ -162,6 +162,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Device.h" />
+    <ClInclude Include="Model.h" />
     <ClInclude Include="Pipeline.h" />
     <ClInclude Include="SwapChain.h" />
     <ClInclude Include="TriangleApplication.h" />

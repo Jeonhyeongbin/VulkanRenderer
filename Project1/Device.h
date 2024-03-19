@@ -78,6 +78,12 @@ namespace jhb {
 		void createSurface();
 		void createLogicalDevice();
 		void createCommandPool();
+		void createBuffer(VkDeviceSize size,
+			VkBufferUsageFlags usage,
+			VkMemoryPropertyFlags properties,
+			VkBuffer& buffer,
+			VkDeviceMemory& bufferMemory);
+
 		QueueFamilyIndexes findQueueFamilies(VkPhysicalDevice device);
 		std::vector<const char*> getRequiredExtensions();
 		void pickPhysicalDevice();

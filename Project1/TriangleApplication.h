@@ -3,6 +3,7 @@
 #include "Pipeline.h"
 #include "Device.h"
 #include "SwapChain.h"
+#include "Model.h"
 
 #include <stdint.h>
 
@@ -19,6 +20,7 @@ namespace jhb {
 		void Run();
 
 	private:
+		void loadModels();
 		void createPipeLineLayout();
 		void createPipeline();
 		void createCommandBuffers();
@@ -31,5 +33,6 @@ namespace jhb {
 		std::unique_ptr<Pipeline> pipeline;
 		VkPipelineLayout pipelineLayout;
 		std::vector<VkCommandBuffer> commandBuffers;
+		std::unique_ptr<Model> model;
 	};
 }

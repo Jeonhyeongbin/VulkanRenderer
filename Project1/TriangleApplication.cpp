@@ -4,6 +4,7 @@
 
 namespace jhb {
 	HelloTriangleApplication::HelloTriangleApplication(uint32_t width, uint32_t height) {
+		loadModels();
 		createPipeLineLayout();
 		createPipeline();
 		createCommandBuffers();
@@ -23,6 +24,16 @@ namespace jhb {
 		}
 
 		vkDeviceWaitIdle(device.getLogicalDevice());
+	}
+	void HelloTriangleApplication::loadModels()
+	{
+		std::vector<Model::Vertex> vertices{
+			{{0.0f, -0.5f}},
+			{ {-0.5f, 0.5f} },
+			{ {0.5f, 0.5f} }
+		};
+
+		model = std::make_unique<jhb::Model>(device, vertices);
 	}
 	void HelloTriangleApplication::createPipeLineLayout()
 	{
@@ -90,7 +101,8 @@ namespace jhb {
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 			pipeline->bind(commandBuffers[i]);
-			vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+			model->bind(commandBuffers[i]);
+			model->draw(commandBuffers[i]);
 
 			vkCmdEndRenderPass(commandBuffers[i]);
 			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
