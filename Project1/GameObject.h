@@ -18,7 +18,7 @@ namespace jhb {
 
         // 오일러 앵글, 아핀변환(종합 매트릭스..), 
           // https://en.wikipedia.org/wiki/Euler_angles#Rotation_matrix
-        glm::mat4 mat4() {
+        glm::mat4 mat4() { // model matrix, move in object space to world space
             const float c3 = glm::cos(rotation.z);
             const float s3 = glm::sin(rotation.z);
             const float c2 = glm::cos(rotation.x);

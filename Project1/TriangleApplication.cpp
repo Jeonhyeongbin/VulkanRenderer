@@ -17,7 +17,7 @@ namespace jhb {
 	{
 		SimpleRenderSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass() };
 		Camera camera{};
-		camera.setOrthographicProjection(-1, 1, -1 ,1, -1, 1);
+		camera.setViewTarget(glm::vec3(-1.f, -2.f, 2.f), glm::vec3(0.f,0.f, 2.5f)); // using objects in world space move to camera space
 
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
