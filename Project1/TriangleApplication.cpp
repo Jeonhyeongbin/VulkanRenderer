@@ -1,5 +1,6 @@
 #include "TriangleApplication.h"
 #include "SimpleRenderSystem.h"
+#include "KeyboardController.h"
 
 #include <memory>
 #include <array>
@@ -17,11 +18,22 @@ namespace jhb {
 	{
 		SimpleRenderSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass() };
 		Camera camera{};
-		camera.setViewTarget(glm::vec3(-1.f, -2.f, 2.f), glm::vec3(0.f,0.f, 2.5f)); // using objects in world space move to camera space
 
+		auto viewerObject = GameObject::createGameObject();
+		KeyboardController cameraController{};
+
+		auto currentTime = std::chrono::high_resolution_clock::now();
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
-			glfwPollEvents();
+			glfwPollEvents(); //may block
+
+			auto newTime = std::chrono::high_resolution_clock::now();
+			float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+			currentTime = newTime;
+
+			cameraController.moveInPlaneXZ(&window.GetGLFWwindow(), frameTime, viewerObject);
+			camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+
 
 			float aspect = renderer.getAspectRatio();
 			camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 10.f);

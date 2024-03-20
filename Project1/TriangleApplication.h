@@ -13,6 +13,7 @@
 #include "Renderer.h"
 
 #include <stdint.h>
+#include <chrono>
 
 namespace jhb {
 	class HelloTriangleApplication {
