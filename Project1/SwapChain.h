@@ -34,6 +34,10 @@ namespace jhb {
 
 		VkResult submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex);
 
+		bool compareSwapChainFormats(const SwapChain& swapChain) const {
+			return swapChain.swapChainDepthFormat == swapChainDepthFormat && swapChain.swapChainImageFormat == swapChainImageFormat;
+		}
+
 	private:
 		void createSwapChain();
 		void createRenderPass();
@@ -52,6 +56,7 @@ namespace jhb {
 
 		VkSwapchainKHR swapChain;
 		VkFormat swapChainImageFormat;
+		VkFormat swapChainDepthFormat;
 		VkRenderPass renderPass;
 
 		std::shared_ptr<SwapChain> oldSwapchain;
