@@ -12,7 +12,7 @@ namespace jhb {
 	{
 	public:
 		struct Vertex {
-			glm::vec2 position;
+			glm::vec3 position;
 			glm::vec3 color;
 
 			// binding은 여러 버텍스 버퍼를 사용할때

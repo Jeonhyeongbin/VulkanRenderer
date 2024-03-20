@@ -28,6 +28,7 @@ namespace jhb {
 
 	private:
 		void loadGameObjects();
+		std::unique_ptr<Model> createCubeModel(Device& device, glm::vec3 offset);
 
 		// init top to bottom
 		Window window{ 800, 600, "TriangleApp!" };
