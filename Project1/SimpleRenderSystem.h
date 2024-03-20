@@ -10,6 +10,7 @@
 #include "SwapChain.h"
 #include "Model.h"
 #include "GameObject.h"
+#include "Camera.h"
 
 #include <stdint.h>
 
@@ -23,7 +24,7 @@ namespace jhb {
 		SimpleRenderSystem(SimpleRenderSystem&&) = delete;
 		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
 
-		void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<GameObject>& gameObjects);
+		void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<GameObject>& gameObjects, const Camera& camera);
 	private:
 		void createPipeLineLayout();
 

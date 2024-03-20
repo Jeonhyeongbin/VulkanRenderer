@@ -25,6 +25,9 @@ namespace jhb {
 		VkExtent2D getSwapChainExtent() { return swapChainExtent; }
 		VkFormat getSwapChainImageFormat() { return swapChainImageFormat; }
 		VkFramebuffer getFrameBuffer(int index) { return swapChainFramebuffers[index]; }
+		float extentAspectRatio() {
+			return static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height);
+		}
 
 		VkRenderPass getRenderPass() { return renderPass; }
 		size_t getImageCount() { return swapChainImages.size(); }
