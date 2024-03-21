@@ -1,4 +1,27 @@
+
+#include <iostream>
+#include <unordered_map>
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
+#include "Utils.hpp"
 #include "Model.h"
+
+namespace std{
+	template <>
+	struct hash<jhb::Model::Vertex> {
+		size_t operator()(jhb::Model::Vertex const& vertex) const 
+		{
+			size_t seed = 0;
+			jhb::hashCombine(seed, vertex.position, vertex.color, vertex.normal, vertex.uv);
+			return seed;
+		}
+	};
+}
+
 
 jhb::Model::Model(Device& _device, const Builder& builder) : device{ _device }
 {
@@ -16,6 +39,14 @@ jhb::Model::~Model()
 		vkDestroyBuffer(device.getLogicalDevice(), indexBuffer, nullptr);
 		vkFreeMemory(device.getLogicalDevice(), indexBufferMemory, nullptr);
 	}
+}
+
+std::unique_ptr<jhb::Model> jhb::Model::createModelFromFile(Device& device, const std::string& filepath)
+{
+	Builder builder{};
+	builder.loadModel(filepath);
+	
+	return std::make_unique<Model>(device, builder);
 }
 
 void jhb::Model::draw(VkCommandBuffer commandBuffer)
@@ -57,9 +88,9 @@ void jhb::Model::createVertexBuffer(const std::vector<Vertex>& vertices)
 		stagingBuffer, stagingBufferMemory
 		);
 	void* data;
-	vkMapMemory(device.getLogicalDevice(), vertexBufferMemory, 0, bufferSize, 0, &data);
+	vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
 	memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
-	vkUnmapMemory(device.getLogicalDevice(), vertexBufferMemory);
+	vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
 
 	// VK_BUFFER_USAGE_TRANSFER_DST_BIT : tells vulkan that this vertex buffer using optimal device local memory
 	device.createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -84,14 +115,31 @@ void jhb::Model::createIndexBuffer(const std::vector<uint32_t>& indices)
 	}
 
 	VkDeviceSize bufferSize = sizeof(indices[0]) * indexCount;
-	device.createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	// VK_BUFFER_USAGE_TRANSFER_SRC_BIT means this buffer just used by memory transfer operation -> tools for sort of copy opertation -> meditator buffer??
+	// it called staging buffer.
+	device.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		indexBuffer, indexBufferMemory
+		stagingBuffer, stagingBufferMemory
 	);
 	void* data;
-	vkMapMemory(device.getLogicalDevice(), indexBufferMemory, 0, bufferSize, 0, &data);
+	vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
 	memcpy(data, indices.data(), static_cast<size_t>(bufferSize));
-	vkUnmapMemory(device.getLogicalDevice(), indexBufferMemory);
+	vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
+
+	// VK_BUFFER_USAGE_TRANSFER_DST_BIT : tells vulkan that this vertex buffer using optimal device local memory
+	device.createBuffer(bufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		indexBuffer, indexBufferMemory
+	);
+
+	// copy to staging buffer to vertexbuffer
+	// staging buffer used to only static data. ex) loading application stage. if data are frequently updated from host, then stop using this
+	device.copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+	vkDestroyBuffer(device.getLogicalDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(device.getLogicalDevice(), stagingBufferMemory, nullptr);
 }
 
 std::vector<VkVertexInputBindingDescription> jhb::Model::Vertex::getBindingDescriptions()
@@ -118,4 +166,80 @@ std::vector<VkVertexInputAttributeDescription> jhb::Model::Vertex::getAttrivuteD
 	attributeDescriptions[1].offset = offsetof(Vertex, color);
 
 	return attributeDescriptions;
+}
+
+void jhb::Model::Builder::loadModel(const std::string& filepath)
+{
+	tinyobj::attrib_t attr; // position, color, normal, and texture coordinate
+	std::vector<tinyobj::shape_t> shapes; //index values for each face element
+	std::vector<tinyobj::material_t> materials;
+	std::string warn, err;
+	// all there are used to store datas readed from wavefrontfile objs
+
+	if (!tinyobj::LoadObj(&attr, &shapes, &materials, &warn, &err, filepath.c_str())) {
+		throw std::runtime_error(warn+ err);
+	}
+
+	vertices.clear();
+	indices.clear();
+
+	std::unordered_map<Vertex, int> uniqueVertices{};
+	for (const auto& shape : shapes)
+	{
+		for (const auto& index : shape.mesh.indices)
+		{
+			Vertex vertex{};
+
+			// if negativ than there are no index 
+			if (index.vertex_index >= 0)
+			{
+				vertex.position = {
+					attr.vertices[3 * index.vertex_index + 0],
+					attr.vertices[3 * index.vertex_index + 1],
+					attr.vertices[3 * index.vertex_index + 2],
+				};
+
+				auto colorIndex = 3 * index.vertex_index + 2;
+				if (colorIndex < attr.colors.size())
+				{
+					vertex.color = {
+					attr.colors[colorIndex - 2],
+					attr.colors[colorIndex - 1],
+					attr.colors[colorIndex - 0],
+					};
+				}
+				else {
+					vertex.color = { 1.f, 1.f, 1.f };
+				}
+			}
+			// wavefrontfile doesn't support color value in vertex buffer but tinyobjloader can parse that
+
+			if (index.normal_index >= 0)
+			{
+				vertex.normal = {
+					attr.normals[3 * index.normal_index+ 0],
+					attr.normals[3 * index.normal_index+ 1],
+					attr.normals[3 * index.normal_index+ 2],
+				};
+			}
+
+			if (index.texcoord_index >= 0)
+			{
+				vertex.uv = {
+					attr.texcoords[2 * index.texcoord_index + 0],
+					attr.texcoords[2 * index.texcoord_index + 1],
+				};
+			}
+
+			if (uniqueVertices.count(vertex) == 0)
+			{
+				uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+				vertices.push_back(vertex);
+			}
+
+			indices.push_back(uniqueVertices[vertex]);
+		}
+
+	}
+	std::cout << vertices.size() << std::endl;
 }

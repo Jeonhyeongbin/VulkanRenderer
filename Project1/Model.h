@@ -12,8 +12,10 @@ namespace jhb {
 	{
 	public:
 		struct Vertex {
-			glm::vec3 position;
-			glm::vec3 color;
+			glm::vec3 position{};
+			glm::vec3 color{};
+			glm::vec3 normal{};
+			glm::vec2 uv{};
 
 			// binding은 여러 버텍스 버퍼를 사용할때
 			// attribute는 한 버텍스 안에서 메모리구조를 정의할때
@@ -24,6 +26,8 @@ namespace jhb {
 		struct Builder {
 			std::vector<Vertex> vertices{};
 			std::vector<uint32_t> indices{};
+
+			void loadModel(const std::string& filepath);
 		};
 
 		Model(Device& device, const Builder& builder);
@@ -31,6 +35,8 @@ namespace jhb {
 
 		Model(const Model&) = delete;
 		Model& operator=(const Model&) = delete;
+
+		static std::unique_ptr<Model> createModelFromFile(Device& device, const std::string& filepath);
 
 		void draw(VkCommandBuffer buffer);
 		void bind(VkCommandBuffer buffer);
