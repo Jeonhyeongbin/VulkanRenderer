@@ -84,6 +84,12 @@ namespace jhb {
 			VkBuffer& buffer,
 			VkDeviceMemory& bufferMemory);
 
+		// Buffer helper methods
+		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+		VkCommandBuffer beginSingleTimeCommands();
+		void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+
+
 		QueueFamilyIndexes findQueueFamilies(VkPhysicalDevice device);
 		std::vector<const char*> getRequiredExtensions();
 		void pickPhysicalDevice();
