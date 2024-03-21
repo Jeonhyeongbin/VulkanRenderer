@@ -52,12 +52,12 @@ namespace jhb {
 	}
 	void HelloTriangleApplication::loadGameObjects()
 	{
-		std::shared_ptr<Model> model = Model::createModelFromFile(device, "Models/smooth_vase.obj");
+		std::shared_ptr<Model> model = Model::createModelFromFile(device, "Models/flat_vase.obj");
 
 		auto gameObj= GameObject::createGameObject();
 		gameObj.model = model;
-		gameObj.transform.translation = { .0f, .0f, 2.0f };
-		gameObj.transform.scale = glm::vec3(3.f);
+		gameObj.transform.translation = { .0f, .5f, 2.5f };
+		gameObj.transform.scale = { 3.f, 1.5f, 2.f };
 		gameObjects.push_back(std::move(gameObj));
 	}
 }
