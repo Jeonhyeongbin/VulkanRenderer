@@ -21,6 +21,10 @@ namespace jhb {
 			// attribute는 한 버텍스 안에서 메모리구조를 정의할때
 			static std::vector<VkVertexInputBindingDescription> getBindingDescriptions();
 			static std::vector<VkVertexInputAttributeDescription> getAttrivuteDescriptions();
+
+			bool operator==(const Vertex& other) const {
+				return position == other.position && color == other.color && normal == other.normal && uv == other.uv;
+			}
 		};
 
 		struct Builder {
