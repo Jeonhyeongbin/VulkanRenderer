@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Device.h"
+#include "Buffer.h"
 
 #define GLM_FORCE_RADIANS // not use degree;
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -50,13 +51,13 @@ namespace jhb {
 
 	private:
 		Device& device;
-		VkBuffer vertexBuffer;
-		VkDeviceMemory vertexBufferMemory;
+
+		std::unique_ptr<jhb::Buffer> vertexBuffer;
 		uint32_t vertexCount;
 
 		bool hasIndexBuffer = false;
-		VkBuffer indexBuffer;
-		VkDeviceMemory indexBufferMemory;
+		
+		std::unique_ptr<jhb::Buffer> indexBuffer;
 		uint32_t indexCount;
 	};
 }

@@ -31,14 +31,6 @@ jhb::Model::Model(Device& _device, const Builder& builder) : device{ _device }
 
 jhb::Model::~Model()
 {
-	vkDestroyBuffer(device.getLogicalDevice(), vertexBuffer, nullptr);
-	vkFreeMemory(device.getLogicalDevice(), vertexBufferMemory, nullptr);
-
-	if (hasIndexBuffer)
-	{
-		vkDestroyBuffer(device.getLogicalDevice(), indexBuffer, nullptr);
-		vkFreeMemory(device.getLogicalDevice(), indexBufferMemory, nullptr);
-	}
 }
 
 std::unique_ptr<jhb::Model> jhb::Model::createModelFromFile(Device& device, const std::string& filepath)
@@ -62,14 +54,14 @@ void jhb::Model::draw(VkCommandBuffer commandBuffer)
 
 void jhb::Model::bind(VkCommandBuffer commandBuffer)
 {
-	VkBuffer buffers[] = { vertexBuffer };
+	VkBuffer buffers[] = { vertexBuffer->getBuffer()};
 	VkDeviceSize offsets[] = { 0 };
 	// combine command buffer and vertex Buffer
 	vkCmdBindVertexBuffers(commandBuffer, 0,  1, buffers, offsets);
 
 	if (hasIndexBuffer)
 	{
-		vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindIndexBuffer(commandBuffer, indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	}
 }
 
@@ -78,7 +70,18 @@ void jhb::Model::createVertexBuffer(const std::vector<Vertex>& vertices)
 	vertexCount = static_cast<uint32_t>(vertices.size());
 	assert(vertexCount >= 3 && "Vertex count must be at least 3");
 	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertexCount;
+	uint32_t vertexSize = sizeof(vertices[0]);
 
+	// this stagingBuffer user by Buffer Class replace down below secion where using VkBuffer and VkDeviceMemory
+	Buffer stagingBuffer{
+		device,
+		vertexSize,
+		vertexCount,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+	}; 
+
+	/* replaced by upper secion which used Buffer class
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
 	// VK_BUFFER_USAGE_TRANSFER_SRC_BIT means this buffer just used by memory transfer operation -> tools for sort of copy opertation -> meditator buffer??
@@ -87,22 +90,33 @@ void jhb::Model::createVertexBuffer(const std::vector<Vertex>& vertices)
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		stagingBuffer, stagingBufferMemory
 		);
-	void* data;
+		*/
+
+	//this section replace down below annotation secion which using vkMapMemory and vkUnmapMemory
+	stagingBuffer.map();
+	stagingBuffer.writeToBuffer((void*)vertices.data());
+
+	/*void* data;
 	vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
 	memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
-	vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
+	vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);*/
 
-	// VK_BUFFER_USAGE_TRANSFER_DST_BIT : tells vulkan that this vertex buffer using optimal device local memory
-	device.createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		vertexBuffer, vertexBufferMemory
+	vertexBuffer = std::make_unique<Buffer>(
+		device,
+		vertexSize,
+		vertexCount,
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
-	// copy to staging buffer to vertexbuffer
-	device.copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+	// VK_BUFFER_USAGE_TRANSFER_DST_BIT : tells vulkan that this vertex buffer using optimal device local memory
+	/*device.createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		vertexBuffer, vertexBufferMemory
+	);*/
 
-	vkDestroyBuffer(device.getLogicalDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(device.getLogicalDevice(), stagingBufferMemory, nullptr);
+	// copy to staging buffer to vertexbuffer
+	device.copyBuffer(stagingBuffer.getBuffer(), vertexBuffer->getBuffer(), bufferSize);
 }
 
 void jhb::Model::createIndexBuffer(const std::vector<uint32_t>& indices)
@@ -115,31 +129,38 @@ void jhb::Model::createIndexBuffer(const std::vector<uint32_t>& indices)
 	}
 
 	VkDeviceSize bufferSize = sizeof(indices[0]) * indexCount;
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	// VK_BUFFER_USAGE_TRANSFER_SRC_BIT means this buffer just used by memory transfer operation -> tools for sort of copy opertation -> meditator buffer??
-	// it called staging buffer.
-	device.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		stagingBuffer, stagingBufferMemory
-	);
-	void* data;
-	vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, indices.data(), static_cast<size_t>(bufferSize));
-	vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
+	uint32_t indexSize = sizeof(indices[0]);
 
+	Buffer stagingBuffer{
+		device,
+		indexSize,
+		indexCount,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+	};
+
+	stagingBuffer.map();
+	stagingBuffer.writeToBuffer((void*)indices.data());
+
+	
+	indexBuffer = std::make_unique<Buffer>(
+		device,
+		indexSize,
+		indexCount,
+		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	);
+
+	/*
 	// VK_BUFFER_USAGE_TRANSFER_DST_BIT : tells vulkan that this vertex buffer using optimal device local memory
 	device.createBuffer(bufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		indexBuffer, indexBufferMemory
-	);
+	);*/
 
 	// copy to staging buffer to vertexbuffer
 	// staging buffer used to only static data. ex) loading application stage. if data are frequently updated from host, then stop using this
-	device.copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-
-	vkDestroyBuffer(device.getLogicalDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(device.getLogicalDevice(), stagingBufferMemory, nullptr);
+	device.copyBuffer(stagingBuffer.getBuffer(), indexBuffer->getBuffer(), bufferSize);
 }
 
 std::vector<VkVertexInputBindingDescription> jhb::Model::Vertex::getBindingDescriptions()
