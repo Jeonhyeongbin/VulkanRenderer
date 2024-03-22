@@ -1,11 +1,18 @@
 #include "TriangleApplication.h"
 #include "SimpleRenderSystem.h"
 #include "KeyboardController.h"
+#include "FrameInfo.h"
 
 #include <memory>
 #include <array>
+#include <numeric>
 
 namespace jhb {
+	struct GlobalUbo {
+		glm::mat4 projectionView{1.f};
+		glm::vec3 lightDir = glm::normalize(glm::vec3{1.f, -3.f, -1.f});
+	};
+
 	HelloTriangleApplication::HelloTriangleApplication() {
 		loadGameObjects();
 	}
@@ -16,6 +23,33 @@ namespace jhb {
 
 	void HelloTriangleApplication::Run()
 	{
+		std::vector<std::unique_ptr<Buffer>> uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		for (int i = 0; i < uboBuffers.size(); i++)
+		{
+			uboBuffers[i] = std::make_unique<Buffer>(
+				device,
+				sizeof(GlobalUbo),
+				1,
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+			);
+			uboBuffers[i]->map();
+		}
+
+		// because of simultenous
+		// for example, while frame0 rendering and frame1 using ubo either,
+		// so just copy instance makes you safe from multithread env
+		
+		// frame0 
+		//   write date -> globalUbo
+		//	 "Bind" (globalUbo)
+		//	 start Rendering
+		// frame01
+		//   write date -> globalUbo
+		//	 "Bind" (globalUbo)
+		//	 start Rendering
+		// can do all this without having to wait for frame0 to finish rendering
+
 		SimpleRenderSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass() };
 		Camera camera{};
 
@@ -39,10 +73,27 @@ namespace jhb {
 			camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 10.f);
 			if (auto commandBuffer = renderer.beginFrame()) // begine frame return null pointer if swap chain need recreated
 			{
+				int frameIndex = renderer.getFrameIndex();
+				FrameInfo frameInfo{
+					frameIndex,
+					frameTime,
+					commandBuffer,
+					camera
+				};
+
+				// update part : resources
+				GlobalUbo ubo{};
+				ubo.projectionView = camera.getProjection() * camera.getView();
+				uboBuffers[frameIndex]->writeToBuffer(&ubo); // wrtie to using frame buffer index
+				uboBuffers[frameIndex]->flush(); //not using coherent_bit flag, so must to flush memory manually
+				// and now we need tell to pipeline object where this buffer is and how data within it's structure
+				// so using descriptor
+
+				// render part : vkcmd
 				// this is why beginFram and beginswapchian renderpass are not combined;
 				// because main application control over this multiple render pass like reflections, shadows, post-processing effects
 				renderer.beginSwapChainRenderPass(commandBuffer);
-				simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera);
+				simpleRenderSystem.renderGameObjects(frameInfo, gameObjects);
 				renderer.endSwapChainRenderPass(commandBuffer);
 				renderer.endFrame();
 			}
@@ -52,12 +103,19 @@ namespace jhb {
 	}
 	void HelloTriangleApplication::loadGameObjects()
 	{
-		std::shared_ptr<Model> model = Model::createModelFromFile(device, "Models/flat_vase.obj");
+		std::shared_ptr<Model> lveModel =
+			Model::createModelFromFile(device, "Models/flat_vase.obj");
+		auto flatVase = GameObject::createGameObject();
+		flatVase.model = lveModel;
+		flatVase.transform.translation = { -.5f, .5f, 2.5f };
+		flatVase.transform.scale = { 3.f, 1.5f, 3.f };
+		gameObjects.push_back(std::move(flatVase));
 
-		auto gameObj= GameObject::createGameObject();
-		gameObj.model = model;
-		gameObj.transform.translation = { .0f, .5f, 2.5f };
-		gameObj.transform.scale = { 3.f, 1.5f, 2.f };
-		gameObjects.push_back(std::move(gameObj));
+		lveModel = Model::createModelFromFile(device, "Models/smooth_vase.obj");
+		auto smoothVase = GameObject::createGameObject();
+		smoothVase.model = lveModel;
+		smoothVase.transform.translation = { .5f, .5f, 2.5f };
+		smoothVase.transform.scale = { 3.f, 1.5f, 3.f };
+		gameObjects.push_back(std::move(smoothVase));
 	}
 }

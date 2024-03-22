@@ -152,8 +152,10 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Device.cpp" />
+    <ClCompile Include="FrameInfo.cpp" />
     <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="KeyboardController.cpp" />
     <ClCompile Include="Main.cpp" />
@@ -166,8 +168,10 @@
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Buffer.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Device.h" />
+    <ClInclude Include="FrameInfo.h" />
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="KeyboardController.h" />
     <ClInclude Include="Model.h" />

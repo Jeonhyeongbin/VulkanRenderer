@@ -101,6 +101,9 @@ namespace jhb {
 		bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 		void cleanup();
 
+	public:
+		VkPhysicalDeviceProperties properties;
+
 	private:
 		Window& window;
 		VkInstance instance;

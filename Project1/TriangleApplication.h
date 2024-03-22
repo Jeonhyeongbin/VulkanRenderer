@@ -11,6 +11,7 @@
 #include "Model.h"
 #include "GameObject.h"
 #include "Renderer.h"
+#include "Buffer.h"
 
 #include <stdint.h>
 #include <chrono>

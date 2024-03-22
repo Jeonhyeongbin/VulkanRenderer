@@ -11,6 +11,7 @@
 #include "Model.h"
 #include "GameObject.h"
 #include "Camera.h"
+#include "FrameInfo.h"
 
 #include <stdint.h>
 
@@ -24,7 +25,7 @@ namespace jhb {
 		SimpleRenderSystem(SimpleRenderSystem&&) = delete;
 		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
 
-		void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<GameObject>& gameObjects, const Camera& camera);
+		void renderGameObjects(FrameInfo& frameInfo, std::vector<GameObject>& gameObjects);
 	private:
 		void createPipeLineLayout();
 
