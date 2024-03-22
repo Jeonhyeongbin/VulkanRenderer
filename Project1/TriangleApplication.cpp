@@ -2,6 +2,7 @@
 #include "SimpleRenderSystem.h"
 #include "KeyboardController.h"
 #include "FrameInfo.h"
+#include "Descriptors.h"
 
 #include <memory>
 #include <array>
@@ -13,7 +14,11 @@ namespace jhb {
 		glm::vec3 lightDir = glm::normalize(glm::vec3{1.f, -3.f, -1.f});
 	};
 
-	HelloTriangleApplication::HelloTriangleApplication() {
+	HelloTriangleApplication::HelloTriangleApplication() 
+	{
+		globalPool = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
+		// two descriptor sets
+		// each descriptor set contain two UNIFORM_BUFFER descriptor
 		loadGameObjects();
 	}
 
@@ -35,7 +40,6 @@ namespace jhb {
 			);
 			uboBuffers[i]->map();
 		}
-
 		// because of simultenous
 		// for example, while frame0 rendering and frame1 using ubo either,
 		// so just copy instance makes you safe from multithread env
@@ -50,7 +54,17 @@ namespace jhb {
 		//	 start Rendering
 		// can do all this without having to wait for frame0 to finish rendering
 
-		SimpleRenderSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass() };
+		auto globalSetLayout = DescriptorSetLayout::Builder(device).addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT).build();
+		// this global set is used by all shaders
+
+		std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		for (int i = 0; i < globalDescriptorSets.size(); i++)
+		{
+			auto bufferInfo = uboBuffers[i]->descriptorInfo();
+			DescriptorWriter(*globalSetLayout, *globalPool).writeBuffer(0, &bufferInfo).build(globalDescriptorSets[i]);
+		}
+
+		SimpleRenderSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
 		Camera camera{};
 
 		auto viewerObject = GameObject::createGameObject();
@@ -78,7 +92,8 @@ namespace jhb {
 					frameIndex,
 					frameTime,
 					commandBuffer,
-					camera
+					camera,
+					globalDescriptorSets[frameIndex],
 				};
 
 				// update part : resources

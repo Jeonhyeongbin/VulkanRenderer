@@ -10,6 +10,7 @@ namespace jhb {
 		float frameTime;
 		VkCommandBuffer commandBuffer;
 		Camera& camera;
+		VkDescriptorSet globaldDescriptorSet;
 	};
 }
 

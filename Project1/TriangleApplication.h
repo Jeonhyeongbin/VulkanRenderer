@@ -12,6 +12,7 @@
 #include "GameObject.h"
 #include "Renderer.h"
 #include "Buffer.h"
+#include "Descriptors.h"
 
 #include <stdint.h>
 #include <chrono>
@@ -36,6 +37,7 @@ namespace jhb {
 		Device device{ window };
 		Renderer renderer{ window, device };
 
+		std::unique_ptr<DescriptorPool> globalPool{};
 		std::vector<GameObject> gameObjects;
 	};
 }

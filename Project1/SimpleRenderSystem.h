@@ -18,7 +18,7 @@
 namespace jhb {
 	class SimpleRenderSystem {
 	public:
-		SimpleRenderSystem(Device& device, VkRenderPass renderPass);
+		SimpleRenderSystem(Device& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayOut);
 		~SimpleRenderSystem();
 
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
@@ -27,7 +27,7 @@ namespace jhb {
 
 		void renderGameObjects(FrameInfo& frameInfo, std::vector<GameObject>& gameObjects);
 	private:
-		void createPipeLineLayout();
+		void createPipeLineLayout(VkDescriptorSetLayout globalSetLayOut);
 
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass
