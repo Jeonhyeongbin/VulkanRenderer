@@ -56,7 +56,7 @@ namespace jhb {
 	}
 
 
-	void SimpleRenderSystem::renderGameObjects(FrameInfo& frameInfo, std::vector<GameObject>& gameObjects)
+	void SimpleRenderSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
 		pipeline->bind(frameInfo.commandBuffer);
 
@@ -69,8 +69,9 @@ namespace jhb {
 			0, nullptr
 		);
 
-		for (auto& obj : gameObjects)
+		for (auto& kv : frameInfo.gameObjects)
 		{
+			auto& obj = kv.second;
 			SimplePushConstantData push{};
 			push.ModelMatrix = obj.transform.mat4();
 			push.normalMatrix = obj.transform.normalMatrix();

@@ -1,6 +1,6 @@
 #pragma once
 #include "Camera.h"
-
+#include "GameObject.h"
 #include <vulkan/vulkan.h>
 
 namespace jhb {
@@ -11,6 +11,7 @@ namespace jhb {
 		VkCommandBuffer commandBuffer;
 		Camera& camera;
 		VkDescriptorSet globaldDescriptorSet;
+		jhb::GameObject::Map& gameObjects; // this make any render system access to all game object;
 	};
 }
 

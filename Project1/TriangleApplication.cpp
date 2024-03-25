@@ -3,6 +3,8 @@
 #include "KeyboardController.h"
 #include "FrameInfo.h"
 #include "Descriptors.h"
+#include "PointLightSystem.h"
+
 
 #include <memory>
 #include <array>
@@ -10,7 +12,8 @@
 
 namespace jhb {
 	struct GlobalUbo {
-		glm::mat4 projectionView{1.f};
+		glm::mat4 projection{1.f};
+		glm::mat4 view{1.f};
 		glm::vec4 ambientLightColor{1.f, 1.f, 1.f, .02f};
 		glm::vec3 lightPosition{-1.f};
 		alignas(16) glm::vec4 lightColor{1.f};
@@ -67,6 +70,7 @@ namespace jhb {
 		}
 
 		SimpleRenderSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
+		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout() };
 		Camera camera{};
 
 		auto viewerObject = GameObject::createGameObject();
@@ -97,11 +101,13 @@ namespace jhb {
 					commandBuffer,
 					camera,
 					globalDescriptorSets[frameIndex],
+					gameObjects
 				};
 
 				// update part : resources
 				GlobalUbo ubo{};
-				ubo.projectionView = camera.getProjection() * camera.getView();
+				ubo.projection = camera.getProjection();
+				ubo.view = camera.getView();
 				uboBuffers[frameIndex]->writeToBuffer(&ubo); // wrtie to using frame buffer index
 				uboBuffers[frameIndex]->flush(); //not using coherent_bit flag, so must to flush memory manually
 				// and now we need tell to pipeline object where this buffer is and how data within it's structure
@@ -111,7 +117,8 @@ namespace jhb {
 				// this is why beginFram and beginswapchian renderpass are not combined;
 				// because main application control over this multiple render pass like reflections, shadows, post-processing effects
 				renderer.beginSwapChainRenderPass(commandBuffer);
-				simpleRenderSystem.renderGameObjects(frameInfo, gameObjects);
+				simpleRenderSystem.renderGameObjects(frameInfo);
+				pointLightSystem.render(frameInfo);
 				renderer.endSwapChainRenderPass(commandBuffer);
 				renderer.endFrame();
 			}
@@ -127,20 +134,20 @@ namespace jhb {
 		flatVase.model = model;
 		flatVase.transform.translation = { -.5f, .5f, 0.f };
 		flatVase.transform.scale = { 3.f, 1.5f, 3.f };
-		gameObjects.push_back(std::move(flatVase));
+		gameObjects.emplace(flatVase.getId(), std::move(flatVase));
 
 		model = Model::createModelFromFile(device, "Models/smooth_vase.obj");
 		auto smoothVase = GameObject::createGameObject();
 		smoothVase.model = model;
 		smoothVase.transform.translation = { .5f, .5f, 0.f };
 		smoothVase.transform.scale = { 3.f, 1.5f, 3.f };
-		gameObjects.push_back(std::move(smoothVase));
+		gameObjects.emplace(smoothVase.getId(), std::move(smoothVase));
 
 		model = Model::createModelFromFile(device, "Models/quad.obj");
 		auto floor = GameObject::createGameObject();
 		floor.model = model;
 		floor.transform.translation = { .0f, .5f, 0.f };
 		floor.transform.scale = { 3.f, 1.f, 3.f };
-		gameObjects.push_back(std::move(floor));
+		gameObjects.emplace(floor.getId(), std::move(floor));
 	}
 }
