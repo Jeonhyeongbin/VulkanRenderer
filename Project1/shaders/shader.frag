@@ -7,7 +7,8 @@ layout (location = 2) in vec3 fragNormalWorld;
 layout(location = 0) out vec4 outColor;
 
 layout(set=0, binding = 0) uniform GlobalUbo{
-	mat4 projectionViewMatrix;
+	mat4 projection;
+	mat4 view;
 	vec4 ambientLightColor;
 	vec3 lightPosition;
 	vec4 lightColor;
@@ -21,10 +22,10 @@ layout(push_constant) uniform Push{
 
 void main() {
 
-	vec3 directionToLight = ubo.lightPosition - fragPosWorld.xyz;
+	vec3 directionToLight = ubo.lightPosition - fragPosWorld;
 	float attenuation = 1.0 / dot(directionToLight, directionToLight); // eqaul to distance squared
 
-	vec3 lightColor = ubo.lightColor.xyz  * ubo.lightColor.w;
+	vec3 lightColor = ubo.lightColor.xyz  * ubo.lightColor.w * attenuation;
 	vec3 ambientLight = ubo.ambientLightColor.xyz * ubo.ambientLightColor.w;
 	vec3 diffuseLight = lightColor * max(dot(normalize(fragNormalWorld), normalize(directionToLight)), 0);
 
