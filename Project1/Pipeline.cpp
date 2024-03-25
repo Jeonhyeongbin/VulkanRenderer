@@ -93,6 +93,9 @@ namespace jhb {
 		configInfo.dynamicStateInfo.dynamicStateCount =
 			static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
 		configInfo.dynamicStateInfo.flags = 0;
+
+		configInfo.bindingDescriptions = Model::Vertex::getBindingDescriptions();
+		configInfo.attributeDescriptions = Model::Vertex::getAttrivuteDescriptions();
 	}
 
 	std::vector<char> jhb::Pipeline::readFile(const std::string& filepath)
@@ -145,8 +148,8 @@ namespace jhb {
 		shaderStages[1].pNext = nullptr;
 		shaderStages[1].pSpecializationInfo = nullptr;
 
-		auto bindingDescription = Model::Vertex::getBindingDescriptions();
-		auto attributeDescription = Model::Vertex::getAttrivuteDescriptions();
+		auto bindingDescription = configInfo.bindingDescriptions;
+		auto attributeDescription = configInfo.attributeDescriptions;
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
