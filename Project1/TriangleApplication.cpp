@@ -11,14 +11,6 @@
 #include <numeric>
 
 namespace jhb {
-	struct GlobalUbo {
-		glm::mat4 projection{1.f};
-		glm::mat4 view{1.f};
-		glm::vec4 ambientLightColor{1.f, 1.f, 1.f, .02f};
-		glm::vec3 lightPosition{-1.f};
-		alignas(16) glm::vec4 lightColor{1.f};
-	};
-
 	HelloTriangleApplication::HelloTriangleApplication() 
 	{
 		globalPool = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
@@ -108,6 +100,8 @@ namespace jhb {
 				GlobalUbo ubo{};
 				ubo.projection = camera.getProjection();
 				ubo.view = camera.getView();
+				ubo.inverseView = camera.getInverseView();
+				pointLightSystem.update(frameInfo, ubo);
 				uboBuffers[frameIndex]->writeToBuffer(&ubo); // wrtie to using frame buffer index
 				uboBuffers[frameIndex]->flush(); //not using coherent_bit flag, so must to flush memory manually
 				// and now we need tell to pipeline object where this buffer is and how data within it's structure
@@ -149,5 +143,23 @@ namespace jhb {
 		floor.transform.translation = { .0f, .5f, 0.f };
 		floor.transform.scale = { 3.f, 1.f, 3.f };
 		gameObjects.emplace(floor.getId(), std::move(floor));
+
+		std::vector<glm::vec3> lightColors{
+			{1.f, .1f, .1f},
+			{ .1f, .1f, 1.f },
+			{ .1f, 1.f, .1f },
+			{ 1.f, 1.f, .1f },
+			{ .1f, 1.f, 1.f },
+			{ 1.f, 1.f, 1.f }
+		};
+
+		for (int i = 0; i < lightColors.size(); i++)
+		{
+			auto pointLight = GameObject::makePointLight(0.2f);
+			pointLight.color = lightColors[i];
+			auto rotateLight = glm::rotate(glm::mat4(1.f),(i * glm::two_pi<float>()/lightColors.size()), {0.f, -1.f, 0.f});
+			pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(-1.f, -1.f, -1.f, 1.f));
+			gameObjects.emplace(pointLight.getId(), std::move(pointLight));
+		}
 	}
 }

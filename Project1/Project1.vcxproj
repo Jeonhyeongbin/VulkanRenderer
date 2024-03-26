@@ -162,6 +162,7 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="Pipeline.cpp" />
+    <ClCompile Include="PointLightSystem.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="SimpleRenderSystem.cpp" />
     <ClCompile Include="SwapChain.cpp" />
@@ -178,6 +179,7 @@
     <ClInclude Include="KeyboardController.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="Pipeline.h" />
+    <ClInclude Include="PointLightSystem.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="SimpleRenderSystem.h" />
     <ClInclude Include="SwapChain.h" />

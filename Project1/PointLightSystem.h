@@ -16,6 +16,12 @@
 #include <stdint.h>
 
 namespace jhb {
+	struct PointLightPushConstants {
+		glm::vec4 position{};
+		glm::vec4 color{};
+		float radius;
+	};
+
 	class PointLightSystem {
 	public:
 		PointLightSystem(Device& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayOut);
@@ -25,6 +31,7 @@ namespace jhb {
 		PointLightSystem(PointLightSystem&&) = delete;
 		PointLightSystem& operator=(const PointLightSystem&) = delete;
 
+		void update(FrameInfo& frameInfo, GlobalUbo& ubo);
 		void render(FrameInfo& frameInfo);
 	private:
 		void createPipeLineLayout(VkDescriptorSetLayout globalSetLayOut);
