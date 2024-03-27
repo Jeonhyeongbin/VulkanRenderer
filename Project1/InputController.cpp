@@ -1,6 +1,6 @@
-#include "KeyboardController.h"
+#include "InputController.h"
 
-void jhb::KeyboardController::moveInPlaneXZ(GLFWwindow* window, float dt, GameObject& gameObject)
+void jhb::InputController::moveInPlaneXZ(GLFWwindow* window, float dt, GameObject& gameObject)
 {
 	glm::vec3 rotate{0};
 	if (glfwGetKey(window, keys.lookRight) == GLFW_PRESS) rotate.y += 1.f;
@@ -35,3 +35,24 @@ void jhb::KeyboardController::moveInPlaneXZ(GLFWwindow* window, float dt, GameOb
 		gameObject.transform.translation += moveSpeed * dt * glm::normalize(moveDir);
 	}
 }
+
+void jhb::InputController::OnButtonPressed(GLFWwindow* window, int button, int action, int modifier)
+{
+	if (button == GLFW_MOUSE_BUTTON_RIGHT)
+	{
+		auto tmpwindow = (Window*)glfwGetWindowUserPointer(window);
+		if (action == GLFW_PRESS)
+		{
+			double x, y;
+			glfwGetCursorPos(window, &x, &y);
+			tmpwindow->SetMouseCursorPose(x, y);
+			tmpwindow->SetMouseButtonPress(true);
+		}
+		else if (action == GLFW_RELEASE)
+		{
+			tmpwindow->SetMouseButtonPress(false);
+		}
+	}
+}
+
+

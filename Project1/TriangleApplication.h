@@ -31,7 +31,9 @@ namespace jhb {
 
 	private:
 		void loadGameObjects();
+		
 
+	private:
 		// init top to bottom
 		Window window{ 800, 600, "TriangleApp!" };
 		Device device{ window };

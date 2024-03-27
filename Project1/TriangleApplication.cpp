@@ -1,6 +1,6 @@
 #include "TriangleApplication.h"
 #include "SimpleRenderSystem.h"
-#include "KeyboardController.h"
+#include "InputController.h"
 #include "FrameInfo.h"
 #include "Descriptors.h"
 #include "PointLightSystem.h"
@@ -67,20 +67,20 @@ namespace jhb {
 
 		auto viewerObject = GameObject::createGameObject();
 		viewerObject.transform.translation.z = -2.5f;
-		KeyboardController cameraController{};
-
+		InputController cameraController{device.getWindow().GetGLFWwindow(), viewerObject};
+		double x, y;
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
 			glfwPollEvents(); //may block
-
+			glfwGetCursorPos(&window.GetGLFWwindow(), &x, &y);
 			auto newTime = std::chrono::high_resolution_clock::now();
 			float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
 			currentTime = newTime;
+			window.mouseMove(x, y, frameTime, viewerObject);
 
 			cameraController.moveInPlaneXZ(&window.GetGLFWwindow(), frameTime, viewerObject);
 			camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
-
 
 			float aspect = renderer.getAspectRatio();
 			camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 100.f);

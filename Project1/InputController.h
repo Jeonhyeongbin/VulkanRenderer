@@ -3,7 +3,7 @@
 #include "GameObject.h"
 
 namespace jhb {
-	class KeyboardController
+	class InputController
 	{
 	public:
         struct KeyMappings {
@@ -19,11 +19,18 @@ namespace jhb {
             int lookDown = GLFW_KEY_DOWN;
         };
 
+        InputController(GLFWwindow& window, GameObject& camera) : camera(camera) {
+            glfwSetMouseButtonCallback(&window, jhb::InputController::OnButtonPressed);
+        }
+
         void moveInPlaneXZ(GLFWwindow* window, float dt, GameObject& gameObject);
+        static void OnButtonPressed(GLFWwindow* window, int button, int action, int modifier);
 
         KeyMappings keys{};
         float moveSpeed{ 3.f };
         float lookSpeed{ 1.5f };
+
+        GameObject& camera;
 	};
 }
 
