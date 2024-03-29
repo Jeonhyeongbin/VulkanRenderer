@@ -29,25 +29,40 @@ namespace jhb {
 		};
 
 		struct Builder {
+		public:
+			Builder(Device&);
+			~Builder();
+
+		public:
 			std::vector<Vertex> vertices{};
 			std::vector<uint32_t> indices{};
-
 			void loadModel(const std::string& filepath);
+			void loadTexture(const std::string& filepath);
+
+		public:
+			VkSampler textureSampler;
+			VkImageView textureImageview;
+		private:
+			VkImage textureImage;
+			VkDeviceMemory textureImageMemory;
+			Device& device;
 		};
 
-		Model(Device& device, const Builder& builder);
+		Model(Device& device, std::unique_ptr<Builder> builder);
 		~Model();
 
 		Model(const Model&) = delete;
 		Model& operator=(const Model&) = delete;
 
-		static std::unique_ptr<Model> createModelFromFile(Device& device, const std::string& filepath);
+		static std::unique_ptr<Model> createModelFromFile(Device& device, const std::string& Modelfilepath, const std::string& texturefilepath);
 
 		void draw(VkCommandBuffer buffer);
 		void bind(VkCommandBuffer buffer);
 
 		void createVertexBuffer(const std::vector<Vertex>& vertices);
 		void createIndexBuffer(const std::vector<uint32_t>& indices);
+	public:
+		std::unique_ptr<Builder> builder;
 
 	private:
 		Device& device;

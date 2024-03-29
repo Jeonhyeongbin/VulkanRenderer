@@ -2,6 +2,8 @@
 #include <iostream>
 #include <unordered_map>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 #define GLM_ENABLE_EXPERIMENTAL
@@ -9,6 +11,7 @@
 
 #include "Utils.hpp"
 #include "Model.h"
+#include "Device.h"
 
 namespace std{
 	template <>
@@ -23,22 +26,23 @@ namespace std{
 }
 
 
-jhb::Model::Model(Device& _device, const Builder& builder) : device{ _device }
+jhb::Model::Model(Device& _device, std::unique_ptr<Builder> _builder) : device { _device }, builder{std::move(_builder)}
 {
-	createVertexBuffer(builder.vertices);
-	createIndexBuffer(builder.indices);
+	createVertexBuffer(builder->vertices);
+	createIndexBuffer(builder->indices);
 }
 
 jhb::Model::~Model()
 {
 }
 
-std::unique_ptr<jhb::Model> jhb::Model::createModelFromFile(Device& device, const std::string& filepath)
+std::unique_ptr<jhb::Model> jhb::Model::createModelFromFile(Device& device, const std::string& Modelfilepath, const std::string& Texturefilepath)
 {
-	Builder builder{};
-	builder.loadModel(filepath);
+	std::unique_ptr<Builder> builder = std::make_unique<Builder>(device);
+	builder->loadModel(Modelfilepath);
+	builder->loadTexture(Texturefilepath);
 	
-	return std::make_unique<Model>(device, builder);
+	return std::make_unique<Model>(device, std::move(builder));
 }
 
 void jhb::Model::draw(VkCommandBuffer commandBuffer)
@@ -198,6 +202,18 @@ std::vector<VkVertexInputAttributeDescription> jhb::Model::Vertex::getAttrivuteD
 	return attributeDescriptions;
 }
 
+jhb::Model::Builder::Builder(Device& _device) : device(_device)
+{
+}
+
+jhb::Model::Builder::~Builder()
+{
+	vkDestroyImage(device.getLogicalDevice(), textureImage, nullptr);
+	vkFreeMemory(device.getLogicalDevice(), textureImageMemory, nullptr);
+	vkDestroySampler(device.getLogicalDevice(), textureSampler, nullptr);
+	vkDestroyImageView(device.getLogicalDevice(), textureImageview, nullptr);
+}
+
 void jhb::Model::Builder::loadModel(const std::string& filepath)
 {
 	tinyobj::attrib_t attr; // position, color, normal, and texture coordinate
@@ -265,4 +281,92 @@ void jhb::Model::Builder::loadModel(const std::string& filepath)
 
 	}
 	std::cout << vertices.size() << std::endl;
+}
+
+void jhb::Model::Builder::loadTexture(const std::string& filepath)
+{
+	int texWidth, texHeight, texChannels;
+	if (filepath.size() <= 0)
+		return;
+	stbi_uc* pixels = stbi_load(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	VkDeviceSize imageSize = texWidth * texHeight * 4; // 4byte per pixel
+
+	if (!pixels) {
+		throw std::runtime_error("failed to load texture image!");
+	}
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+
+	device.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+	void* data;
+	vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
+	memcpy(data, pixels, static_cast<size_t>(imageSize));
+	vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
+
+	stbi_image_free(pixels);
+
+	VkImageCreateInfo imageInfo{};
+	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.extent.width = static_cast<uint32_t>(texWidth);
+	imageInfo.extent.height = static_cast<uint32_t>(texHeight);
+	imageInfo.extent.depth = 1;
+	imageInfo.mipLevels = 1;
+	imageInfo.arrayLayers = 1;
+	imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageInfo.flags = 0; // Optional
+	device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+
+	device.transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	device.copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+	device.transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	// create image view and image sampler
+	VkImageViewCreateInfo viewInfo{};
+	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewInfo.image = textureImage;
+	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewInfo.subresourceRange.baseMipLevel = 0;
+	viewInfo.subresourceRange.levelCount = 1;
+	viewInfo.subresourceRange.baseArrayLayer = 0;
+	viewInfo.subresourceRange.layerCount = 1;
+
+	if (vkCreateImageView(device.getLogicalDevice(), &viewInfo, nullptr, &textureImageview) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create texture image view!");
+	}
+
+	VkSamplerCreateInfo samplerInfo{};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.magFilter = VK_FILTER_LINEAR;
+	samplerInfo.minFilter = VK_FILTER_LINEAR;
+
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+
+	VkPhysicalDeviceProperties properties{};
+	vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
+	samplerInfo.anisotropyEnable = VK_FALSE;
+	samplerInfo.maxAnisotropy = 0;
+	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+	samplerInfo.compareEnable = VK_FALSE;
+	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.mipLodBias = 0.0f;
+	samplerInfo.minLod = 0.0f;
+	samplerInfo.maxLod = 0.0f;
+
+	if (vkCreateSampler(device.getLogicalDevice(), &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create texture sampler!");
+	}
 }

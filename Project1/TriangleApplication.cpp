@@ -7,13 +7,13 @@
 
 
 #include <memory>
-#include <array>
 #include <numeric>
 
 namespace jhb {
 	HelloTriangleApplication::HelloTriangleApplication() 
 	{
-		globalPool = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
+		globalPools[0] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
+		globalPools[1] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
 		// two descriptor sets
 		// each descriptor set contain two UNIFORM_BUFFER descriptor
 		loadGameObjects();
@@ -50,19 +50,35 @@ namespace jhb {
 		//	 "Bind" (globalUbo)
 		//	 start Rendering
 		// can do all this without having to wait for frame0 to finish rendering
-
-		auto globalSetLayout = DescriptorSetLayout::Builder(device).addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS).build();
+		std::vector < std::unique_ptr<jhb::DescriptorSetLayout>> descSetLayouts;
+		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS).
+			build());
+		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
 		// this global set is used by all shaders
 
+		// for uniform buffer descriptor pool
 		std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		for (int i = 0; i < globalDescriptorSets.size(); i++)
 		{
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
-			DescriptorWriter(*globalSetLayout, *globalPool).writeBuffer(0, &bufferInfo).build(globalDescriptorSets[i]);
+			DescriptorWriter(*descSetLayouts[0], *globalPools[0]).writeBuffer(0, &bufferInfo).build(globalDescriptorSets[i]);
 		}
 
-		SimpleRenderSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
-		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout() };
+		std::vector<VkDescriptorSet> globalImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		VkDescriptorImageInfo imageInfo{};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo.imageView = gameObjects[0].model->builder->textureImageview;
+		imageInfo.sampler = gameObjects[0].model->builder->textureSampler;
+		// for image sampler descriptor pool
+		for (int i = 0; i < globalImageSamplerDescriptorSets.size(); i++)
+		{
+			DescriptorWriter(*descSetLayouts[1], *globalPools[1]).writeImage(0, &imageInfo).build(globalImageSamplerDescriptorSets[i]);
+		}
+
+		SimpleRenderSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass(), descSetLayouts};
+		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), descSetLayouts[0]->getDescriptorSetLayout() };
 		Camera camera{};
 
 		auto viewerObject = GameObject::createGameObject();
@@ -93,6 +109,7 @@ namespace jhb {
 					commandBuffer,
 					camera,
 					globalDescriptorSets[frameIndex],
+					globalImageSamplerDescriptorSets[frameIndex],
 					gameObjects
 				};
 
@@ -123,39 +140,20 @@ namespace jhb {
 	void HelloTriangleApplication::loadGameObjects()
 	{
 		std::shared_ptr<Model> model =
-		Model::createModelFromFile(device, "Models/flat_vase.obj");
+		Model::createModelFromFile(device, "Models/flat_vase.obj", "Texture/vase_txture.jpg");
 		auto flatVase = GameObject::createGameObject();
 		flatVase.model = model;
 		flatVase.transform.translation = { -.5f, .5f, 0.f };
 		flatVase.transform.scale = { 3.f, 1.5f, 3.f };
 		gameObjects.emplace(flatVase.getId(), std::move(flatVase));
 
-		model = Model::createModelFromFile(device, "Models/smooth_vase.obj");
-		auto smoothVase = GameObject::createGameObject();
-		smoothVase.model = model;
-		smoothVase.transform.translation = { .5f, .5f, 0.f };
-		smoothVase.transform.scale = { 3.f, 1.5f, 3.f };
-		gameObjects.emplace(smoothVase.getId(), std::move(smoothVase));
-
-		model = Model::createModelFromFile(device, "Models/quad.obj");
-		auto floor = GameObject::createGameObject();
-		floor.model = model;
-		floor.transform.translation = { .0f, .5f, 0.f };
-		floor.transform.scale = { 3.f, 1.f, 3.f };
-		gameObjects.emplace(floor.getId(), std::move(floor));
-
 		std::vector<glm::vec3> lightColors{
-			{1.f, .1f, .1f},
-			{ .1f, .1f, 1.f },
-			{ .1f, 1.f, .1f },
-			{ 1.f, 1.f, .1f },
-			{ .1f, 1.f, 1.f },
-			{ 1.f, 1.f, 1.f }
+			{1.f, 1.f, 1.f},
 		};
 
 		for (int i = 0; i < lightColors.size(); i++)
 		{
-			auto pointLight = GameObject::makePointLight(0.2f);
+			auto pointLight = GameObject::makePointLight(1.f);
 			pointLight.color = lightColors[i];
 			auto rotateLight = glm::rotate(glm::mat4(1.f),(i * glm::two_pi<float>()/lightColors.size()), {0.f, -1.f, 0.f});
 			pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(-1.f, -1.f, -1.f, 1.f));

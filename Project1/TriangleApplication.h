@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 #include <chrono>
+#include <array>
 
 namespace jhb {
 	class HelloTriangleApplication {
@@ -39,7 +40,8 @@ namespace jhb {
 		Device device{ window };
 		Renderer renderer{ window, device };
 
-		std::unique_ptr<DescriptorPool> globalPool{};
+		std::array<std::unique_ptr<DescriptorPool>, 2> globalPools{};
+		
 		GameObject::Map gameObjects;
 	};
 }

@@ -3,6 +3,8 @@
 layout (location = 0) in vec3 fragColor;
 layout (location = 1) in vec3 fragPosWorld;
 layout (location = 2) in vec3 fragNormalWorld;
+layout (location = 3) in vec2 fraguv;
+layout (set = 1, binding = 0) uniform sampler2D texSampler;
 
 layout(location = 0) out vec4 outColor;
 
@@ -56,5 +58,6 @@ void main() {
 	}
 
 	// no controller term
-	outColor = vec4(diffuseLight *fragColor + specularLight * fragColor, 1.0);
+	vec3 tmpColor = fragColor * texture(texSampler, fraguv * 8).rgb;
+	outColor = vec4(diffuseLight *tmpColor + specularLight * fragColor, 1.0);
 }

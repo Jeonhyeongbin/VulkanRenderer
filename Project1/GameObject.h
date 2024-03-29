@@ -41,6 +41,7 @@ namespace jhb {
             float intensity = 10.f, float radius = 0.1f, glm::vec3 color = glm::vec3(1.f)
         );
 
+        GameObject() = default;
         GameObject(const GameObject&) = delete;
         GameObject& operator=(const GameObject&) = delete;
         GameObject(GameObject&&) = default;

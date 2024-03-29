@@ -8,8 +8,8 @@ namespace jhb {
 		glm::mat4 normalMatrix{1.f};
 	};
 
-	SimpleRenderSystem::SimpleRenderSystem(Device& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayOut) : device{device} {
-		createPipeLineLayout(globalSetLayOut);
+	SimpleRenderSystem::SimpleRenderSystem(Device& device, VkRenderPass renderPass,const std::vector<std::unique_ptr<jhb::DescriptorSetLayout>>& descSetLayOuts) : device{device} {
+		createPipeLineLayout(descSetLayOuts);
 		createPipeline(renderPass);
 	}
 
@@ -18,20 +18,22 @@ namespace jhb {
 		vkDestroyPipelineLayout(device.getLogicalDevice(), pipelineLayout, nullptr);
 	}
 
-	void SimpleRenderSystem::createPipeLineLayout(VkDescriptorSetLayout globalSetLayOut)
+	void SimpleRenderSystem::createPipeLineLayout(const std::vector<std::unique_ptr<jhb::DescriptorSetLayout>>& descriptorSetLayOuts)
 	{
 		VkPushConstantRange pushConstantRange{};
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // This means that both vertex and fragment shader using constant 
 		pushConstantRange.offset = 0;
 		pushConstantRange.size = sizeof(SimplePushConstantData);
 
-		std::vector<VkDescriptorSetLayout> descriptorSetLayOuts{globalSetLayOut};
-
-
+		std::vector<VkDescriptorSetLayout> descsets{};
+		for (auto& desc : descriptorSetLayOuts)
+		{
+			descsets.push_back(desc->getDescriptorSetLayout());
+		}
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayOuts.size());
-		pipelineLayoutInfo.pSetLayouts = descriptorSetLayOuts.data();
+		pipelineLayoutInfo.pSetLayouts = descsets.data();
 		pipelineLayoutInfo.pushConstantRangeCount = 1;
 		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 		if (vkCreatePipelineLayout(device.getLogicalDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
@@ -66,6 +68,14 @@ namespace jhb {
 			pipelineLayout,
 			0, 1
 			, &frameInfo.globaldDescriptorSet,
+			0, nullptr
+		);
+		vkCmdBindDescriptorSets(
+			frameInfo.commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			pipelineLayout,
+			1, 1
+			, &frameInfo.globalImageSamplerDescriptorSet,
 			0, nullptr
 		);
 
