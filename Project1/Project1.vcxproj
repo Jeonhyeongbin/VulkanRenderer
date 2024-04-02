@@ -165,6 +165,7 @@
     <ClCompile Include="PointLightSystem.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="SimpleRenderSystem.cpp" />
+    <ClCompile Include="SkyBoxRenderSystem.cpp" />
     <ClCompile Include="SwapChain.cpp" />
     <ClCompile Include="TriangleApplication.cpp" />
     <ClCompile Include="Window.cpp" />
@@ -182,6 +183,7 @@
     <ClInclude Include="PointLightSystem.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="SimpleRenderSystem.h" />
+    <ClInclude Include="SkyBoxRenderSystem.h" />
     <ClInclude Include="SwapChain.h" />
     <ClInclude Include="TriangleApplication.h" />
     <ClInclude Include="Utils.hpp" />

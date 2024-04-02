@@ -47,6 +47,8 @@ namespace jhb {
 		assert(pipelineLayout != nullptr && "Cannot Create pipeline before pipeline layout!!");
 
 		PipelineConfigInfo pipelineConfig{};
+		pipelineConfig.depthStencilInfo.depthTestEnable = true;
+		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
@@ -82,6 +84,8 @@ namespace jhb {
 		for (auto& kv : frameInfo.gameObjects)
 		{
 			auto& obj = kv.second;
+			if (kv.first == 0)
+				continue;
 			if (obj.model == nullptr)
 			{
 				continue;

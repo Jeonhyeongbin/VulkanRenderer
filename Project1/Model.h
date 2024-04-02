@@ -37,7 +37,8 @@ namespace jhb {
 			std::vector<Vertex> vertices{};
 			std::vector<uint32_t> indices{};
 			void loadModel(const std::string& filepath);
-			void loadTexture(const std::string& filepath);
+			void loadTexture2D(const std::string& filepath);
+			void loadTextrue3D(const std::vector<std::string>& filepaths);
 
 		public:
 			VkSampler textureSampler;

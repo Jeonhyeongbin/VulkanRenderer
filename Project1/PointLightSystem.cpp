@@ -40,6 +40,8 @@ namespace jhb {
 		assert(pipelineLayout != nullptr && "Cannot Create pipeline before pipeline layout!!");
 
 		PipelineConfigInfo pipelineConfig{};
+		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_TRUE;
+		pipelineConfig.depthStencilInfo.depthTestEnable= VK_TRUE;
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.attributeDescriptions.clear();
 		pipelineConfig.bindingDescriptions.clear();

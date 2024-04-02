@@ -32,7 +32,7 @@ namespace jhb {
 
 	private:
 		void loadGameObjects();
-		
+		void createCube();
 
 	private:
 		// init top to bottom
@@ -40,7 +40,7 @@ namespace jhb {
 		Device device{ window };
 		Renderer renderer{ window, device };
 
-		std::array<std::unique_ptr<DescriptorPool>, 2> globalPools{};
+		std::array<std::unique_ptr<DescriptorPool>, 3> globalPools{};
 		
 		GameObject::Map gameObjects;
 	};

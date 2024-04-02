@@ -279,7 +279,7 @@ namespace jhb {
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void Device::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout)
+	void Device::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount)
 	{
 		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -296,7 +296,7 @@ namespace jhb {
 		barrier.subresourceRange.baseMipLevel = 0;
 		barrier.subresourceRange.levelCount = 1;
 		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.layerCount = layerCount;
 
 		VkPipelineStageFlags sourceStage;
 		VkPipelineStageFlags destinationStage;
@@ -330,7 +330,7 @@ namespace jhb {
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void Device::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+	void Device::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, int count)
 	{
 		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -342,7 +342,7 @@ namespace jhb {
 		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		region.imageSubresource.mipLevel = 0;
 		region.imageSubresource.baseArrayLayer = 0;
-		region.imageSubresource.layerCount = 1;
+		region.imageSubresource.layerCount = count;
 
 		region.imageOffset = { 0, 0, 0 };
 		region.imageExtent = {

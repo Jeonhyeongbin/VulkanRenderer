@@ -26,6 +26,7 @@ namespace jhb {
 		Camera& camera;
 		VkDescriptorSet globaldDescriptorSet;
 		VkDescriptorSet globalImageSamplerDescriptorSet;
+		VkDescriptorSet skyBoxImageSamplerDecriptorSet;
 		jhb::GameObject::Map& gameObjects; // this make any render system access to all game object;
 	};
 }
