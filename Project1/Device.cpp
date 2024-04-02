@@ -279,7 +279,7 @@ namespace jhb {
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void Device::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount)
+	void Device::transitionImageLayout(VkImage image, VkFormat format, uint32_t mipLevels, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount)
 	{
 		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -294,7 +294,7 @@ namespace jhb {
 		barrier.image = image;
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		barrier.subresourceRange.baseMipLevel = 0;
-		barrier.subresourceRange.levelCount = 1;
+		barrier.subresourceRange.levelCount = mipLevels;
 		barrier.subresourceRange.baseArrayLayer = 0;
 		barrier.subresourceRange.layerCount = layerCount;
 

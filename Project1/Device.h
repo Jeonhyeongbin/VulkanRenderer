@@ -86,8 +86,8 @@ namespace jhb {
 
 		// Buffer helper methods
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-		void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount);
-		void copyBufferToImage(VkBuffer buffer, VkImage image,  uint32_t width, uint32_t height, int count);
+		void transitionImageLayout(VkImage image, VkFormat format, uint32_t mipLevels, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount);
+		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, int count);
 
 		VkCommandBuffer beginSingleTimeCommands();
 		void endSingleTimeCommands(VkCommandBuffer commandBuffer);

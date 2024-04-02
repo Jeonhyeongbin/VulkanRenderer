@@ -39,6 +39,7 @@ namespace jhb {
 			void loadModel(const std::string& filepath);
 			void loadTexture2D(const std::string& filepath);
 			void loadTextrue3D(const std::vector<std::string>& filepaths);
+			void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 
 		public:
 			VkSampler textureSampler;
