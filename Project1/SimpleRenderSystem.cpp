@@ -1,4 +1,6 @@
 #include "SimpleRenderSystem.h"
+#include "TriangleApplication.h"
+#include "Model.h"
 #include <memory>
 #include <array>
 
@@ -49,6 +51,35 @@ namespace jhb {
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthTestEnable = true;
 		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
+		pipelineConfig.attributeDescriptions = jhb::Model::Vertex::getAttrivuteDescriptions();
+		pipelineConfig.bindingDescriptions = jhb::Model::Vertex::getBindingDescriptions();
+		VkVertexInputBindingDescription bindingdesc{};
+
+		bindingdesc.binding = 1;
+		bindingdesc.stride = sizeof(jhb::HelloTriangleApplication::InstanceData);
+		bindingdesc.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+		
+		pipelineConfig.bindingDescriptions.push_back(bindingdesc);
+
+		std::vector<VkVertexInputAttributeDescription> attrdesc(3);
+
+		attrdesc[0].binding = 1;
+		attrdesc[0].location = 4;
+		attrdesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attrdesc[0].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::pos);
+
+		attrdesc[1].binding = 1;
+		attrdesc[1].location = 5;
+		attrdesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attrdesc[1].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::rot);
+
+		attrdesc[2].binding = 1;
+		attrdesc[2].location = 6;
+		attrdesc[2].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[2].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::scale);
+
+		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
+
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
@@ -60,7 +91,7 @@ namespace jhb {
 	}
 
 
-	void SimpleRenderSystem::renderGameObjects(FrameInfo& frameInfo)
+	void SimpleRenderSystem::renderGameObjects(FrameInfo& frameInfo, const Buffer& instanceBuffer)
 	{
 		pipeline->bind(frameInfo.commandBuffer);
 
@@ -81,6 +112,7 @@ namespace jhb {
 			0, nullptr
 		);
 
+
 		for (auto& kv : frameInfo.gameObjects)
 		{
 			auto& obj = kv.second;
@@ -95,9 +127,17 @@ namespace jhb {
 			push.normalMatrix = obj.transform.normalMatrix();
 
 			vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
-
-			obj.model->bind(frameInfo.commandBuffer);
-			obj.model->draw(frameInfo.commandBuffer);
+			
+			if (kv.first == 1)
+			{
+				VkBuffer buffer[1] = {instanceBuffer.getBuffer()};
+				obj.model->bind(frameInfo.commandBuffer, buffer);
+			}
+			else
+			{
+				obj.model->bind(frameInfo.commandBuffer);
+			}
+			obj.model->draw(frameInfo.commandBuffer, 64);
 		}
 	}
 }

@@ -3,6 +3,9 @@ layout(location=0) in vec3 position;
 layout(location=1) in vec3 color;
 layout(location=2) in vec3 normal;
 layout(location=3) in vec2 uv;
+layout (location = 4) in vec3 instancePos;
+layout (location = 5) in vec3 instanceRot;
+layout (location = 6) in float instanceScale;
 
 layout(location=0) out vec3 fragColor;
 layout(location=1) out vec3 fragPosWorld;
@@ -30,7 +33,7 @@ layout(push_constant) uniform Push{
 } push;
 
 void main(){
-	vec4 positionWorld = push.modelMatrix * vec4(position, 1.0);
+	vec4 positionWorld = push.modelMatrix * vec4(position + instancePos, 1.0);
 	gl_Position =  ubo.projection * ubo.view * positionWorld;
 	fraguv = uv;
 	fragNormalWorld = normalize(mat3(push.normalMatrix) * normal);

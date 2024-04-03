@@ -92,6 +92,8 @@ namespace jhb {
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthTestEnable = false;
 		pipelineConfig.depthStencilInfo.depthWriteEnable= false;
+		pipelineConfig.attributeDescriptions = jhb::Model::Vertex::getAttrivuteDescriptions();
+		pipelineConfig.bindingDescriptions = jhb::Model::Vertex::getBindingDescriptions();
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;

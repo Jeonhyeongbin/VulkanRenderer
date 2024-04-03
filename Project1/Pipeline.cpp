@@ -94,8 +94,8 @@ namespace jhb {
 			static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
 		configInfo.dynamicStateInfo.flags = 0;
 
-		configInfo.bindingDescriptions = Model::Vertex::getBindingDescriptions();
-		configInfo.attributeDescriptions = Model::Vertex::getAttrivuteDescriptions();
+		configInfo.bindingDescriptions = configInfo.bindingDescriptions;
+		configInfo.attributeDescriptions = configInfo.attributeDescriptions;
 	}
 
 	std::vector<char> jhb::Pipeline::readFile(const std::string& filepath)

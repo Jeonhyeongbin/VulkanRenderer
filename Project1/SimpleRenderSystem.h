@@ -26,7 +26,7 @@ namespace jhb {
 		SimpleRenderSystem(SimpleRenderSystem&&) = delete;
 		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
 
-		void renderGameObjects(FrameInfo& frameInfo);
+		void renderGameObjects(FrameInfo& frameInfo,const Buffer& instanceBuffer);
 	private:
 		void createPipeLineLayout(const std::vector<std::unique_ptr<jhb::DescriptorSetLayout>>& descriptorSetLayOuts);
 

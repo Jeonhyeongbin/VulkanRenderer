@@ -21,6 +21,12 @@
 namespace jhb {
 	class HelloTriangleApplication {
 	public:
+		struct InstanceData {
+			glm::vec3 pos;
+			glm::vec3 rot;
+			float scale{ 0.0f };
+		};
+	public:
 		HelloTriangleApplication();
 		~HelloTriangleApplication();
 
@@ -33,6 +39,7 @@ namespace jhb {
 	private:
 		void loadGameObjects();
 		void createCube();
+		void prepareInstance();
 
 	private:
 		// init top to bottom
@@ -41,7 +48,8 @@ namespace jhb {
 		Renderer renderer{ window, device };
 
 		std::array<std::unique_ptr<DescriptorPool>, 3> globalPools{};
-		
+		Buffer instanceBuffer;
+
 		GameObject::Map gameObjects;
 	};
 }

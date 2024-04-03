@@ -58,8 +58,8 @@ namespace jhb {
 
 		static std::unique_ptr<Model> createModelFromFile(Device& device, const std::string& Modelfilepath, const std::string& texturefilepath);
 
-		void draw(VkCommandBuffer buffer);
-		void bind(VkCommandBuffer buffer);
+		void draw(VkCommandBuffer buffer, uint32_t instancCount = 1);
+		void bind(VkCommandBuffer buffer, VkBuffer* instancing = nullptr);
 
 		void createVertexBuffer(const std::vector<Vertex>& vertices);
 		void createIndexBuffer(const std::vector<uint32_t>& indices);

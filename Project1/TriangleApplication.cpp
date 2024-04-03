@@ -12,15 +12,17 @@
 #include <numeric>
 
 namespace jhb {
-	HelloTriangleApplication::HelloTriangleApplication() 
+	HelloTriangleApplication::HelloTriangleApplication() : instanceBuffer(Buffer(device, sizeof(InstanceData), 64, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
 	{
 		globalPools[0] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
+		// ubo and instancing
 		globalPools[1] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
 		globalPools[2] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
 		// two descriptor sets
 		// each descriptor set contain two UNIFORM_BUFFER descriptor
 		createCube();
 		loadGameObjects();
+		prepareInstance();
 	}
 
 	HelloTriangleApplication::~HelloTriangleApplication()
@@ -65,12 +67,13 @@ namespace jhb {
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
 
 		// for uniform buffer descriptor pool
-		std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
-		for (int i = 0; i < globalDescriptorSets.size(); i++)
+		std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT*2);
+		for (int i = 0; i < 2; i++)
 		{
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
 			DescriptorWriter(*descSetLayouts[0], *globalPools[0]).writeBuffer(0, &bufferInfo).build(globalDescriptorSets[i]);
 		}
+
 
 		std::vector<VkDescriptorSet> globalImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		std::vector<VkDescriptorSet> CubeBoxDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -148,7 +151,7 @@ namespace jhb {
 				// because main application control over this multiple render pass like reflections, shadows, post-processing effects
 				renderer.beginSwapChainRenderPass(commandBuffer);
 				skyboxRenderSystem.renderSkyBox(frameInfo);
-				simpleRenderSystem.renderGameObjects(frameInfo);
+				simpleRenderSystem.renderGameObjects(frameInfo, instanceBuffer);
 				pointLightSystem.render(frameInfo);
 				renderer.endSwapChainRenderPass(commandBuffer);
 				renderer.endFrame();
@@ -233,5 +236,30 @@ namespace jhb {
 		skyBox.transform.translation = { 0.f, 0.f, 0.f };
 		skyBox.transform.scale = { 10.f, 10.f ,10.f };
 		gameObjects.emplace(skyBox.getId(), std::move(skyBox));
+	}
+
+	void HelloTriangleApplication::prepareInstance()
+	{
+		std::vector<InstanceData> instanceData;
+		instanceData.resize(64);
+		
+
+		float offsetx = 0.5f;
+		float offsety = 0;
+		for (int i = 0; i < 64; i+=8)
+		{
+			float y = offsety - (i/8) * 0.5f;
+			for (int j = 0; j < 8; j++)
+			{
+				instanceData[i + j].pos.x -= offsetx*j;
+				instanceData[i + j].pos.y = y;
+			}
+		}
+		Buffer stagingBuffer(device, sizeof(InstanceData), 64, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		stagingBuffer.map();
+		stagingBuffer.writeToBuffer(instanceData.data(), instanceBuffer.getBufferSize(), 0);
+		
+		device.copyBuffer(stagingBuffer.getBuffer(), instanceBuffer.getBuffer(), instanceBuffer.getBufferSize());
+		stagingBuffer.unmap();
 	}
 }

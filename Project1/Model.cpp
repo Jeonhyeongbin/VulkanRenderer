@@ -12,6 +12,7 @@
 #include "Utils.hpp"
 #include "Model.h"
 #include "Device.h"
+#include "TriangleApplication.h"
 
 namespace std{
 	template <>
@@ -45,23 +46,27 @@ std::unique_ptr<jhb::Model> jhb::Model::createModelFromFile(Device& device, cons
 	return std::make_unique<Model>(device, std::move(builder));
 }
 
-void jhb::Model::draw(VkCommandBuffer commandBuffer)
+void jhb::Model::draw(VkCommandBuffer commandBuffer, uint32_t instanceCount)
 {
 	if (hasIndexBuffer)
 	{
-		vkCmdDrawIndexed(commandBuffer, indexCount, 1,0,0,0);
+		vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount,0,0,0);
 	}
 	else {
-		vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
+		vkCmdDraw(commandBuffer, vertexCount, instanceCount, 0, 0);
 	}
 }
 
-void jhb::Model::bind(VkCommandBuffer commandBuffer)
+void jhb::Model::bind(VkCommandBuffer commandBuffer, VkBuffer* instancing)
 {
 	VkBuffer buffers[] = { vertexBuffer->getBuffer()};
 	VkDeviceSize offsets[] = { 0 };
 	// combine command buffer and vertex Buffer
 	vkCmdBindVertexBuffers(commandBuffer, 0,  1, buffers, offsets);
+	if (instancing)
+	{
+		vkCmdBindVertexBuffers(commandBuffer, 1, 1, instancing, offsets);
+	}
 
 	if (hasIndexBuffer)
 	{
@@ -173,6 +178,7 @@ std::vector<VkVertexInputBindingDescription> jhb::Model::Vertex::getBindingDescr
 	bindingDescriptions[0].binding = 0;
 	bindingDescriptions[0].stride = sizeof(Vertex);
 	bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
 	return bindingDescriptions;
 }
 
@@ -198,6 +204,10 @@ std::vector<VkVertexInputAttributeDescription> jhb::Model::Vertex::getAttrivuteD
 	attributeDescriptions[3].location = 3;
 	attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
 	attributeDescriptions[3].offset = offsetof(Vertex, uv);
+
+
+
+
 
 	return attributeDescriptions;
 }
@@ -296,7 +306,7 @@ void jhb::Model::Builder::loadTextrue3D(const std::vector<std::string>& filepath
 		imageSize = texWidth * texHeight * 4; // 4byte per pixel
 	}
 
-	uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(max(texWidth, texHeight)))) + 1;
+	uint32_t mipLevels = 1;
 
 	if (!pixels) {
 		throw std::runtime_error("failed to load texture image!");

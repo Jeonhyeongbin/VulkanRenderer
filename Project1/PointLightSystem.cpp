@@ -42,6 +42,8 @@ namespace jhb {
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_TRUE;
 		pipelineConfig.depthStencilInfo.depthTestEnable= VK_TRUE;
+		pipelineConfig.attributeDescriptions = jhb::Model::Vertex::getAttrivuteDescriptions();
+		pipelineConfig.bindingDescriptions = jhb::Model::Vertex::getBindingDescriptions();
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.attributeDescriptions.clear();
 		pipelineConfig.bindingDescriptions.clear();
