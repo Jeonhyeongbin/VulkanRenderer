@@ -2,15 +2,28 @@
 #include <array>
 
 namespace jhb {
-	SwapChain::SwapChain(Device& device, VkExtent2D extent)
+	SwapChain::SwapChain(Device& device, VkExtent2D extent, const std::vector<VkSubpassDependency>& dependencies, bool shouldSwapChainCreate, VkFormat format, int attachmentCount)
 		:device{ device }, swapChainExtent{ extent }
 	{
+		if (shouldSwapChainCreate)
+		{
+			createSwapChain();
+			format = swapChainImageFormat;
+		}
+		createRenderPass(dependencies, format, attachmentCount);
 		init();
+		oldSwapchain = nullptr; // clean up  old swap chain since it's no longer needed
 	}
 
-	SwapChain::SwapChain(Device& device, VkExtent2D extent, std::shared_ptr<SwapChain> prevSwapchain)
+	SwapChain::SwapChain(Device& device, VkExtent2D extent, std::shared_ptr<SwapChain> prevSwapchain, const std::vector<VkSubpassDependency>& dependencies, bool shouldSwapChainCreate, VkFormat format, int attachmentCount)
 		:device{ device }, swapChainExtent{ extent }, oldSwapchain(prevSwapchain)
 	{
+		if (shouldSwapChainCreate)
+		{
+			createSwapChain();
+			format = swapChainImageFormat;
+		}
+		createRenderPass(dependencies, format, attachmentCount);
 		init();
 		oldSwapchain = nullptr; // clean up  old swap chain since it's no longer needed
 	}
@@ -49,9 +62,7 @@ namespace jhb {
 
 	void SwapChain::init()
 	{
-		createSwapChain();
 		createImageViews();
-		createRenderPass();
 		createDepthResources();
 		createFrameBuffers();
 		createSyncObjects();
@@ -191,7 +202,7 @@ namespace jhb {
 		swapChainExtent = extent;
 	}
 
-	void SwapChain::createRenderPass()
+	void SwapChain::createRenderPass(const std::vector<VkSubpassDependency>& dependencies, VkFormat format, int attachmentCount)
 	{
 		VkAttachmentDescription depthAttachment{};
 		depthAttachment.format = findDepthFormat();
@@ -208,7 +219,7 @@ namespace jhb {
 		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentDescription colorAttachment{};
-		colorAttachment.format = swapChainImageFormat;
+		colorAttachment.format = format;
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -230,16 +241,15 @@ namespace jhb {
 		subpass.pColorAttachments = &colorAttachmentRef;
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
-		VkSubpassDependency dependency = {};
-
-		dependency.dstSubpass = 0;
-		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependency.srcAccessMask = 0;
-		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-
-		std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
+		std::vector<VkAttachmentDescription> attachments;
+		if (attachmentCount == 1)
+		{
+			attachments.push_back(colorAttachment);
+		}
+		else {
+			attachments.push_back(colorAttachment);
+			attachments.push_back(depthAttachment);
+		}
 
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -247,8 +257,8 @@ namespace jhb {
 		renderPassInfo.pAttachments = attachments.data();
 		renderPassInfo.subpassCount = 1;
 		renderPassInfo.pSubpasses = &subpass;
-		renderPassInfo.dependencyCount = 1;
-		renderPassInfo.pDependencies = &dependency;
+		renderPassInfo.dependencyCount = dependencies.size();
+		renderPassInfo.pDependencies = dependencies.data();
 
 		if (vkCreateRenderPass(device.getLogicalDevice(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create render pass!");

@@ -3,8 +3,14 @@
 #include <array>
 
 namespace jhb {
-	Renderer::Renderer(Window& window, Device& device) : window{ window }, device{ device } {
-		recreateSwapChain();
+	Renderer::Renderer(Window& window, Device& device, const std::vector<VkSubpassDependency>& dependencies, bool shouldSwapchainCreate, VkFormat format, int attachmentCount) : window{ window }, device{ device }, dependencies{ dependencies } {
+		recreateSwapChain(dependencies, window.getExtent(), shouldSwapchainCreate, format, attachmentCount);
+		createCommandBuffers();
+	}
+
+	Renderer::Renderer(Window& window, Device& device, const std::vector<VkSubpassDependency>& dependencies, VkExtent2D extent, bool shouldSwapchainCreate, VkFormat format, int attachmentCount) : window{ window }, device{ device }, dependencies{ dependencies }, extent{extent}
+	{
+		recreateSwapChain(dependencies, extent, shouldSwapchainCreate, format, attachmentCount);
 		createCommandBuffers();
 	}
 
@@ -35,9 +41,9 @@ namespace jhb {
 		commandBuffers.clear();
 	}
 
-	void Renderer::recreateSwapChain()
+	void Renderer::recreateSwapChain(const std::vector<VkSubpassDependency>& dependencies, VkExtent2D _extent, bool shouldSwapchainCreate, VkFormat format, int attachmentCount)
 	{
-		auto extent = window.getExtent();
+		extent = _extent;
 		while (extent.width == 0 || extent.height == 0)
 		{
 			extent = window.getExtent();
@@ -45,13 +51,14 @@ namespace jhb {
 		}
 
 		vkDeviceWaitIdle(device.getLogicalDevice()); // wait until current swapchain is no longer being used
+
 		if (swapChain == nullptr)
 		{
-			swapChain = std::make_unique<SwapChain>(device, extent);
+			swapChain = std::make_unique<SwapChain>(device, extent, dependencies, shouldSwapchainCreate, format, attachmentCount);
 		}
 		else {
 			std::shared_ptr<SwapChain> oldSwapChain = std::move(swapChain);
-			swapChain = std::make_unique<SwapChain>(device, extent, oldSwapChain);
+			swapChain = std::make_unique<SwapChain>(device, extent, oldSwapChain, dependencies, shouldSwapchainCreate, format, attachmentCount);
 
 			if (!oldSwapChain->compareSwapChainFormats(*swapChain.get()))
 			{
@@ -74,7 +81,7 @@ namespace jhb {
 		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
 			// right after window resized
-			recreateSwapChain();
+			recreateSwapChain(dependencies, extent, true, VK_FORMAT_R16G16B16A16_SFLOAT, 2);
 			return nullptr;
 		}
 
@@ -108,7 +115,7 @@ namespace jhb {
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.wasWindowResized())
 		{
 			window.resetWindowResizedFlag();
-			recreateSwapChain();
+			recreateSwapChain(dependencies, extent, true, VK_FORMAT_R16G16B16A16_SFLOAT, 2);
 		}
 		else if (result != VK_SUCCESS)
 		{
@@ -119,7 +126,7 @@ namespace jhb {
 		currentFrameIndex = (currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
 	}
 
-	void Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer)
+	void Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer frameBuffer, uint32_t width, uint32_t height)
 	{
 		assert(isFrameStarted && "Can't call beginSwapChainRenderPass while frame is not in progress!!");
 		assert(commandBuffer == getCurrentCommandBuffer()  && "Can't begining render pass on command buffer from a different frame!");
@@ -127,10 +134,10 @@ namespace jhb {
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = swapChain->getRenderPass();
-		renderPassInfo.framebuffer = swapChain->getFrameBuffer(currentImageIndex);
+		renderPassInfo.framebuffer = frameBuffer;
 
 		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = swapChain->getSwapChainExtent();
+		renderPassInfo.renderArea.extent = {width, height};
 
 		std::array<VkClearValue, 2> clearValues{};
 		clearValues[0].color = { 0.01f, 0.1f, 0.1f, 1.0f };
@@ -143,13 +150,18 @@ namespace jhb {
 		VkViewport viewport{};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(swapChain->getSwapChainExtent().width);
-		viewport.height = static_cast<float>(swapChain->getSwapChainExtent().height);
+		viewport.width = static_cast<float>(width);
+		viewport.height = static_cast<float>(height);
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
-		VkRect2D scissor{ {0, 0}, swapChain->getSwapChainExtent() };
+		VkRect2D scissor{ {0, 0}, {width, height} };
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+	}
+
+	void Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer)
+	{
+		beginSwapChainRenderPass(commandBuffer, swapChain->getFrameBuffer(currentFrameIndex), swapChain->getSwapChainExtent().width, swapChain->getSwapChainExtent().height);
 	}
 
 	void Renderer::endSwapChainRenderPass(VkCommandBuffer commandBuffer)

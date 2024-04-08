@@ -16,7 +16,9 @@
 namespace jhb {
 	class Renderer { //manage swap chain and render pass
 	public:
-		Renderer(Window& window, Device& device);
+		Renderer(Window& window, Device& device, const std::vector<VkSubpassDependency>& dependencies, bool shouldSwapchainCreate, VkFormat format, int attachmentCount);
+		Renderer(Window& window, Device& device, const std::vector<VkSubpassDependency>& dependencies, 
+			VkExtent2D extent, bool shouldSwapchainCreate, VkFormat format, int attachmentCount);
 		~Renderer();
 
 		Renderer(const Renderer&) = delete;
@@ -30,6 +32,7 @@ namespace jhb {
 
 		VkCommandBuffer beginFrame();
 		void endFrame();
+		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer frameBuffer, uint32_t width, uint32_t height);
 		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer);
 		void endSwapChainRenderPass(VkCommandBuffer commandBuffer);
 
@@ -49,14 +52,16 @@ namespace jhb {
 	private:
 		void createCommandBuffers();
 		void freeCommandBuffers();
-		void recreateSwapChain();
+		void recreateSwapChain(const std::vector<VkSubpassDependency>& dependencies, VkExtent2D extent, bool shouldSwapchainCreate, VkFormat format, int attachmentCount);
 
 		// init top to bottom
 		Window& window;
 		Device& device;
+		VkExtent2D extent;
 
 		std::unique_ptr<SwapChain> swapChain;
 		std::vector<VkCommandBuffer> commandBuffers;
+		std::vector<VkSubpassDependency> dependencies;
 
 		uint32_t currentImageIndex;
 		int currentFrameIndex;

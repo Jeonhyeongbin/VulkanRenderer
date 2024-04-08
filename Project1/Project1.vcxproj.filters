@@ -72,6 +72,9 @@
     <ClCompile Include="SkyBoxRenderSystem.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
+    <ClCompile Include="BaseRenderSystem.cpp">
+      <Filter>Systems</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TriangleApplication.h">
@@ -123,6 +126,9 @@
       <Filter>Systems</Filter>
     </ClInclude>
     <ClInclude Include="SkyBoxRenderSystem.h">
+      <Filter>Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="BaseRenderSystem.h">
       <Filter>Systems</Filter>
     </ClInclude>
   </ItemGroup>

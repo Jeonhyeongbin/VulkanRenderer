@@ -1,18 +1,15 @@
 #include "SimpleRenderSystem.h"
 #include "TriangleApplication.h"
 #include "Model.h"
+#include "FrameInfo.h"
 #include <memory>
 #include <array>
 
 namespace jhb {
-	struct SimplePushConstantData {
-		glm::mat4 ModelMatrix{1.f};
-		glm::mat4 normalMatrix{1.f};
-	};
 
-	SimpleRenderSystem::SimpleRenderSystem(Device& device, VkRenderPass renderPass,const std::vector<std::unique_ptr<jhb::DescriptorSetLayout>>& descSetLayOuts) : device{device} {
-		createPipeLineLayout(descSetLayOuts);
-		createPipeline(renderPass);
+	SimpleRenderSystem::SimpleRenderSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange) :
+		BaseRenderSystem(device, renderPass, globalSetLayOut, pushConstanRange) {
+		createPipeline(renderPass, vert, frag);
 	}
 
 	SimpleRenderSystem::~SimpleRenderSystem()
@@ -20,31 +17,7 @@ namespace jhb {
 		vkDestroyPipelineLayout(device.getLogicalDevice(), pipelineLayout, nullptr);
 	}
 
-	void SimpleRenderSystem::createPipeLineLayout(const std::vector<std::unique_ptr<jhb::DescriptorSetLayout>>& descriptorSetLayOuts)
-	{
-		VkPushConstantRange pushConstantRange{};
-		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // This means that both vertex and fragment shader using constant 
-		pushConstantRange.offset = 0;
-		pushConstantRange.size = sizeof(SimplePushConstantData);
-
-		std::vector<VkDescriptorSetLayout> descsets{};
-		for (auto& desc : descriptorSetLayOuts)
-		{
-			descsets.push_back(desc->getDescriptorSetLayout());
-		}
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayOuts.size());
-		pipelineLayoutInfo.pSetLayouts = descsets.data();
-		pipelineLayoutInfo.pushConstantRangeCount = 1;
-		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
-		if (vkCreatePipelineLayout(device.getLogicalDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create pipeline layout!");
-		}
-	}
-
-	void SimpleRenderSystem::createPipeline(VkRenderPass renderPass)
+	void SimpleRenderSystem::createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag)
 	{
 		assert(pipelineLayout != nullptr && "Cannot Create pipeline before pipeline layout!!");
 
@@ -61,7 +34,7 @@ namespace jhb {
 		
 		pipelineConfig.bindingDescriptions.push_back(bindingdesc);
 
-		std::vector<VkVertexInputAttributeDescription> attrdesc(3);
+		std::vector<VkVertexInputAttributeDescription> attrdesc(9);
 
 		attrdesc[0].binding = 1;
 		attrdesc[0].location = 4;
@@ -78,6 +51,31 @@ namespace jhb {
 		attrdesc[2].format = VK_FORMAT_R32_SFLOAT;
 		attrdesc[2].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::scale);
 
+		attrdesc[3].binding = 1;
+		attrdesc[3].location = 7;
+		attrdesc[3].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[3].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::roughness);
+		attrdesc[4].binding = 1;
+		attrdesc[4].location = 8;
+		attrdesc[4].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[4].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::metallic);
+		attrdesc[5].binding = 1;
+		attrdesc[5].location = 9;
+		attrdesc[5].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[5].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::specular);
+		attrdesc[6].binding = 1;
+		attrdesc[6].location = 10;
+		attrdesc[6].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[6].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::r);
+		attrdesc[7].binding = 1;
+		attrdesc[7].location = 11;
+		attrdesc[7].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[7].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::g);
+		attrdesc[8].binding = 1;
+		attrdesc[8].location = 12;
+		attrdesc[8].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[8].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::b);
+
 		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
 
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
@@ -91,24 +89,31 @@ namespace jhb {
 	}
 
 
-	void SimpleRenderSystem::renderGameObjects(FrameInfo& frameInfo, const Buffer& instanceBuffer)
+	void SimpleRenderSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
 	{
-		pipeline->bind(frameInfo.commandBuffer);
-
+		BaseRenderSystem::renderGameObjects(frameInfo);
 		vkCmdBindDescriptorSets(
 			frameInfo.commandBuffer,
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
 			pipelineLayout,
-			0, 1
-			, &frameInfo.globaldDescriptorSet,
+			1, 1
+			, &frameInfo.brdfImageSamplerDescriptorSet,
 			0, nullptr
 		);
 		vkCmdBindDescriptorSets(
 			frameInfo.commandBuffer,
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
 			pipelineLayout,
-			1, 1
-			, &frameInfo.globalImageSamplerDescriptorSet,
+			2, 1
+			, &frameInfo.irradianceImageSamplerDescriptorSet,
+			0, nullptr
+		);
+		vkCmdBindDescriptorSets(
+			frameInfo.commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			pipelineLayout,
+			3, 1
+			, &frameInfo.prefilterImageSamplerDescriptorSet,
 			0, nullptr
 		);
 
@@ -116,8 +121,7 @@ namespace jhb {
 		for (auto& kv : frameInfo.gameObjects)
 		{
 			auto& obj = kv.second;
-			if (kv.first == 0)
-				continue;
+
 			if (obj.model == nullptr)
 			{
 				continue;
@@ -126,18 +130,21 @@ namespace jhb {
 			push.ModelMatrix = obj.transform.mat4();
 			push.normalMatrix = obj.transform.normalMatrix();
 
-			vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
-			
 			if (kv.first == 1)
 			{
-				VkBuffer buffer[1] = {instanceBuffer.getBuffer()};
-				obj.model->bind(frameInfo.commandBuffer, buffer);
+				vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
+
+				if (kv.first == 1)
+				{
+					VkBuffer buffer[1] = { instanceBuffer->getBuffer() };
+					obj.model->bind(frameInfo.commandBuffer, buffer);
+				}
+				else
+				{
+					obj.model->bind(frameInfo.commandBuffer);
+				}
+				obj.model->draw(frameInfo.commandBuffer, 64);
 			}
-			else
-			{
-				obj.model->bind(frameInfo.commandBuffer);
-			}
-			obj.model->draw(frameInfo.commandBuffer, 64);
 		}
 	}
 }

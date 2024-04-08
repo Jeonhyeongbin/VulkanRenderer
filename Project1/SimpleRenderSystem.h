@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
+#include "BaseRenderSystem.h"
 #include "Pipeline.h"
 #include "Device.h"
 #include "SwapChain.h"
@@ -17,27 +18,19 @@
 #include <stdint.h>
 
 namespace jhb {
-	class SimpleRenderSystem {
+	class SimpleRenderSystem : public BaseRenderSystem {
 	public:
-		SimpleRenderSystem(Device& device, VkRenderPass renderPass,const std::vector<std::unique_ptr<jhb::DescriptorSetLayout>>& descSetLayOuts);
+		SimpleRenderSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange);
 		~SimpleRenderSystem();
 
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
 		SimpleRenderSystem(SimpleRenderSystem&&) = delete;
 		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
 
-		void renderGameObjects(FrameInfo& frameInfo,const Buffer& instanceBuffer);
+		void renderGameObjects(FrameInfo& frameInfo,Buffer* instanceBuffer = nullptr) override;
 	private:
-		void createPipeLineLayout(const std::vector<std::unique_ptr<jhb::DescriptorSetLayout>>& descriptorSetLayOuts);
-
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass
-		void createPipeline(VkRenderPass renderPass);
-		
-		// init top to bottom
-		Device& device;
-
-		std::unique_ptr<Pipeline> pipeline;
-		VkPipelineLayout pipelineLayout;
+		void createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag) override;
 	};
 }

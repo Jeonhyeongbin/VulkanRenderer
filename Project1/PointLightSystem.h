@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
+#include "BaseRenderSystem.h"
 #include "Pipeline.h"
 #include "Device.h"
 #include "SwapChain.h"
@@ -22,9 +23,9 @@ namespace jhb {
 		float radius;
 	};
 
-	class PointLightSystem {
+	class PointLightSystem : public BaseRenderSystem {
 	public:
-		PointLightSystem(Device& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayOut);
+		PointLightSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange);
 		~PointLightSystem();
 
 		PointLightSystem(const PointLightSystem&) = delete;
@@ -32,18 +33,10 @@ namespace jhb {
 		PointLightSystem& operator=(const PointLightSystem&) = delete;
 
 		void update(FrameInfo& frameInfo, GlobalUbo& ubo);
-		void render(FrameInfo& frameInfo);
+		virtual void renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer = nullptr) override;
 	private:
-		void createPipeLineLayout(VkDescriptorSetLayout globalSetLayOut);
-
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass
-		void createPipeline(VkRenderPass renderPass);
-
-		// init top to bottom
-		Device& device;
-
-		std::unique_ptr<Pipeline> pipeline;
-		VkPipelineLayout pipelineLayout;
+		virtual void createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag) override;
 	};
 }

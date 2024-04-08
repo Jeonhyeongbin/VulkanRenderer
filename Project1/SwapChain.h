@@ -15,8 +15,8 @@ namespace jhb {
 
 	public:
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-		SwapChain(Device& device, VkExtent2D extent);
-		SwapChain(Device& device, VkExtent2D extent, std::shared_ptr<SwapChain> prevSwapchain);
+		SwapChain(Device& device, VkExtent2D extent, const std::vector<VkSubpassDependency>& dependencies, bool shouldSwapChainCreate, VkFormat format, int attachmentCount);
+		SwapChain(Device& device, VkExtent2D extent, std::shared_ptr<SwapChain> prevSwapchain, const std::vector<VkSubpassDependency>& dependencies, bool shouldSwapChainCreate, VkFormat format, int attachmentCount);
 		~SwapChain();
 
 		void init();
@@ -43,7 +43,7 @@ namespace jhb {
 
 	private:
 		void createSwapChain();
-		void createRenderPass();
+		void createRenderPass(const std::vector<VkSubpassDependency>& dependencies, VkFormat format, int attachmentCount);
 		void createFrameBuffers();
 		void createDepthResources();
 		void createImageViews();

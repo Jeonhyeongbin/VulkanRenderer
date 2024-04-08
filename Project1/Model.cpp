@@ -13,6 +13,8 @@
 #include "Model.h"
 #include "Device.h"
 #include "TriangleApplication.h"
+#include <ktx.h>
+#include <ktxvulkan.h>
 
 namespace std{
 	template <>
@@ -205,10 +207,6 @@ std::vector<VkVertexInputAttributeDescription> jhb::Model::Vertex::getAttrivuteD
 	attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
 	attributeDescriptions[3].offset = offsetof(Vertex, uv);
 
-
-
-
-
 	return attributeDescriptions;
 }
 
@@ -297,45 +295,61 @@ void jhb::Model::Builder::loadTextrue3D(const std::vector<std::string>& filepath
 {
 	if (filepaths.size() <= 0)
 		return;
-	stbi_uc** pixels = new stbi_uc*[6];
-	VkDeviceSize imageSize; // 4byte per pixel;
-	int texWidth, texHeight, texChannels;
-	for (int i = 0; i < filepaths.size(); i++)
-	{
-		pixels[i] = stbi_load(filepaths[i].c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		imageSize = texWidth * texHeight * 4; // 4byte per pixel
-	}
 
-	uint32_t mipLevels = 1;
+	ktxTexture* ktxTexture;
+	ktxResult result =  ktxTexture_CreateFromNamedFile(filepaths[0].c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxTexture);
+	assert(result == KTX_SUCCESS);
 
-	if (!pixels) {
-		throw std::runtime_error("failed to load texture image!");
-	}
+	uint32_t width = ktxTexture->baseWidth;
+	uint32_t height = ktxTexture->baseHeight;
+	uint32_t mipLevels = ktxTexture->numLevels;
+
+	ktx_uint8_t* ktxTextureData = ktxTexture_GetData(ktxTexture);
+	ktx_size_t ktxTextureSize = ktxTexture_GetDataSize(ktxTexture);
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
 
-	device.createBuffer(imageSize * 6, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+	device.createBuffer(ktxTextureSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
-	
-	for (int i = 0; i < 6; i++)
+	void* data;
+	vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, ktxTextureSize, 0, &data);
+	memcpy(data, ktxTextureData, ktxTextureSize);
+	vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
+
+	// Setup buffer copy regions for each face including all of its mip levels
+	std::vector<VkBufferImageCopy> bufferCopyRegions;
+	for (uint32_t face = 0; face < 6; face++)
 	{
-		void* data;
-		vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, i * imageSize, imageSize, 0, &data);
-		memcpy(data, pixels[i], static_cast<size_t>(imageSize));
-		vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
+		for (uint32_t level = 0; level < mipLevels; level++)
+		{
+			ktx_size_t offset;
+			KTX_error_code result = ktxTexture_GetImageOffset(ktxTexture, level, 0, face, &offset);
+			assert(result == KTX_SUCCESS);
+
+			VkBufferImageCopy bufferCopyRegion = {};
+			bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			bufferCopyRegion.imageSubresource.mipLevel = level;
+			bufferCopyRegion.imageSubresource.baseArrayLayer = face;
+			bufferCopyRegion.imageSubresource.layerCount = 1;
+			bufferCopyRegion.imageExtent.width = ktxTexture->baseWidth >> level;
+			bufferCopyRegion.imageExtent.height = ktxTexture->baseHeight >> level;
+			bufferCopyRegion.imageExtent.depth = 1;
+			bufferCopyRegion.bufferOffset = offset;
+
+			bufferCopyRegions.push_back(bufferCopyRegion);
+		}
 	}
-	stbi_image_free(pixels);
 
 	VkImageCreateInfo imageInfo{};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.extent.width = static_cast<uint32_t>(texWidth);
-	imageInfo.extent.height = static_cast<uint32_t>(texHeight);
+	imageInfo.extent.width = width;
+	imageInfo.extent.height = height;
 	imageInfo.extent.depth = 1;
-	imageInfo.mipLevels = 1;
+	imageInfo.mipLevels = mipLevels;
 	imageInfo.arrayLayers = 6;
-	imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+	imageInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -344,9 +358,25 @@ void jhb::Model::Builder::loadTextrue3D(const std::vector<std::string>& filepath
 	imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Optional
 	device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
 
-	device.transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, mipLevels, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 6);
-	device.copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 6);
-	device.transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, mipLevels, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 6);
+	VkImageSubresourceRange subresourceRange = {};
+	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresourceRange.baseMipLevel = 0;
+	subresourceRange.levelCount = mipLevels;
+	subresourceRange.layerCount = 6;
+
+	VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
+	device.transitionImageLayout(commandBuffer, textureImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+	
+	vkCmdCopyBufferToImage(
+		commandBuffer,
+		stagingBuffer,
+		textureImage,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		static_cast<uint32_t>(bufferCopyRegions.size()),
+		bufferCopyRegions.data());
+
+	device.transitionImageLayout(commandBuffer, textureImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
+	device.endSingleTimeCommands(commandBuffer);
 	//generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels);
 
 	// create image view and image sampler
@@ -354,10 +384,10 @@ void jhb::Model::Builder::loadTextrue3D(const std::vector<std::string>& filepath
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	viewInfo.image = textureImage;
 	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-	viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+	viewInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	viewInfo.subresourceRange.baseMipLevel = 0;
-	viewInfo.subresourceRange.levelCount = 1;
+	viewInfo.subresourceRange.levelCount = mipLevels;
 	viewInfo.subresourceRange.baseArrayLayer = 0;
 	viewInfo.subresourceRange.layerCount = 6;
 
@@ -392,6 +422,7 @@ void jhb::Model::Builder::loadTextrue3D(const std::vector<std::string>& filepath
 		throw std::runtime_error("failed to create texture sampler!");
 	}
 }
+
 
 void jhb::Model::Builder::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
 {
@@ -473,8 +504,9 @@ void jhb::Model::Builder::loadTexture2D(const std::string& filepath)
 	int texWidth, texHeight, texChannels;
 	if (filepath.size() <= 0)
 		return;
-	stbi_uc* pixels = stbi_load(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-	VkDeviceSize imageSize = texWidth * texHeight * 4; // 4byte per pixel
+
+	float* pixels = stbi_loadf(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	VkDeviceSize imageSize = texWidth * texHeight* texChannels * 4; // 4byte per pixel
 
 	if (!pixels) {
 		throw std::runtime_error("failed to load texture image!");
@@ -508,9 +540,21 @@ void jhb::Model::Builder::loadTexture2D(const std::string& filepath)
 	imageInfo.flags = 0; // Optional
 	device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
 
-	device.transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
+	VkImageSubresourceRange subresourceRange = {};
+	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresourceRange.baseMipLevel = 0;
+	subresourceRange.levelCount = 1;
+	subresourceRange.layerCount = 1;
+	
+	VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
+	device.transitionImageLayout(commandBuffer, textureImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+	device.endSingleTimeCommands(commandBuffer);
+
 	device.copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
-	device.transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, 1, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+
+	commandBuffer = device.beginSingleTimeCommands();
+	device.transitionImageLayout(commandBuffer, textureImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
+	device.endSingleTimeCommands(commandBuffer);
 
 	// create image view and image sampler
 	VkImageViewCreateInfo viewInfo{};
@@ -549,7 +593,7 @@ void jhb::Model::Builder::loadTexture2D(const std::string& filepath)
 	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	samplerInfo.mipLodBias = 0.0f;
 	samplerInfo.minLod = 0.0f;
-	samplerInfo.maxLod = 0.0f;
+	samplerInfo.maxLod = 1;
 
 	if (vkCreateSampler(device.getLogicalDevice(), &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create texture sampler!");

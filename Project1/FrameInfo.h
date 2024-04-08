@@ -17,7 +17,10 @@ namespace jhb {
 		glm::vec4 ambientLightColor{1.f, 1.f, 1.f, .02f};
 		PointLight pointLights[MaxLights];
 		int numLights;
+		float exposure = 4.5f;
+		float gamma = 2.2f;
 	};
+
 	struct FrameInfo
 	{
 		int frameIndex;
@@ -25,7 +28,9 @@ namespace jhb {
 		VkCommandBuffer commandBuffer;
 		Camera& camera;
 		VkDescriptorSet globaldDescriptorSet;
-		VkDescriptorSet globalImageSamplerDescriptorSet;
+		VkDescriptorSet brdfImageSamplerDescriptorSet;
+		VkDescriptorSet irradianceImageSamplerDescriptorSet;
+		VkDescriptorSet prefilterImageSamplerDescriptorSet;
 		VkDescriptorSet skyBoxImageSamplerDecriptorSet;
 		jhb::GameObject::Map& gameObjects; // this make any render system access to all game object;
 	};
