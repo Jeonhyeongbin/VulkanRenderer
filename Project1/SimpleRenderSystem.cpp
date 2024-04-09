@@ -34,7 +34,7 @@ namespace jhb {
 		
 		pipelineConfig.bindingDescriptions.push_back(bindingdesc);
 
-		std::vector<VkVertexInputAttributeDescription> attrdesc(9);
+		std::vector<VkVertexInputAttributeDescription> attrdesc(8);
 
 		attrdesc[0].binding = 1;
 		attrdesc[0].location = 4;
@@ -62,19 +62,15 @@ namespace jhb {
 		attrdesc[5].binding = 1;
 		attrdesc[5].location = 9;
 		attrdesc[5].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[5].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::specular);
+		attrdesc[5].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::r);
 		attrdesc[6].binding = 1;
 		attrdesc[6].location = 10;
 		attrdesc[6].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[6].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::r);
+		attrdesc[6].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::g);
 		attrdesc[7].binding = 1;
 		attrdesc[7].location = 11;
 		attrdesc[7].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[7].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::g);
-		attrdesc[8].binding = 1;
-		attrdesc[8].location = 12;
-		attrdesc[8].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[8].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::b);
+		attrdesc[7].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::b);
 
 		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
 

@@ -24,7 +24,6 @@ layout(push_constant) uniform Push{
 
 void main(){
   texCoord = pos;
-	texCoord.xy *= -1.0;
 	mat4 view =  mat4(mat3(ubo.view));
   gl_Position = ubo.projection * view * vec4(pos.xyz, 1);
 }

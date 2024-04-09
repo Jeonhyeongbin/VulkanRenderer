@@ -28,7 +28,6 @@ namespace jhb {
 			float scale{ 0.0f };
 			float roughness = 0.0f;
 			float metallic = 0.0f;
-			float specular = 0.0f;
 			float r, g, b;
 		};
 	public:

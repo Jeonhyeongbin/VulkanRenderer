@@ -81,7 +81,7 @@ namespace jhb {
 
 		// for uniform buffer descriptor pool
 		std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
-		for (int i = 0; i < 2; i++)
+		for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
 			DescriptorWriter(*descSetLayouts[0], *globalPools[0]).writeBuffer(0, &bufferInfo).build(globalDescriptorSets[i]);
@@ -136,8 +136,10 @@ namespace jhb {
 			DescriptorWriter(*descSetLayouts[4], *globalPools[4]).writeImage(0, &descImageInfos[3]).build(prefilterImageSamplerDescriptorSets[i]);
 		}
 
-		for (int i = 1; i < 4; i++)
+		for (int i = 1; i <= 4; i++)
 		{
+			if (i == 3)
+				continue;
 			desclayouts.push_back(descSetLayouts[i]->getDescriptorSetLayout());
 		}
 
@@ -198,8 +200,13 @@ namespace jhb {
 				ubo.projection = camera.getProjection();
 				ubo.view = camera.getView();
 				ubo.inverseView = camera.getInverseView();
-				ubo.exposure = 0.5f;
-				ubo.gamma = 0.5f;
+				ubo.exposure = 1.f;
+				ubo.gamma = 1.f;
+				ubo.pointLights[0].color.r = 40.f;
+				ubo.pointLights[0].color.g = 40.f;
+				ubo.pointLights[0].color.b = 40.f;
+				ubo.pointLights[0].color.a = 30.f;
+				
 				pointLightSystem.update(frameInfo, ubo);
 				uboBuffers[frameIndex]->writeToBuffer(&ubo); // wrtie to using frame buffer index
 				uboBuffers[frameIndex]->flush(); //not using coherent_bit flag, so must to flush memory manually
@@ -239,8 +246,9 @@ namespace jhb {
 		{
 			auto pointLight = GameObject::makePointLight(1.f);
 			pointLight.color = lightColors[i];
+			pointLight.pointLight->lightIntensity = 1;
 			auto rotateLight = glm::rotate(glm::mat4(1.f),(i * glm::two_pi<float>()/lightColors.size()), {0.f, -1.f, 0.f});
-			pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(-1.f, -1.f, -1.f, 1.f));
+			pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(1.f, 1.f, 1.f, 1.f));
 			gameObjects.emplace(pointLight.getId(), std::move(pointLight));
 		}
 	}
@@ -327,18 +335,18 @@ namespace jhb {
 		
 		float offsetx = 0.5f;
 		float offsety = 0;
-		for (int i = 0; i < 64; i+=8)
+		for (float i = 0; i < 64; i+=8)
 		{
-			float y = offsety - (i/8) * 0.5f;
-			for (int j = 0; j < 8; j++)
+			float y = offsety + (i/8) * 0.5f;
+			for (float j = 0; j < 8; j++)
 			{
-				instanceData[i + j].pos.x -= offsetx*j;
+				instanceData[i + j].pos.x += offsetx*j;
 				instanceData[i + j].pos.y = y;
-				instanceData[i + j].metallic += (i + j) * (1 / 64);
-				instanceData[i + j].roughness += (i + j) * (1 / 64);
-				instanceData[i + j].r = 0.5f;
-				instanceData[i + j].g = 0.5f;
-				instanceData[i + j].b = 0.5f;
+				instanceData[i + j].metallic =(1.f- (i/64.f));
+				instanceData[i + j].roughness =(0.3f);
+				instanceData[i + j].r = (i / 64.f );
+				instanceData[i + j].g = 0.0f;
+				instanceData[i + j].b = 0.0f;
 			}
 		}
 

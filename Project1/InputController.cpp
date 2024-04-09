@@ -20,7 +20,7 @@ void jhb::InputController::moveInPlaneXZ(GLFWwindow* window, float dt, GameObjec
 	float yaw = gameObject.transform.rotation.y;
 	const glm::vec3 forwardDir{sin(yaw), 0.f, cos(yaw)};
 	const glm::vec3 rightDir{forwardDir.z, 0.f, -forwardDir.x};
-	const glm::vec3 upDir{0.f, -1.f, 0.f};
+	const glm::vec3 upDir = glm::normalize(glm::cross(forwardDir, rightDir));
 
 	glm::vec3 moveDir{0.f};
 	if (glfwGetKey(window, keys.moveForward) == GLFW_PRESS) moveDir += forwardDir;
@@ -38,7 +38,7 @@ void jhb::InputController::moveInPlaneXZ(GLFWwindow* window, float dt, GameObjec
 
 void jhb::InputController::OnButtonPressed(GLFWwindow* window, int button, int action, int modifier)
 {
-	if (button == GLFW_MOUSE_BUTTON_RIGHT)
+	if (button == GLFW_MOUSE_BUTTON_RIGHT|| button == GLFW_MOUSE_BUTTON_LEFT)
 	{
 		auto tmpwindow = (Window*)glfwGetWindowUserPointer(window);
 		if (action == GLFW_PRESS)

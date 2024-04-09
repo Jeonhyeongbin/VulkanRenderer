@@ -19,10 +19,9 @@ layout(location=2) out vec3 fragNormalWorld;
 layout(location=3) out vec2 fraguv;
 layout (location = 4) out float fragroughness;
 layout (location = 5) out float fragmetallic;
-layout (location = 6) out float fragspecular;
-layout (location = 7) out float fr;
-layout (location = 8) out float fg;
-layout (location = 9) out float fb;
+layout (location = 6) out float fr;
+layout (location = 7) out float fg;
+layout (location = 8) out float fb;
 
 struct PointLight{
 	vec4 position; // w is  just for allign
@@ -45,12 +44,12 @@ layout(push_constant) uniform Push{
 } push;
 
 void main(){
-fragroughness = roughness;
-fragmetallic = metallic;
-fragspecular = specular;
-fr = r;
-fg = g;
-fb = b;
+	fragroughness = roughness;
+	fragmetallic = metallic;
+	fragspecular = specular;
+	fr = r;
+	fg = g;
+	fb = b;
 	vec4 positionWorld = push.modelMatrix * vec4(position + instancePos, 1.0);
 	gl_Position =  ubo.projection * ubo.view * positionWorld;
 	fraguv = uv;
