@@ -8,10 +8,9 @@ layout (location = 5) in vec3 instanceRot;
 layout (location = 6) in float instanceScale;
 layout (location = 7) in float roughness;
 layout (location = 8) in float metallic;
-layout (location = 9) in float specular;
-layout (location = 10) in float r;
-layout (location = 11) in float g;
-layout (location = 12) in float b;
+layout (location = 9) in float r;
+layout (location = 10) in float g;
+layout (location = 11) in float b;
 
 layout(location=0) out vec3 fragColor;
 layout(location=1) out vec3 fragPosWorld;
@@ -46,7 +45,6 @@ layout(push_constant) uniform Push{
 void main(){
 	fragroughness = roughness;
 	fragmetallic = metallic;
-	fragspecular = specular;
 	fr = r;
 	fg = g;
 	fb = b;

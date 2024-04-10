@@ -158,7 +158,6 @@ namespace jhb {
 		pushConstantRange.size = sizeof(SimplePushConstantData);
 		SkyBoxRenderSystem skyboxRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/skybox.vert.spv",
 			"shaders/skybox.frag.spv" , pushConstantRanges };
-		Camera camera{};
 
 		auto viewerObject = GameObject::createGameObject();
 		viewerObject.transform.translation.z = -2.5f;
@@ -174,11 +173,11 @@ namespace jhb {
 			currentTime = newTime;
 			window.mouseMove(x, y, frameTime, viewerObject);
 
-			cameraController.moveInPlaneXZ(&window.GetGLFWwindow(), frameTime, viewerObject);
-			camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
-
+			auto forwardDir = cameraController.move(&window.GetGLFWwindow(), frameTime, viewerObject);
+			//camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+			window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
 			float aspect = renderer.getAspectRatio();
-			camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 200.f);
+			window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
 			if (auto commandBuffer = renderer.beginFrame()) // begine frame return null pointer if swap chain need recreated
 			{
 				int frameIndex = renderer.getFrameIndex();
@@ -186,7 +185,7 @@ namespace jhb {
 					frameIndex,
 					frameTime,
 					commandBuffer,
-					camera,
+					*window.getCamera(),
 					globalDescriptorSets[frameIndex],
 					brdfImageSamplerDescriptorSets[frameIndex],
 					irradianceImageSamplerDescriptorSets[frameIndex],
@@ -197,9 +196,9 @@ namespace jhb {
 
 				// update part : resources
 				GlobalUbo ubo{};
-				ubo.projection = camera.getProjection();
-				ubo.view = camera.getView();
-				ubo.inverseView = camera.getInverseView();
+				ubo.projection = window.getCamera()->getProjection();
+				ubo.view = window.getCamera()->getView();
+				ubo.inverseView = window.getCamera()->getInverseView();
 				ubo.exposure = 1.f;
 				ubo.gamma = 1.f;
 				ubo.pointLights[0].color.r = 40.f;

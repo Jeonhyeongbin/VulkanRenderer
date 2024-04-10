@@ -23,7 +23,7 @@ namespace jhb {
             glfwSetMouseButtonCallback(&window, jhb::InputController::OnButtonPressed);
         }
 
-        void moveInPlaneXZ(GLFWwindow* window, float dt, GameObject& gameObject);
+        glm::vec3 move(GLFWwindow* window, float dt, GameObject& gameObject);
         static void OnButtonPressed(GLFWwindow* window, int button, int action, int modifier);
 
         KeyMappings keys{};

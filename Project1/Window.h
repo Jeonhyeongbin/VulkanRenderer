@@ -3,6 +3,8 @@
 #include <GLFW/glfw3.h>
 #include <string>
 #include <glm/glm.hpp>
+#include "Camera.h"
+#include <memory>
 
 
 namespace jhb {
@@ -35,8 +37,10 @@ namespace jhb {
 		void resetWindowResizedFlag(){ framebufferResized = false; }
 		void createWindowSurface(VkInstance instance, VkSurfaceKHR* surface);
 		void mouseMove(float x, float y, float dt, GameObject& camera);
+		Camera* getCamera() { return camera.get(); }
 	private:
 		static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
+		static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 		void initWindow();
 
 		int width;
@@ -48,5 +52,6 @@ namespace jhb {
 		glm::vec2 prevPos{0.f};
 		std::string windowName;
 		GLFWwindow* window;
+		std::unique_ptr<jhb::Camera> camera;
 	};
 }

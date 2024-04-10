@@ -1,8 +1,9 @@
 #include "InputController.h"
 
-void jhb::InputController::moveInPlaneXZ(GLFWwindow* window, float dt, GameObject& gameObject)
+glm::vec3  jhb::InputController::move(GLFWwindow* window, float dt, GameObject& gameObject)
 {
-	glm::vec3 rotate{0};
+	const float cameraSpeed = 0.1f;
+	glm::vec3 rotate{ 0 };
 	if (glfwGetKey(window, keys.lookRight) == GLFW_PRESS) rotate.y += 1.f;
 	if (glfwGetKey(window, keys.lookLeft) == GLFW_PRESS) rotate.y -= 1.f;
 	if (glfwGetKey(window, keys.lookUp) == GLFW_PRESS) rotate.x += 1.f;
@@ -14,26 +15,32 @@ void jhb::InputController::moveInPlaneXZ(GLFWwindow* window, float dt, GameObjec
 	}
 
 	// for not upside down
-	gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -1.5f, 1.5f);
+	gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -15.f, 15.f);
 	gameObject.transform.rotation.y = glm::mod(gameObject.transform.rotation.y, glm::two_pi<float>());
 
 	float yaw = gameObject.transform.rotation.y;
-	const glm::vec3 forwardDir{sin(yaw), 0.f, cos(yaw)};
-	const glm::vec3 rightDir{forwardDir.z, 0.f, -forwardDir.x};
-	const glm::vec3 upDir = glm::normalize(glm::cross(forwardDir, rightDir));
+	float pitch = gameObject.transform.rotation.x;
+	glm::vec3 forwardDir(0);
+	forwardDir.x = glm::cos(yaw) * glm::cos(pitch);
+	forwardDir.y = glm::sin(pitch);
+	forwardDir.z = glm::sin(yaw) * glm::cos(pitch);
+	const glm::vec3 upDir = { 0, -1, 0 };
+	const glm::vec3 rightDir =glm::normalize(glm::cross(forwardDir, upDir));
+
 
 	glm::vec3 moveDir{0.f};
-	if (glfwGetKey(window, keys.moveForward) == GLFW_PRESS) moveDir += forwardDir;
-	if (glfwGetKey(window, keys.moveBackward) == GLFW_PRESS) moveDir -= forwardDir;
-	if (glfwGetKey(window, keys.moveRight) == GLFW_PRESS) moveDir += rightDir;
-	if (glfwGetKey(window, keys.moveLeft) == GLFW_PRESS) moveDir -= rightDir;
-	if (glfwGetKey(window, keys.moveUp) == GLFW_PRESS) moveDir += upDir;
-	if (glfwGetKey(window, keys.moveDown) == GLFW_PRESS) moveDir -= upDir;
+	if (glfwGetKey(window, keys.moveForward) == GLFW_PRESS) moveDir += forwardDir * cameraSpeed;
+	if (glfwGetKey(window, keys.moveBackward) == GLFW_PRESS) moveDir -= forwardDir * cameraSpeed;
+	if (glfwGetKey(window, keys.moveRight) == GLFW_PRESS) moveDir += rightDir * cameraSpeed;
+	if (glfwGetKey(window, keys.moveLeft) == GLFW_PRESS) moveDir -= rightDir * cameraSpeed;
+	if (glfwGetKey(window, keys.moveUp) == GLFW_PRESS) moveDir += upDir * cameraSpeed;
+	if (glfwGetKey(window, keys.moveDown) == GLFW_PRESS) moveDir -= upDir * cameraSpeed;
 
 	if (glm::dot(moveDir, moveDir) > std::numeric_limits<float>::epsilon())
 	{
 		gameObject.transform.translation += moveSpeed * dt * glm::normalize(moveDir);
 	}
+	return forwardDir;
 }
 
 void jhb::InputController::OnButtonPressed(GLFWwindow* window, int button, int action, int modifier)

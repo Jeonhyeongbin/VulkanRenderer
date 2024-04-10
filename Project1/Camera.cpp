@@ -1,5 +1,9 @@
 #include "Camera.h"
 
+jhb::Camera::Camera(float _fovy) : fovy(_fovy)
+{
+}
+
 void jhb::Camera::setOrthographicProjection(float left, float right, float top, float bottom, float near, float far)
 {
     projectionMatrix = glm::mat4{ 1.0f };
@@ -11,7 +15,7 @@ void jhb::Camera::setOrthographicProjection(float left, float right, float top, 
     projectionMatrix[3][2] = -near / (far - near);
 }
 
-void jhb::Camera::setPerspectiveProjection(float fovy, float aspect, float near, float far)
+void jhb::Camera::setPerspectiveProjection(float aspect, float near, float far)
 {
     assert(glm::abs(aspect - std::numeric_limits<float>::epsilon()) > 0.0f);
     const float tanHalfFovy = tan(fovy / 2.f);
