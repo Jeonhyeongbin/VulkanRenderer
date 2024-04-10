@@ -1,13 +1,15 @@
 #include "TriangleApplication.h"
 #include "SimpleRenderSystem.h"
 #include "SkyBoxRenderSystem.h"
+#include "ImguiRenderSystem.h"
 #include "InputController.h"
 #include "FrameInfo.h"
 #include "Descriptors.h"
 #include "PointLightSystem.h"
 #include "Model.h"
+#include "imgui.h"
 
-#define _USE_MATH_DEFINES
+#define _USE_MATH_DEFINESimgui
 #include <math.h>
 #include <memory>
 #include <numeric>
@@ -21,6 +23,7 @@ namespace jhb {
 		globalPools[2] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); // skybox
 		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();	// irradiane
 		globalPools[4] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); //prefiter
+		globalPools[5] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); // imgui font 
 
 		// two descriptor sets
 		// each descriptor set contain two UNIFORM_BUFFER descriptor
@@ -32,6 +35,7 @@ namespace jhb {
 
 	HelloTriangleApplication::~HelloTriangleApplication()
 	{
+		ImGui::DestroyContext();
 	}
 
 	void HelloTriangleApplication::Run()
@@ -77,6 +81,9 @@ namespace jhb {
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
 		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
+		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());// imgui font
+
 
 
 		// for uniform buffer descriptor pool
@@ -95,10 +102,6 @@ namespace jhb {
 		skyBoximageInfo.sampler = gameObjects[0].model->builder->textureSampler;
 
 		std::vector<VkDescriptorSetLayout> desclayouts = { descSetLayouts[0]->getDescriptorSetLayout() , descSetLayouts[2]->getDescriptorSetLayout() };
-		/*	for (auto& desclayout : descSetLayouts)
-			{
-				desclayouts.push_back(desclayout->getDescriptorSetLayout());
-			}*/
 
 		for (int i = 0; i < CubeBoxDescriptorSets.size(); i++)
 		{
@@ -113,6 +116,7 @@ namespace jhb {
 		std::vector<VkDescriptorSet> brdfImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		std::vector<VkDescriptorSet> irradianceImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		std::vector<VkDescriptorSet> prefilterImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		std::vector<VkDescriptorSet> imguiImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		VkDescriptorImageInfo brdfImgInfo{};
 		brdfImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		brdfImgInfo.imageView = lutBrdfView;
@@ -125,6 +129,23 @@ namespace jhb {
 		prefilterImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		prefilterImgInfo.imageView = preFilterCubeImgView;
 		prefilterImgInfo.sampler = preFilterCubeSampler;
+		
+
+		std::vector<VkPushConstantRange> pushConstantRanges;
+		VkPushConstantRange pushConstantRange{};
+		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT ; // This means that both vertex and fragment shader using constant 
+		pushConstantRange.offset = 0;
+		pushConstantRange.size = sizeof(ImguiRenderSystem::PushConstBlock);
+		pushConstantRanges.push_back(pushConstantRange);
+		std::vector<VkDescriptorSetLayout> desclayoutsForImgui = { descSetLayouts[5]->getDescriptorSetLayout() };
+
+		ImguiRenderSystem imguiRenderer{ device, renderer.getSwapChainRenderPass(), desclayoutsForImgui ,"shaders/imgui.vert.spv",
+			"shaders/imgui.frag.spv" , pushConstantRanges };
+
+		VkDescriptorImageInfo imguiFontImgInfo{};
+		imguiFontImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imguiFontImgInfo.imageView = imguiRenderer.fontView;
+		imguiFontImgInfo.sampler = imguiRenderer.sampler;
 
 		std::vector<VkDescriptorImageInfo> descImageInfos = { brdfImgInfo , skyBoximageInfo, irradianceImgInfo, prefilterImgInfo };
 		// for image sampler descriptor pool
@@ -134,6 +155,7 @@ namespace jhb {
 			DescriptorWriter(*descSetLayouts[1], *globalPools[1]).writeImage(0, &descImageInfos[0]).build(brdfImageSamplerDescriptorSets[i]);
 			DescriptorWriter(*descSetLayouts[3], *globalPools[3]).writeImage(0, &descImageInfos[2]).build(irradianceImageSamplerDescriptorSets[i]);
 			DescriptorWriter(*descSetLayouts[4], *globalPools[4]).writeImage(0, &descImageInfos[3]).build(prefilterImageSamplerDescriptorSets[i]);
+			DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, &imguiFontImgInfo).build(imguiImageSamplerDescriptorSets[i]);
 		}
 
 		for (int i = 1; i <= 4; i++)
@@ -143,19 +165,14 @@ namespace jhb {
 			desclayouts.push_back(descSetLayouts[i]->getDescriptorSetLayout());
 		}
 
-		std::vector<VkPushConstantRange> pushConstantRanges;
-		VkPushConstantRange pushConstantRange{};
-		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // This means that both vertex and fragment shader using constant 
-		pushConstantRange.offset = 0;
-		pushConstantRange.size = sizeof(SimplePushConstantData);
-		pushConstantRanges.push_back(pushConstantRange);
-
+		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+		pushConstantRanges[0].size = sizeof(SimplePushConstantData);
 		SimpleRenderSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/shader.vert.spv",
 			"shaders/shader.frag.spv" , pushConstantRanges };
-		pushConstantRange.size = sizeof(PointLightPushConstants);
+		pushConstantRanges[0].size = sizeof(PointLightPushConstants);
 		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), desclayouts, "shaders/point_light.vert.spv",
 			"shaders/point_light.frag.spv" , pushConstantRanges };
-		pushConstantRange.size = sizeof(SimplePushConstantData);
+		pushConstantRanges[0].size = sizeof(SimplePushConstantData);
 		SkyBoxRenderSystem skyboxRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/skybox.vert.spv",
 			"shaders/skybox.frag.spv" , pushConstantRanges };
 
@@ -167,12 +184,16 @@ namespace jhb {
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
 			glfwPollEvents(); //may block
+			ImGui::NewFrame();
 			glfwGetCursorPos(&window.GetGLFWwindow(), &x, &y);
 			auto newTime = std::chrono::high_resolution_clock::now();
 			float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
 			currentTime = newTime;
 			window.mouseMove(x, y, frameTime, viewerObject);
 
+			imguiRenderer.newFrame();
+			imguiRenderer.updateBuffer();
+			
 			auto forwardDir = cameraController.move(&window.GetGLFWwindow(), frameTime, viewerObject);
 			//camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 			window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
@@ -216,9 +237,12 @@ namespace jhb {
 				// this is why beginFram and beginswapchian renderpass are not combined;
 				// because main application control over this multiple render pass like reflections, shadows, post-processing effects
 				renderer.beginSwapChainRenderPass(commandBuffer);
+
 				skyboxRenderSystem.renderSkyBox(frameInfo);
 				simpleRenderSystem.renderGameObjects(frameInfo, &instanceBuffer);
 				pointLightSystem.renderGameObjects(frameInfo);
+				imguiRenderer.render(commandBuffer, imguiImageSamplerDescriptorSets[frameIndex]);
+
 				renderer.endSwapChainRenderPass(commandBuffer);
 				renderer.endFrame();
 			}
@@ -355,6 +379,11 @@ namespace jhb {
 		
 		device.copyBuffer(stagingBuffer.getBuffer(), instanceBuffer.getBuffer(), instanceBuffer.getBufferSize());
 		stagingBuffer.unmap();
+	}
+
+	void HelloTriangleApplication::InitImgui()
+	{
+
 	}
 
 	void HelloTriangleApplication::generateBRDFLUT(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets)

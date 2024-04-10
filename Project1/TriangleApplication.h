@@ -45,6 +45,7 @@ namespace jhb {
 		void createCube();
 		void create2DModelForBRDFLUT();
 		void prepareInstance();
+		void InitImgui();
 
 		void generateBRDFLUT(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets);
 		void generateIrradianceCube(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets);
@@ -67,7 +68,7 @@ namespace jhb {
 		} };
 		Renderer renderer{ window, device, subdependencies, true, VK_FORMAT_R16G16B16A16_SFLOAT, 2 };
 
-		std::array<std::unique_ptr<DescriptorPool>, 5> globalPools{};
+		std::array<std::unique_ptr<DescriptorPool>, 6> globalPools{};
 		Buffer instanceBuffer;
 
 		GameObject::Map gameObjects;
