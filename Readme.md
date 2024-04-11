@@ -3,7 +3,6 @@
 
 
 # Feature
-```
 ![실행 결과](./image.png)
 ```
 - Instancing
