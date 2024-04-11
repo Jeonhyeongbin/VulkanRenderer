@@ -4,7 +4,7 @@
 
 # Feature
 ```
-![title](Images/image.png)
+![title](Images/image.PNG)
 ```
 - Instancing
 - PBR
@@ -20,14 +20,14 @@ classDiagram
     BaseRenderSystem-- PBRRenderSystem
     BaseRenderSystem-- PointLightRenderSystem
     BaseRenderSystem-- SkyBoxRenderSystem
-   
+
     class BaseRenderSystem{
           +pipelinelayoutCreate()
           +virtual pipelineCreate() abstract
     }
     class PBRRenderSystem{
         pbr.vert
-        pbr.frag 
+        pbr.frag
 RenderGameObject()
     }
     class PointLightRenderSystem{
@@ -41,8 +41,8 @@ RenderPointLight()
         RenderSky()
     }
     class Renderer{
-  +std::unique_ptr<SwapChain> 
-  +std::vector<CommandBuffer> 
+  +std::unique_ptr<SwapChain>
+  +std::vector<CommandBuffer>
     }
 PBRRenderSystem--Renderer
 PointLightRenderSystem--Renderer
