@@ -1,4 +1,4 @@
-#include "SimpleRenderSystem.h"
+#include "PBRRenderSystem.h"
 #include "TriangleApplication.h"
 #include "Model.h"
 #include "FrameInfo.h"

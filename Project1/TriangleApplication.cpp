@@ -1,5 +1,5 @@
 #include "TriangleApplication.h"
-#include "SimpleRenderSystem.h"
+#include "PBRRenderSystem.h"
 #include "SkyBoxRenderSystem.h"
 #include "ImguiRenderSystem.h"
 #include "InputController.h"
