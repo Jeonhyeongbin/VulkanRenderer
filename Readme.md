@@ -8,44 +8,10 @@
 - Instancing
 - PBR
 
-
-## 구조
-
 ```
----
-title: Animal example
----
-classDiagram
-    BaseRenderSystem-- PBRRenderSystem
-    BaseRenderSystem-- PointLightRenderSystem
-    BaseRenderSystem-- SkyBoxRenderSystem
 
-    class BaseRenderSystem{
-          +pipelinelayoutCreate()
-          +virtual pipelineCreate() abstract
-    }
-    class PBRRenderSystem{
-        pbr.vert
-        pbr.frag
-RenderGameObject()
-    }
-    class PointLightRenderSystem{
-        pointLight.vert
-        pointLight.frag
-RenderPointLight()
-    }
-    class SkyBoxRenderSystem{
-        skybox.vert
-        skybox.frag
-        RenderSky()
-    }
-    class Renderer{
-  +std::unique_ptr<SwapChain>
-  +std::vector<CommandBuffer>
-    }
-PBRRenderSystem--Renderer
-PointLightRenderSystem--Renderer
-SkyBoxRenderSystem--Renderer
+![구조](./image.png)
 
-
-```
+# 세팅
+- vulkanSDK를 다운받ㅇ 프로젝트 폴더의 external프로젝트에 추가해주셔야합니다.
+- vs2022 윈도우에서만 빌드 및 실행이 가능합니다.
