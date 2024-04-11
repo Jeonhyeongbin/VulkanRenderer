@@ -10,7 +10,7 @@
 
 ```
 
-![구조](./flow.png)
+![구조](./flowchart.png)
 
 
 # 세팅
