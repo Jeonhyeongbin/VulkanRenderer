@@ -4,7 +4,7 @@
 
 # Feature
 ```
-![title](Images/image.PNG)
+![실행 결과](./image.png)
 ```
 - Instancing
 - PBR
