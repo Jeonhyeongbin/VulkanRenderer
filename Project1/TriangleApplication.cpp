@@ -137,15 +137,42 @@ namespace jhb {
 		pushConstantRange.offset = 0;
 		pushConstantRange.size = sizeof(ImguiRenderSystem::PushConstBlock);
 		pushConstantRanges.push_back(pushConstantRange);
-		std::vector<VkDescriptorSetLayout> desclayoutsForImgui = { descSetLayouts[5]->getDescriptorSetLayout() };
 
-		ImguiRenderSystem imguiRenderer{ device, renderer.getSwapChainRenderPass(), desclayoutsForImgui ,"shaders/imgui.vert.spv",
-			"shaders/imgui.frag.spv" , pushConstantRanges };
-
+		InitImgui();
 		VkDescriptorImageInfo imguiFontImgInfo{};
 		imguiFontImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imguiFontImgInfo.imageView = imguiRenderer.fontView;
-		imguiFontImgInfo.sampler = imguiRenderer.sampler;
+		imguiFontImgInfo.imageView = fontView;
+		imguiFontImgInfo.sampler = Sampler;
+		for (int i = 0; i < brdfImageSamplerDescriptorSets.size(); i++)
+		{
+			DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, &imguiFontImgInfo).build(imguiImageSamplerDescriptorSets[i]);
+		}
+
+		std::vector<VkDescriptorSetLayout> desclayoutsForImgui = { descSetLayouts[5]->getDescriptorSetLayout() };
+
+		// Subpass dependencies for layout transitions
+		std::vector<VkSubpassDependency> dependencies(2);
+
+		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[0].dstSubpass = 0;
+		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		dependencies[0].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+		dependencies[0].dependencyFlags = 0;
+
+		dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[1].dstSubpass = 0;
+		dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[1].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[1].srcAccessMask = 0;
+		dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+		dependencies[1].dependencyFlags = 0;
+
+		//Renderer imguiRenderer{device.getWindow(), device, dependencies,true, VK_FORMAT_R8G8B8A8_SRGB ,2 };
+		ImguiRenderSystem imguiRendererSystem{ device, renderer.getSwapChainRenderPass(), desclayoutsForImgui ,"shaders/imgui.vert.spv",
+			"shaders/imgui.frag.spv" , pushConstantRanges };
+
 
 		std::vector<VkDescriptorImageInfo> descImageInfos = { brdfImgInfo , skyBoximageInfo, irradianceImgInfo, prefilterImgInfo };
 		// for image sampler descriptor pool
@@ -155,7 +182,6 @@ namespace jhb {
 			DescriptorWriter(*descSetLayouts[1], *globalPools[1]).writeImage(0, &descImageInfos[0]).build(brdfImageSamplerDescriptorSets[i]);
 			DescriptorWriter(*descSetLayouts[3], *globalPools[3]).writeImage(0, &descImageInfos[2]).build(irradianceImageSamplerDescriptorSets[i]);
 			DescriptorWriter(*descSetLayouts[4], *globalPools[4]).writeImage(0, &descImageInfos[3]).build(prefilterImageSamplerDescriptorSets[i]);
-			DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, &imguiFontImgInfo).build(imguiImageSamplerDescriptorSets[i]);
 		}
 
 		for (int i = 1; i <= 4; i++)
@@ -184,15 +210,11 @@ namespace jhb {
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
 			glfwPollEvents(); //may block
-			ImGui::NewFrame();
 			glfwGetCursorPos(&window.GetGLFWwindow(), &x, &y);
 			auto newTime = std::chrono::high_resolution_clock::now();
 			float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
 			currentTime = newTime;
 			window.mouseMove(x, y, frameTime, viewerObject);
-
-			imguiRenderer.newFrame();
-			imguiRenderer.updateBuffer();
 			
 			auto forwardDir = cameraController.move(&window.GetGLFWwindow(), frameTime, viewerObject);
 			//camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
@@ -214,6 +236,9 @@ namespace jhb {
 					CubeBoxDescriptorSets[frameIndex],
 					gameObjects
 				};
+
+				imguiRendererSystem.newFrame(imguiImageSamplerDescriptorSets[frameIndex]);
+				imguiRendererSystem.updateBuffer();
 
 				// update part : resources
 				GlobalUbo ubo{};
@@ -241,7 +266,7 @@ namespace jhb {
 				skyboxRenderSystem.renderSkyBox(frameInfo);
 				simpleRenderSystem.renderGameObjects(frameInfo, &instanceBuffer);
 				pointLightSystem.renderGameObjects(frameInfo);
-				imguiRenderer.render(commandBuffer, imguiImageSamplerDescriptorSets[frameIndex]);
+				imguiRendererSystem.render(commandBuffer, imguiImageSamplerDescriptorSets[frameIndex]);
 
 				renderer.endSwapChainRenderPass(commandBuffer);
 				renderer.endFrame();
@@ -383,7 +408,95 @@ namespace jhb {
 
 	void HelloTriangleApplication::InitImgui()
 	{
+		int texWidth, texHeight;
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
 
+		ImGui::CreateContext();
+		auto io = ImGui::GetIO();
+
+		// Create font texture
+		unsigned char* fontData;
+		io.Fonts->GetTexDataAsRGBA32(&fontData, &texWidth, &texHeight);
+		VkDeviceSize uploadSize = texWidth * texHeight * 4 * sizeof(char);
+
+		device.createBuffer(uploadSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+		VkImageCreateInfo imageInfo{};
+		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageInfo.extent.width = static_cast<uint32_t>(texWidth);
+		imageInfo.extent.height = static_cast<uint32_t>(texHeight);
+		imageInfo.extent.depth = 1;
+		imageInfo.mipLevels = 1;
+		imageInfo.arrayLayers = 1;
+		imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageInfo.flags = 0; // Optional
+		device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, fontImage, fontMemory);
+
+		VkImageSubresourceRange subresourceRange = {};
+		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		subresourceRange.baseMipLevel = 0;
+		subresourceRange.levelCount = 1;
+		subresourceRange.layerCount = 1;
+
+		VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
+		device.transitionImageLayout(commandBuffer, fontImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+		device.endSingleTimeCommands(commandBuffer);
+
+		device.copyBufferToImage(stagingBuffer, fontImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
+
+		commandBuffer = device.beginSingleTimeCommands();
+		device.transitionImageLayout(commandBuffer, fontImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
+		device.endSingleTimeCommands(commandBuffer);
+
+		// create image view and image sampler
+		VkImageViewCreateInfo viewInfo{};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.image = fontImage;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = 1;
+
+		if (vkCreateImageView(device.getLogicalDevice(), &viewInfo, nullptr, &fontView) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create texture image view!");
+		}
+
+		VkSamplerCreateInfo samplerInfo{};
+		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerInfo.magFilter = VK_FILTER_LINEAR;
+		samplerInfo.minFilter = VK_FILTER_LINEAR;
+
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+
+		VkPhysicalDeviceProperties properties{};
+		vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
+		samplerInfo.anisotropyEnable = VK_FALSE;
+		samplerInfo.maxAnisotropy = 0;
+		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		samplerInfo.unnormalizedCoordinates = VK_FALSE;
+		samplerInfo.compareEnable = VK_FALSE;
+		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerInfo.mipLodBias = 0.0f;
+		samplerInfo.minLod = 0.0f;
+		samplerInfo.maxLod = 1;
+
+		if (vkCreateSampler(device.getLogicalDevice(), &samplerInfo, nullptr, &Sampler) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create texture sampler!");
+		}
 	}
 
 	void HelloTriangleApplication::generateBRDFLUT(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets)

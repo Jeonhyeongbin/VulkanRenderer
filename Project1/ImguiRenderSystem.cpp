@@ -31,94 +31,6 @@ namespace jhb {
 		// Dimensions
 		io.DisplaySize = ImVec2(extent.width, extent.height);
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-
-
-		int texWidth, texHeight;
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-
-		// Create font texture
-		unsigned char* fontData;
-		io.Fonts->GetTexDataAsRGBA32(&fontData, &texWidth, &texHeight);
-		VkDeviceSize uploadSize = texWidth * texHeight * 4 * sizeof(char);
-
-		device.createBuffer(uploadSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-		VkImageCreateInfo imageInfo{};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = static_cast<uint32_t>(texWidth);
-		imageInfo.extent.height = static_cast<uint32_t>(texHeight);
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = 1;
-		imageInfo.arrayLayers = 1;
-		imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageInfo.flags = 0; // Optional
-		device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, fontImage, fontMemory);
-
-		VkImageSubresourceRange subresourceRange = {};
-		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		subresourceRange.baseMipLevel = 0;
-		subresourceRange.levelCount = 1;
-		subresourceRange.layerCount = 1;
-
-		VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
-		device.transitionImageLayout(commandBuffer, fontImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
-		device.endSingleTimeCommands(commandBuffer);
-
-		device.copyBufferToImage(stagingBuffer, fontImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
-
-		commandBuffer = device.beginSingleTimeCommands();
-		device.transitionImageLayout(commandBuffer, fontImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
-		device.endSingleTimeCommands(commandBuffer);
-
-		// create image view and image sampler
-		VkImageViewCreateInfo viewInfo{};
-		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.image = fontImage;
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
-		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
-		viewInfo.subresourceRange.baseArrayLayer = 0;
-		viewInfo.subresourceRange.layerCount = 1;
-
-		if (vkCreateImageView(device.getLogicalDevice(), &viewInfo, nullptr, &fontView) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create texture image view!");
-		}
-
-		VkSamplerCreateInfo samplerInfo{};
-		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerInfo.magFilter = VK_FILTER_LINEAR;
-		samplerInfo.minFilter = VK_FILTER_LINEAR;
-
-		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-
-		VkPhysicalDeviceProperties properties{};
-		vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
-		samplerInfo.anisotropyEnable = VK_FALSE;
-		samplerInfo.maxAnisotropy = 0;
-		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-		samplerInfo.unnormalizedCoordinates = VK_FALSE;
-		samplerInfo.compareEnable = VK_FALSE;
-		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-
-		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerInfo.mipLodBias = 0.0f;
-		samplerInfo.minLod = 0.0f;
-		samplerInfo.maxLod = 1;
-
-		if (vkCreateSampler(device.getLogicalDevice(), &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create texture sampler!");
-		}
 	}
 
 	ImguiRenderSystem::~ImguiRenderSystem()
@@ -131,8 +43,8 @@ namespace jhb {
 		assert(pipelineLayout != nullptr && "Cannot Create pipeline before pipeline layout!!");
 
 		PipelineConfigInfo pipelineConfig{};
-		pipelineConfig.depthStencilInfo.depthTestEnable = false;
-		pipelineConfig.depthStencilInfo.depthWriteEnable = false;
+		pipelineConfig.depthStencilInfo.depthTestEnable = true;
+		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
 
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.colorBlendAttachment.blendEnable = VK_TRUE;
@@ -179,8 +91,19 @@ namespace jhb {
 	void ImguiRenderSystem::render(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet)
 	{
 		ImGuiIO& io = ImGui::GetIO();
-		pipeline->bind(commandBuffer);
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+		pipeline->bind(commandBuffer);
+
+		VkViewport viewport{};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = static_cast<float>(ImGui::GetIO().DisplaySize.x);
+		viewport.height = static_cast<float>(ImGui::GetIO().DisplaySize.y);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+
 		PushConstBlock pushConstBlock;
 		// UI scale and translate via push constants
 		pushConstBlock.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
@@ -204,17 +127,21 @@ namespace jhb {
 				for (int32_t j = 0; j < cmd_list->CmdBuffer.Size; j++)
 				{
 					const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[j];
+					VkRect2D scissorRect;
+					scissorRect.offset.x = max((int32_t)(pcmd->ClipRect.x), 0);
+					scissorRect.offset.y = max((int32_t)(pcmd->ClipRect.y), 0);
+					scissorRect.extent.width = (uint32_t)(pcmd->ClipRect.z - pcmd->ClipRect.x);
+					scissorRect.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y);
+					vkCmdSetScissor(commandBuffer, 0, 1, &scissorRect);
 					vkCmdDrawIndexed(commandBuffer, pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);
 					indexOffset += pcmd->ElemCount;
 				}
 				vertexOffset += cmd_list->VtxBuffer.Size;
 			}
 		}
-		ImGui::EndFrame();
 	}
-	void ImguiRenderSystem::newFrame()
+	void ImguiRenderSystem::newFrame(VkDescriptorSet descriptorSet)
 	{
-		ImGui::EndFrame();
 		ImGui::NewFrame();
 
 		// Init imGui windows and elements
@@ -234,16 +161,17 @@ namespace jhb {
 		ImGui::Checkbox("Display background", &checkbox);
 		ImGui::Checkbox("Animate light", &checkbox);
 		ImGui::SliderFloat("Light speed", &lightSpeed, 0.1f, 1.0f);
-		//ImGui::ShowStyleSelector("UI style");
+		ImGui::ShowStyleSelector("UI style");
 
-
+		ImGui::Text("Camera");
 		ImGui::End();
 
 		//SRS - ShowDemoWindow() sets its own initial position and size, cannot override here
 		ImGui::ShowDemoWindow();
-
+		ImGui::Image(descriptorSet, ImVec2(600.f, 800.f));
 		// Render to generate draw buffers
 		ImGui::Render();
+
 	}
 
 	void ImguiRenderSystem::updateBuffer()

@@ -34,13 +34,15 @@ namespace jhb {
 		ImguiRenderSystem& operator=(const ImguiRenderSystem&) = delete;
 
 		void render(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet);
-		void newFrame();
+		void newFrame(VkDescriptorSet descriptorSet);
 		void updateBuffer();
 	private:
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass
 		void createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag) override;
-		
+
+
+
 	public:
 		VkSampler sampler;
 		VkImageView fontView = VK_NULL_HANDLE;

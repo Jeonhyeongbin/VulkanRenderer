@@ -84,5 +84,10 @@ namespace jhb {
 		VkImageView lutBrdfView;
 		VkSampler lutBrdfSampler;
 		VkDeviceMemory lutBrdfMemory;
+
+		VkImage fontImage;
+		VkImageView fontView;
+		VkSampler Sampler;
+		VkDeviceMemory fontMemory;
 	};
 }
