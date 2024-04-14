@@ -72,8 +72,8 @@ namespace jhb {
 		configInfo.colorBlendInfo.attachmentCount = 1;
 		configInfo.colorBlendInfo.pAttachments = &configInfo.colorBlendAttachment;
 		configInfo.colorBlendInfo.blendConstants[0] = 0.0f;  // Optional
-		configInfo.colorBlendInfo.blendConstants[1] = 0.0f;  // Optional
-		configInfo.colorBlendInfo.blendConstants[2] = 0.0f;  // Optional
+		configInfo.colorBlendInfo.blendConstants[1] = 0.5f;  // Optional
+		configInfo.colorBlendInfo.blendConstants[2] = 0.5f;  // Optional
 		configInfo.colorBlendInfo.blendConstants[3] = 0.0f;  // Optional
 
 		configInfo.depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -178,10 +178,14 @@ namespace jhb {
 
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;  // Optional
 		pipelineInfo.basePipelineIndex = -1;               // Optional
-
+		// Pipeline cache
+		VkPipelineCache pipelinCache;
+		VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
+		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+		vkCreatePipelineCache(device.getLogicalDevice(), &pipelineCacheCreateInfo, nullptr, &pipelinCache);
 		if (vkCreateGraphicsPipelines(
 			device.getLogicalDevice(),
-			VK_NULL_HANDLE,
+			pipelinCache,
 			1,
 			&pipelineInfo,
 			nullptr,

@@ -18,14 +18,14 @@
 #include <stdint.h>
 
 namespace jhb {
-	class SimpleRenderSystem : public BaseRenderSystem {
+	class PBRRendererSystem : public BaseRenderSystem {
 	public:
-		SimpleRenderSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange);
-		~SimpleRenderSystem();
+		PBRRendererSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange);
+		~PBRRendererSystem();
 
-		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
-		SimpleRenderSystem(SimpleRenderSystem&&) = delete;
-		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
+		PBRRendererSystem(const PBRRendererSystem&) = delete;
+		PBRRendererSystem(PBRRendererSystem&&) = delete;
+		PBRRendererSystem& operator=(const PBRRendererSystem&) = delete;
 
 		void renderGameObjects(FrameInfo& frameInfo,Buffer* instanceBuffer = nullptr) override;
 	private:

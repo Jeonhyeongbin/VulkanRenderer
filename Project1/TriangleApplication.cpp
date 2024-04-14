@@ -7,7 +7,9 @@
 #include "Descriptors.h"
 #include "PointLightSystem.h"
 #include "Model.h"
-#include "imgui.h"
+#include "External/Imgui/imgui.h"
+#include "External/Imgui/imgui_impl_glfw.h"
+#include "External/Imgui/imgui_impl_vulkan.h"
 
 #define _USE_MATH_DEFINESimgui
 #include <math.h>
@@ -150,26 +152,15 @@ namespace jhb {
 
 		std::vector<VkDescriptorSetLayout> desclayoutsForImgui = { descSetLayouts[5]->getDescriptorSetLayout() };
 
-		// Subpass dependencies for layout transitions
-		std::vector<VkSubpassDependency> dependencies(2);
-
-		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependencies[0].dstSubpass = 0;
-		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-		dependencies[0].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-		dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-		dependencies[0].dependencyFlags = 0;
-
-		dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependencies[1].dstSubpass = 0;
-		dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependencies[1].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependencies[1].srcAccessMask = 0;
-		dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-		dependencies[1].dependencyFlags = 0;
-
-		//Renderer imguiRenderer{device.getWindow(), device, dependencies,true, VK_FORMAT_R8G8B8A8_SRGB ,2 };
+		VkSubpassDependency dependency = {};
+		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency.dstSubpass = 0;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.srcAccessMask = 0;
+		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		std::vector<VkSubpassDependency> imguidepency = { dependency };
+		//Renderer imguiRenderer{ device.getWindow(), device, imguidepency, false, VK_FORMAT_R8G8B8A8_SRGB ,1 };
 		ImguiRenderSystem imguiRendererSystem{ device, renderer.getSwapChainRenderPass(), desclayoutsForImgui ,"shaders/imgui.vert.spv",
 			"shaders/imgui.frag.spv" , pushConstantRanges };
 
@@ -193,7 +184,7 @@ namespace jhb {
 
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 		pushConstantRanges[0].size = sizeof(SimplePushConstantData);
-		SimpleRenderSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/shader.vert.spv",
+		PBRRendererSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/shader.vert.spv",
 			"shaders/shader.frag.spv" , pushConstantRanges };
 		pushConstantRanges[0].size = sizeof(PointLightPushConstants);
 		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), desclayouts, "shaders/point_light.vert.spv",
@@ -207,6 +198,8 @@ namespace jhb {
 		InputController cameraController{device.getWindow().GetGLFWwindow(), viewerObject};
 		double x, y;
 		auto currentTime = std::chrono::high_resolution_clock::now();
+		
+
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
 			glfwPollEvents(); //may block
@@ -237,8 +230,7 @@ namespace jhb {
 					gameObjects
 				};
 
-				imguiRendererSystem.newFrame(imguiImageSamplerDescriptorSets[frameIndex]);
-				imguiRendererSystem.updateBuffer();
+
 
 				// update part : resources
 				GlobalUbo ubo{};
@@ -261,13 +253,21 @@ namespace jhb {
 				// render part : vkcmd
 				// this is why beginFram and beginswapchian renderpass are not combined;
 				// because main application control over this multiple render pass like reflections, shadows, post-processing effects
+				//renderer.beginSwapChainRenderPass(commandBuffer);
+				
 				renderer.beginSwapChainRenderPass(commandBuffer);
 
 				skyboxRenderSystem.renderSkyBox(frameInfo);
 				simpleRenderSystem.renderGameObjects(frameInfo, &instanceBuffer);
 				pointLightSystem.renderGameObjects(frameInfo);
-				imguiRendererSystem.render(commandBuffer, imguiImageSamplerDescriptorSets[frameIndex]);
+				
+	
 
+
+				//renderer.endSwapChainRenderPass(commandBuffer);
+				imguiRendererSystem.newFrame(imguiImageSamplerDescriptorSets[frameIndex]);
+				imguiRendererSystem.updateBuffer();
+				imguiRendererSystem.render(commandBuffer, imguiImageSamplerDescriptorSets[frameIndex]);
 				renderer.endSwapChainRenderPass(commandBuffer);
 				renderer.endFrame();
 			}
@@ -414,13 +414,27 @@ namespace jhb {
 
 		ImGui::CreateContext();
 		auto io = ImGui::GetIO();
+		auto vulkanStyle = ImGui::GetStyle();
+		vulkanStyle.Colors[ImGuiCol_TitleBg] = ImVec4(1.0f, 0.0f, 0.0f, 0.6f);
+		vulkanStyle.Colors[ImGuiCol_TitleBgActive] = ImVec4(1.0f, 0.0f, 0.0f, 0.8f);
+		vulkanStyle.Colors[ImGuiCol_MenuBarBg] = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
+		vulkanStyle.Colors[ImGuiCol_Header] = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
+		vulkanStyle.Colors[ImGuiCol_CheckMark] = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
 
+
+		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+		io.Fonts->AddFontDefault();
+		ImGui::StyleColorsDark();
 		// Create font texture
 		unsigned char* fontData;
 		io.Fonts->GetTexDataAsRGBA32(&fontData, &texWidth, &texHeight);
 		VkDeviceSize uploadSize = texWidth * texHeight * 4 * sizeof(char);
-
+		void* mapped;
 		device.createBuffer(uploadSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+		vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, uploadSize, 0, &mapped);
+		memcpy(mapped, fontData, uploadSize);
+		vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
 
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -430,7 +444,7 @@ namespace jhb {
 		imageInfo.extent.depth = 1;
 		imageInfo.mipLevels = 1;
 		imageInfo.arrayLayers = 1;
-		imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+		imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
 		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -447,11 +461,26 @@ namespace jhb {
 
 		VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
 		device.transitionImageLayout(commandBuffer, fontImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
-		device.endSingleTimeCommands(commandBuffer);
 
-		device.copyBufferToImage(stagingBuffer, fontImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
 
-		commandBuffer = device.beginSingleTimeCommands();
+		VkBufferImageCopy bufferCopyRegion = {};
+		bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		bufferCopyRegion.imageSubresource.mipLevel = 0;
+		bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+		bufferCopyRegion.imageSubresource.layerCount = 1;
+		bufferCopyRegion.imageExtent.width = static_cast<uint32_t>(texWidth);
+		bufferCopyRegion.imageExtent.height = static_cast<uint32_t>(texHeight);
+		bufferCopyRegion.imageExtent.depth = 1;
+		bufferCopyRegion.bufferOffset = 0;
+		vkCmdCopyBufferToImage(
+			commandBuffer,
+			stagingBuffer,
+			fontImage, 
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&bufferCopyRegion);
+		//device.copyBufferToImage(commandBuffer ,stagingBuffer, fontImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
+
 		device.transitionImageLayout(commandBuffer, fontImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
 		device.endSingleTimeCommands(commandBuffer);
 
@@ -460,7 +489,7 @@ namespace jhb {
 		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		viewInfo.image = fontImage;
 		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+		viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
 		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		viewInfo.subresourceRange.baseMipLevel = 0;
 		viewInfo.subresourceRange.levelCount = 1;
@@ -476,23 +505,14 @@ namespace jhb {
 		samplerInfo.magFilter = VK_FILTER_LINEAR;
 		samplerInfo.minFilter = VK_FILTER_LINEAR;
 
-		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 
 		VkPhysicalDeviceProperties properties{};
 		vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
 		samplerInfo.anisotropyEnable = VK_FALSE;
-		samplerInfo.maxAnisotropy = 0;
-		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-		samplerInfo.unnormalizedCoordinates = VK_FALSE;
-		samplerInfo.compareEnable = VK_FALSE;
-		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-
-		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerInfo.mipLodBias = 0.0f;
-		samplerInfo.minLod = 0.0f;
-		samplerInfo.maxLod = 1;
+		samplerInfo.maxAnisotropy = 1.0;
 
 		if (vkCreateSampler(device.getLogicalDevice(), &samplerInfo, nullptr, &Sampler) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create texture sampler!");

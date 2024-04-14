@@ -66,9 +66,6 @@
     <ClCompile Include="Descriptors.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SimpleRenderSystem.cpp">
-      <Filter>Systems</Filter>
-    </ClCompile>
     <ClCompile Include="PointLightSystem.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
@@ -81,25 +78,31 @@
     <ClCompile Include="ImguiRenderSystem.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
-    <ClCompile Include="imgui.cpp">
+    <ClCompile Include="BRDFLUTRenderSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PBRRenderSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="External\Imgui\imgui.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
-    <ClCompile Include="imgui_demo.cpp">
+    <ClCompile Include="External\Imgui\imgui_demo.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
-    <ClCompile Include="imgui_draw.cpp">
+    <ClCompile Include="External\Imgui\imgui_draw.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
-    <ClCompile Include="imgui_impl_glfw.cpp">
+    <ClCompile Include="External\Imgui\imgui_tables.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
-    <ClCompile Include="imgui_impl_vulkan.cpp">
+    <ClCompile Include="External\Imgui\imgui_widgets.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
-    <ClCompile Include="imgui_tables.cpp">
+    <ClCompile Include="External\Imgui\imgui_impl_glfw.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
-    <ClCompile Include="imgui_widgets.cpp">
+    <ClCompile Include="External\Imgui\imgui_impl_vulkan.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
   </ItemGroup>
@@ -146,9 +149,6 @@
     <ClInclude Include="Descriptors.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SimpleRenderSystem.h">
-      <Filter>Systems</Filter>
-    </ClInclude>
     <ClInclude Include="PointLightSystem.h">
       <Filter>Systems</Filter>
     </ClInclude>
@@ -161,25 +161,37 @@
     <ClInclude Include="ImguiRenderSystem.h">
       <Filter>Systems</Filter>
     </ClInclude>
-    <ClInclude Include="imgui.h">
+    <ClInclude Include="BRDFLUTRenderSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="imconfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PBRRenderSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="External\Imgui\imconfig.h">
       <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="imgui_impl_glfw.h">
+    <ClInclude Include="External\Imgui\imgui.h">
       <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="imgui_impl_vulkan.h">
+    <ClInclude Include="External\Imgui\imgui_internal.h">
       <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="imgui_internal.h">
+    <ClInclude Include="External\Imgui\imstb_rectpack.h">
       <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="imstb_rectpack.h">
+    <ClInclude Include="External\Imgui\imstb_textedit.h">
       <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="imstb_textedit.h">
+    <ClInclude Include="External\Imgui\imstb_truetype.h">
       <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="imstb_truetype.h">
+    <ClInclude Include="External\Imgui\imgui_impl_glfw.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="External\Imgui\imgui_impl_vulkan.h">
       <Filter>imgui</Filter>
     </ClInclude>
   </ItemGroup>
@@ -190,6 +202,7 @@
     <None Include="shader.frag">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="imgui.ini" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="compile.bat">

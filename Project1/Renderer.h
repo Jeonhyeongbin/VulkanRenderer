@@ -28,11 +28,12 @@ namespace jhb {
 		// application need to access render pass
 		// and pipe line also
 		VkRenderPass getSwapChainRenderPass() const { return swapChain->getRenderPass(); }
+		VkImageView getSwapChainImageView(int index) { return swapChain->getSwapChianImageView(index); }
 		float getAspectRatio() const { return swapChain->extentAspectRatio(); }
 
 		VkCommandBuffer beginFrame();
 		void endFrame();
-		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer frameBuffer, uint32_t width, uint32_t height);
+		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer);
 		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer);
 		void endSwapChainRenderPass(VkCommandBuffer commandBuffer);
 

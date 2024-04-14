@@ -7,17 +7,16 @@
 
 namespace jhb {
 
-	SimpleRenderSystem::SimpleRenderSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange) :
+	PBRRendererSystem::PBRRendererSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange) :
 		BaseRenderSystem(device, renderPass, globalSetLayOut, pushConstanRange) {
 		createPipeline(renderPass, vert, frag);
 	}
 
-	SimpleRenderSystem::~SimpleRenderSystem()
+	PBRRendererSystem::~PBRRendererSystem()
 	{
-		vkDestroyPipelineLayout(device.getLogicalDevice(), pipelineLayout, nullptr);
 	}
 
-	void SimpleRenderSystem::createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag)
+	void PBRRendererSystem::createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag)
 	{
 		assert(pipelineLayout != nullptr && "Cannot Create pipeline before pipeline layout!!");
 
@@ -85,7 +84,7 @@ namespace jhb {
 	}
 
 
-	void SimpleRenderSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
+	void PBRRendererSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
 	{
 		BaseRenderSystem::renderGameObjects(frameInfo);
 		vkCmdBindDescriptorSets(

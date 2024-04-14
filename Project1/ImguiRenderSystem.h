@@ -13,7 +13,7 @@
 #include "Camera.h"
 #include "Descriptors.h"
 #include "FrameInfo.h"
-#include "imgui.h"
+#include "External/Imgui/imgui.h"
 
 #include <stdint.h>
 

@@ -126,18 +126,18 @@ namespace jhb {
 		currentFrameIndex = (currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
 	}
 
-	void Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer frameBuffer, uint32_t width, uint32_t height)
+	void Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer)
 	{
 		assert(isFrameStarted && "Can't call beginSwapChainRenderPass while frame is not in progress!!");
-		assert(commandBuffer == getCurrentCommandBuffer()  && "Can't begining render pass on command buffer from a different frame!");
+		assert(commandBuffer == getCurrentCommandBuffer() && "Can't begining render pass on command buffer from a different frame!");
 
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = swapChain->getRenderPass();
+		renderPassInfo.renderPass = renderPass;
 		renderPassInfo.framebuffer = frameBuffer;
 
 		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = {width, height};
+		renderPassInfo.renderArea.extent = { swapChain->getSwapChainExtent().width, swapChain->getSwapChainExtent().height };
 
 		std::array<VkClearValue, 2> clearValues{};
 		clearValues[0].color = { 0.01f, 0.1f, 0.1f, 1.0f };
@@ -150,18 +150,46 @@ namespace jhb {
 		VkViewport viewport{};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(width);
-		viewport.height = static_cast<float>(height);
+		viewport.width = static_cast<float>(swapChain->getSwapChainExtent().width);
+		viewport.height = static_cast<float>(swapChain->getSwapChainExtent().height);
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
-		VkRect2D scissor{ {0, 0}, {width, height} };
+		VkRect2D scissor{ {0, 0}, {swapChain->getSwapChainExtent().width, swapChain->getSwapChainExtent().height} };
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 	}
 
 	void Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer)
 	{
-		beginSwapChainRenderPass(commandBuffer, swapChain->getFrameBuffer(currentFrameIndex), swapChain->getSwapChainExtent().width, swapChain->getSwapChainExtent().height);
+		assert(isFrameStarted && "Can't call beginSwapChainRenderPass while frame is not in progress!!");
+		assert(commandBuffer == getCurrentCommandBuffer() && "Can't begining render pass on command buffer from a different frame!");
+
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = swapChain->getRenderPass();
+		renderPassInfo.framebuffer = swapChain->getFrameBuffer(currentFrameIndex);
+
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = { swapChain->getSwapChainExtent().width, swapChain->getSwapChainExtent().height };
+
+		std::array<VkClearValue, 2> clearValues{};
+		clearValues[0].color = { 0.2f, 0.2f, 0.2f, 1.f };
+		clearValues[1].depthStencil = { 1.0f, 0 };
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
+
+		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		VkViewport viewport{};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = static_cast<float>(swapChain->getSwapChainExtent().width);
+		viewport.height = static_cast<float>(swapChain->getSwapChainExtent().height);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		VkRect2D scissor{ {0, 0}, {swapChain->getSwapChainExtent().width, swapChain->getSwapChainExtent().height} };
+		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 	}
 
 	void Renderer::endSwapChainRenderPass(VkCommandBuffer commandBuffer)

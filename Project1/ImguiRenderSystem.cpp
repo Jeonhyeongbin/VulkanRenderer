@@ -11,13 +11,14 @@ namespace jhb {
 	ImguiRenderSystem::ImguiRenderSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange) : 
 		BaseRenderSystem(device, renderPass, globalSetLayOut, pushConstanRange) {
 		createPipeline(renderPass, vert, frag);
+		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 
 		//SRS - Set ImGui font and style scale factors to handle retina and other HiDPI displays
 		ImGuiIO& io = ImGui::GetIO();
-		io.FontGlobalScale = 10.f;
-		ImGuiStyle& style = ImGui::GetStyle();
-		style.ScaleAllSizes(10.f);
+		io.FontGlobalScale = 1.f;
+		ImGui::StyleColorsClassic();
+		//style.ScaleAllSizes(1.f);
 
 		vulkanStyle = ImGui::GetStyle();
 		vulkanStyle.Colors[ImGuiCol_TitleBg] = ImVec4(1.0f, 0.0f, 0.0f, 0.6f);
@@ -25,6 +26,7 @@ namespace jhb {
 		vulkanStyle.Colors[ImGuiCol_MenuBarBg] = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
 		vulkanStyle.Colors[ImGuiCol_Header] = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
 		vulkanStyle.Colors[ImGuiCol_CheckMark] = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
+
 
 		ImGui::StyleColorsDark();
 		VkExtent2D extent = device.getWindow().getExtent();
@@ -35,7 +37,6 @@ namespace jhb {
 
 	ImguiRenderSystem::~ImguiRenderSystem()
 	{
-		vkDestroyPipelineLayout(device.getLogicalDevice(), pipelineLayout, nullptr);
 	}
 
 	void ImguiRenderSystem::createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag)
@@ -43,16 +44,25 @@ namespace jhb {
 		assert(pipelineLayout != nullptr && "Cannot Create pipeline before pipeline layout!!");
 
 		PipelineConfigInfo pipelineConfig{};
-		pipelineConfig.depthStencilInfo.depthTestEnable = true;
-		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
+		pipelineConfig.depthStencilInfo.depthTestEnable = false;
+		pipelineConfig.depthStencilInfo.depthWriteEnable = false;
 
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.colorBlendAttachment.blendEnable = VK_TRUE;
+		pipelineConfig.colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
 		pipelineConfig.colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 		pipelineConfig.colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 		pipelineConfig.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 		pipelineConfig.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		pipelineConfig.colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+		pipelineConfig.colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
+		VkPipelineColorBlendStateCreateInfo blend_info = {};
+		blend_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+		blend_info.attachmentCount = 1;
+		blend_info.pAttachments = &pipelineConfig.colorBlendAttachment;
+
+		pipelineConfig.colorBlendInfo = blend_info;
 		VkVertexInputBindingDescription bindingdesc{};
 
 		bindingdesc.binding = 0;
@@ -76,7 +86,7 @@ namespace jhb {
 		attrdesc[2].format = VK_FORMAT_R8G8B8A8_UNORM;
 		attrdesc[2].offset = offsetof(ImDrawVert, ImDrawVert::col);
 
-
+		pipelineConfig.rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		pipelineConfig.attributeDescriptions = attrdesc;
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
@@ -107,7 +117,7 @@ namespace jhb {
 		PushConstBlock pushConstBlock;
 		// UI scale and translate via push constants
 		pushConstBlock.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
-		pushConstBlock.translate = glm::vec2(-1.0f);
+		pushConstBlock.translate = glm::vec2(-1.0f - io.DisplaySize.x * (2.0f / io.DisplaySize.x), -1.f - io.DisplaySize.y * (2.0f / io.DisplaySize.y));
 		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstBlock), &pushConstBlock);
 
 		// Render commands
@@ -140,35 +150,50 @@ namespace jhb {
 			}
 		}
 	}
+
 	void ImguiRenderSystem::newFrame(VkDescriptorSet descriptorSet)
 	{
 		ImGui::NewFrame();
-
-		// Init imGui windows and elements
-
-		// Debug window
-		ImGui::SetWindowPos(ImVec2(0, 0.f),1);
-		ImGui::SetWindowSize(ImVec2(600, 800), 1);
+		ImGui::Image(descriptorSet,ImVec2(30.f,30.f));
+		//// Init imGui windows and elements
+		//// Debug window
+		ImGui::SetWindowPos(ImVec2(20.f, 20.f), ImGuiCond_Appearing);
+		ImGui::SetWindowSize(ImVec2(300, 300), ImGuiCond_Always);
 		ImGui::TextUnformatted("aa");
 		ImGui::TextUnformatted("bb");
+		ImGuiIO& io = ImGui::GetIO();
 
+		io.DisplaySize = ImVec2((float)800, (float)600);
 		bool checkbox = true;
 		float lightSpeed = 0.f;
-		// Example settings window
-		ImGui::SetNextWindowPos(ImVec2(0.f, 0.f), 0);
-		ImGui::SetNextWindowSize(ImVec2(600.f, 800.f), 0);
-		ImGui::Begin("Example settings");
+		//// Example settings window
+		ImGui::SetNextWindowPos(ImVec2(-10.f, -10.f), ImGuiCond_Appearing);
+		ImGui::SetNextWindowSize(ImVec2(10.f, 10.f), ImGuiCond_FirstUseEver);
+		bool istool = true;
+		ImGui::Begin("Example settings", &istool, ImGuiWindowFlags_MenuBar);
+
+		//if (ImGui::BeginMenuBar())
+		//{
+		//	if (ImGui::BeginMenu("File"))
+		//	{
+		//		if (ImGui::MenuItem("Open..", "Ctrl+O")) { /* Do stuff */ }
+		//		if (ImGui::MenuItem("Save", "Ctrl+S")) { /* Do stuff */ }
+		//		ImGui::EndMenu();
+		//	}
+		//	ImGui::EndMenuBar();
+		//}
+
 		ImGui::Checkbox("Display background", &checkbox);
 		ImGui::Checkbox("Animate light", &checkbox);
 		ImGui::SliderFloat("Light speed", &lightSpeed, 0.1f, 1.0f);
 		ImGui::ShowStyleSelector("UI style");
-
+		ImGui::Image(descriptorSet, ImVec2(40.f, 40.f));
 		ImGui::Text("Camera");
 		ImGui::End();
 
 		//SRS - ShowDemoWindow() sets its own initial position and size, cannot override here
 		ImGui::ShowDemoWindow();
-		ImGui::Image(descriptorSet, ImVec2(600.f, 800.f));
+		////ImGui::Image(descriptorSet, ImVec2(600.f, 800.f));
 		// Render to generate draw buffers
 		ImGui::Render();
 
@@ -194,10 +219,10 @@ namespace jhb {
 			{
 				vkUnmapMemory(device.getLogicalDevice(), vertexMemory);
 			}
-			//if (vertexBuffer)
-			//{
-			//	vkDestroyBuffer(device.getLogicalDevice(), vertexBuffer ,nullptr);
-			//}
+			if (vertexBuffer)
+			{
+				vkDestroyBuffer(device.getLogicalDevice(), vertexBuffer ,nullptr);
+			}
 			//if (vertexMemory)
 			//{
 			//	vkFreeMemory(device.getLogicalDevice(), vertexMemory, nullptr);
@@ -214,10 +239,10 @@ namespace jhb {
 			{
 				vkUnmapMemory(device.getLogicalDevice(), indexMemory);
 			}
-			//if (indexBuffer)
-			//{
-			//	vkDestroyBuffer(device.getLogicalDevice(), indexBuffer, nullptr);
-			//}
+			if (indexBuffer)
+			{
+				vkDestroyBuffer(device.getLogicalDevice(), indexBuffer, nullptr);
+			}
 			//if (indexMemory)
 			//{
 			//	vkFreeMemory(device.getLogicalDevice(), indexMemory, nullptr);
