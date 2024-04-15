@@ -1,6 +1,7 @@
 #include "GameObject.h"
 #include "Window.h"
 #include "InputController.h"
+#include "External/Imgui/imgui_impl_glfw.h"
 #include <stdexcept>
 
 jhb::Window::Window(int w, int h, const std::string name) : width{ w }, height{ h }, windowName{ name }

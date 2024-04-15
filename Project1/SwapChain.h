@@ -72,7 +72,7 @@ namespace jhb {
 		std::vector<VkImage> depthImages;
 		std::vector<VkDeviceMemory> depthImageMemorys;
 		std::vector<VkImageView> depthImageViews;
-
+	public:
 		std::vector<VkSemaphore> imageAvailableSemaphores;
 		std::vector<VkSemaphore> renderFinishedSemaphores;
 		std::vector<VkFence> inFlightFences;

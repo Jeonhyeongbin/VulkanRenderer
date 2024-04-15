@@ -27,6 +27,7 @@ namespace jhb {
 
 		// application need to access render pass
 		// and pipe line also
+		SwapChain& GetSwapChain() { return *swapChain; }
 		VkRenderPass getSwapChainRenderPass() const { return swapChain->getRenderPass(); }
 		VkImageView getSwapChainImageView(int index) { return swapChain->getSwapChianImageView(index); }
 		float getAspectRatio() const { return swapChain->extentAspectRatio(); }

@@ -1,4 +1,5 @@
 #include "InputController.h"
+#include "External/Imgui/imgui_impl_glfw.h"
 
 glm::vec3  jhb::InputController::move(GLFWwindow* window, float dt, GameObject& gameObject)
 {
@@ -45,6 +46,13 @@ glm::vec3  jhb::InputController::move(GLFWwindow* window, float dt, GameObject& 
 
 void jhb::InputController::OnButtonPressed(GLFWwindow* window, int button, int action, int modifier)
 {
+	ImGuiIO& io = ImGui::GetIO();
+	if (io.WantCaptureMouse)
+	{
+		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, modifier);
+		return;
+	}
+
 	if (button == GLFW_MOUSE_BUTTON_RIGHT|| button == GLFW_MOUSE_BUTTON_LEFT)
 	{
 		auto tmpwindow = (Window*)glfwGetWindowUserPointer(window);

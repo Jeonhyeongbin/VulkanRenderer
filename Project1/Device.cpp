@@ -1,14 +1,101 @@
 #include "Device.h"
 #include "SwapChain.h"
+#include "External/Imgui/imgui_impl_glfw.h"
+#include "External/Imgui/imgui_impl_vulkan.h"
+
+void OninitVulkanImguiSuccess(VkResult result)
+{
+	if(result == VK_SUCCESS)
+	std::cout <<  "vulkan imgui init success!" << std::endl;
+}
 
 namespace jhb {
 	Device::Device(Window& window) : window(window)
 	{
 		initVulkan();
+		initImgui();
 	}
 
 	Device::~Device()
 	{
+	}
+	
+
+	void Device::initImgui()
+	{
+		ImGui::CreateContext();
+		VkDescriptorPool descriptorPool;
+		VkDescriptorPoolSize pool_sizes[] =
+		{
+			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT},
+		};
+		VkDescriptorPoolCreateInfo pool_info = {};
+		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+		pool_info.maxSets = 1;
+		pool_info.poolSizeCount = 1;
+		pool_info.pPoolSizes = pool_sizes;
+		if (vkCreateDescriptorPool(logicalDevice, &pool_info, nullptr, &descriptorPool) != VK_SUCCESS)
+		{
+			throw std::runtime_error("create Descriptor Pool failed!");
+		}
+
+		// Setup Platform/Renderer bindings
+		ImGui_ImplGlfw_InitForVulkan(&window.GetGLFWwindow(), true);
+		ImGui_ImplVulkan_InitInfo init_info = {};
+		init_info.Instance = instance;
+		init_info.PhysicalDevice = physicalDevice;
+		init_info.Device = logicalDevice;
+		init_info.QueueFamily = 0;
+		init_info.Queue = graphicsQueue;
+		init_info.PipelineCache = nullptr;
+		init_info.DescriptorPool = descriptorPool;
+		init_info.Allocator = nullptr;
+		init_info.MinImageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
+		init_info.ImageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
+		init_info.CheckVkResultFn = OninitVulkanImguiSuccess;
+
+		VkAttachmentDescription attachment = {};
+		attachment.format = VK_FORMAT_R8G8B8A8_UNORM;
+		attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+		attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+		VkAttachmentReference color_attachment = {};
+		color_attachment.attachment = 0;
+		color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkSubpassDescription subpass = {};
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.colorAttachmentCount = 1;
+		subpass.pColorAttachments = &color_attachment;
+
+		VkSubpassDependency dependency = {};
+		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency.dstSubpass = 0;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.srcAccessMask = 0;  // or VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		
+		VkRenderPass imguiRenderPass;
+		VkRenderPassCreateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		info.attachmentCount = 1;
+		info.pAttachments = &attachment;
+		info.subpassCount = 1;
+		info.pSubpasses = &subpass;
+		info.dependencyCount = 1;
+		info.pDependencies = &dependency;
+		if (vkCreateRenderPass(logicalDevice, &info, nullptr, &imguiRenderPass) != VK_SUCCESS) {
+			throw std::runtime_error("Could not create Dear ImGui's render pass");
+		}
+		init_info.RenderPass = imguiRenderPass;
+		ImGui_ImplVulkan_Init(&init_info);
 	}
 
 	uint32_t Device::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)

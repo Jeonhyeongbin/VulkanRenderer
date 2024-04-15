@@ -6,6 +6,8 @@
 #include <array>
 
 
+
+
 namespace jhb {
 
 	ImguiRenderSystem::ImguiRenderSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange) : 
@@ -14,6 +16,7 @@ namespace jhb {
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 
+		ImGui_ImplVulkan_CreateFontsTexture();
 		//SRS - Set ImGui font and style scale factors to handle retina and other HiDPI displays
 		ImGuiIO& io = ImGui::GetIO();
 		io.FontGlobalScale = 1.f;
@@ -98,101 +101,85 @@ namespace jhb {
 	}
 
 	
-	void ImguiRenderSystem::render(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet)
+	void ImguiRenderSystem::render(VkCommandBuffer commandBuffer)
 	{
-		ImGuiIO& io = ImGui::GetIO();
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+		//ImGuiIO& io = ImGui::GetIO();
+		//vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 		pipeline->bind(commandBuffer);
 
-		VkViewport viewport{};
-		viewport.x = 0.0f;
-		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(ImGui::GetIO().DisplaySize.x);
-		viewport.height = static_cast<float>(ImGui::GetIO().DisplaySize.y);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+		//VkViewport viewport{};
+		//viewport.x = 0.0f;
+		//viewport.y = 0.0f;
+		//viewport.width = static_cast<float>(ImGui::GetIO().DisplaySize.x);
+		//viewport.height = static_cast<float>(ImGui::GetIO().DisplaySize.y);
+		//viewport.minDepth = 0.0f;
+		//viewport.maxDepth = 1.0f;
+		//vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
 
-		PushConstBlock pushConstBlock;
-		// UI scale and translate via push constants
-		pushConstBlock.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
-		pushConstBlock.translate = glm::vec2(-1.0f - io.DisplaySize.x * (2.0f / io.DisplaySize.x), -1.f - io.DisplaySize.y * (2.0f / io.DisplaySize.y));
-		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstBlock), &pushConstBlock);
+		//PushConstBlock pushConstBlock;
+		//// UI scale and translate via push constants
+		//pushConstBlock.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
+		//pushConstBlock.translate = glm::vec2(-1.0f - io.DisplaySize.x * (2.0f / io.DisplaySize.x), -1.f - io.DisplaySize.y * (2.0f / io.DisplaySize.y));
+		//vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstBlock), &pushConstBlock);
 
-		// Render commands
-		ImDrawData* imDrawData = ImGui::GetDrawData();
-		int32_t vertexOffset = 0;
-		int32_t indexOffset = 0;
+		//// Render commands
+		//ImDrawData* imDrawData = ImGui::GetDrawData();
+		//int32_t vertexOffset = 0;
+		//int32_t indexOffset = 0;
 
-		if (imDrawData->CmdListsCount > 0) {
-			VkBuffer buffer[] = { vertexBuffer };
-			VkDeviceSize offsets[1] = { 0 };
-			vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffer, offsets);
-			vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+		//if (imDrawData->CmdListsCount > 0) {
+		//	VkBuffer buffer[] = { vertexBuffer };
+		//	VkDeviceSize offsets[1] = { 0 };
+		//	vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffer, offsets);
+		//	vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-			for (int32_t i = 0; i < imDrawData->CmdListsCount; i++)
-			{
-				const ImDrawList* cmd_list = imDrawData->CmdLists[i];
-				for (int32_t j = 0; j < cmd_list->CmdBuffer.Size; j++)
-				{
-					const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[j];
-					VkRect2D scissorRect;
-					scissorRect.offset.x = max((int32_t)(pcmd->ClipRect.x), 0);
-					scissorRect.offset.y = max((int32_t)(pcmd->ClipRect.y), 0);
-					scissorRect.extent.width = (uint32_t)(pcmd->ClipRect.z - pcmd->ClipRect.x);
-					scissorRect.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y);
-					vkCmdSetScissor(commandBuffer, 0, 1, &scissorRect);
-					vkCmdDrawIndexed(commandBuffer, pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);
-					indexOffset += pcmd->ElemCount;
-				}
-				vertexOffset += cmd_list->VtxBuffer.Size;
-			}
-		}
+		//	for (int32_t i = 0; i < imDrawData->CmdListsCount; i++)
+		//	{
+		//		const ImDrawList* cmd_list = imDrawData->CmdLists[i];
+		//		for (int32_t j = 0; j < cmd_list->CmdBuffer.Size; j++)
+		//		{
+		//			const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[j];
+		//			VkRect2D scissorRect;
+		//			scissorRect.offset.x = max((int32_t)(pcmd->ClipRect.x), 0);
+		//			scissorRect.offset.y = max((int32_t)(pcmd->ClipRect.y), 0);
+		//			scissorRect.extent.width = (uint32_t)(pcmd->ClipRect.z - pcmd->ClipRect.x);
+		//			scissorRect.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y);
+		//			vkCmdSetScissor(commandBuffer, 0, 1, &scissorRect);
+		//			vkCmdDrawIndexed(commandBuffer, pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);
+		//			indexOffset += pcmd->ElemCount;
+		//		}
+		//		vertexOffset += cmd_list->VtxBuffer.Size;
+		//	}
+		//}
+
 	}
 
-	void ImguiRenderSystem::newFrame(VkDescriptorSet descriptorSet)
+	void ImguiRenderSystem::newFrame()
 	{
+		// Start the Dear ImGui frame
+		ImGui::CreateContext();
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
-		ImGui::Image(descriptorSet,ImVec2(30.f,30.f));
 		//// Init imGui windows and elements
 		//// Debug window
 		ImGui::SetWindowPos(ImVec2(20.f, 20.f), ImGuiCond_Appearing);
 		ImGui::SetWindowSize(ImVec2(300, 300), ImGuiCond_Always);
-		ImGui::TextUnformatted("aa");
-		ImGui::TextUnformatted("bb");
 		ImGuiIO& io = ImGui::GetIO();
 
 		io.DisplaySize = ImVec2((float)800, (float)600);
 		bool checkbox = true;
 		float lightSpeed = 0.f;
 		//// Example settings window
-		ImGui::SetNextWindowPos(ImVec2(-10.f, -10.f), ImGuiCond_Appearing);
-		ImGui::SetNextWindowSize(ImVec2(10.f, 10.f), ImGuiCond_FirstUseEver);
 		bool istool = true;
 		ImGui::Begin("Example settings", &istool, ImGuiWindowFlags_MenuBar);
 
-		//if (ImGui::BeginMenuBar())
-		//{
-		//	if (ImGui::BeginMenu("File"))
-		//	{
-		//		if (ImGui::MenuItem("Open..", "Ctrl+O")) { /* Do stuff */ }
-		//		if (ImGui::MenuItem("Save", "Ctrl+S")) { /* Do stuff */ }
-		//		ImGui::EndMenu();
-		//	}
-		//	ImGui::EndMenuBar();
-		//}
-
-		ImGui::Checkbox("Display background", &checkbox);
-		ImGui::Checkbox("Animate light", &checkbox);
 		ImGui::SliderFloat("Light speed", &lightSpeed, 0.1f, 1.0f);
-		ImGui::ShowStyleSelector("UI style");
-		ImGui::Image(descriptorSet, ImVec2(40.f, 40.f));
-		ImGui::Text("Camera");
 		ImGui::End();
 
 		//SRS - ShowDemoWindow() sets its own initial position and size, cannot override here
-		ImGui::ShowDemoWindow();
+
 		////ImGui::Image(descriptorSet, ImVec2(600.f, 800.f));
 		// Render to generate draw buffers
 		ImGui::Render();

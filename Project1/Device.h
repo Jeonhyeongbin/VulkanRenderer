@@ -54,6 +54,7 @@ namespace jhb {
 		Device(Device&&) = delete;
 		Device& operator=(Device&&) = delete;
 
+		void initImgui();
 		Window& getWindow() const { return window; }
 		VkDevice getLogicalDevice() const  { return logicalDevice; }
 		VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
@@ -119,6 +120,7 @@ namespace jhb {
 		VkSwapchainKHR swapChain;
 		VkDebugUtilsMessengerEXT debugMessenger;
 		VkCommandPool commandPool;
+
 
 		const std::vector<const char*> validationLayers = {
 		"VK_LAYER_KHRONOS_validation"

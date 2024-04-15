@@ -14,7 +14,8 @@
 #include "Descriptors.h"
 #include "FrameInfo.h"
 #include "External/Imgui/imgui.h"
-
+#include "External/Imgui/imgui_impl_vulkan.h"
+#include "External/Imgui/imgui_impl_glfw.h"
 #include <stdint.h>
 
 namespace jhb {
@@ -33,8 +34,8 @@ namespace jhb {
 		ImguiRenderSystem(ImguiRenderSystem&&) = delete;
 		ImguiRenderSystem& operator=(const ImguiRenderSystem&) = delete;
 
-		void render(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet);
-		void newFrame(VkDescriptorSet descriptorSet);
+		void render(VkCommandBuffer commandBuffer);
+		void newFrame();
 		void updateBuffer();
 	private:
 		// render pass only used to create pipeline
@@ -61,5 +62,13 @@ namespace jhb {
 
 		void* indexMapped;
 		void* vertexMapped;
+
+
+		VkRenderPass imguiRenderPass;
+		VkCommandPool imguiCommandPool;
+		std::vector<VkCommandBuffer> imguiCommandBuffer;
+		std::vector<VkFramebuffer> imguiFrameBuffer;
+
+		bool swapChainRebuild = false;
 	};
 }
