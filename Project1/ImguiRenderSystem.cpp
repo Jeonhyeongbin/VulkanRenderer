@@ -10,7 +10,7 @@
 
 namespace jhb {
 
-	ImguiRenderSystem::ImguiRenderSystem(Device& device)  {
+	ImguiRenderSystem::ImguiRenderSystem(Device& device, const SwapChain& swapchain)  {
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 
@@ -35,23 +35,24 @@ namespace jhb {
 		io.DisplaySize = ImVec2(extent.width, extent.height);
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
-		// todo imgui용 프레임버퍼 만들기
-		/*VkImageView attachment[1];
-		VkFramebufferCreateInfo info = {};
-		info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		info.renderPass = device.imguiRenderPass;
-		info.attachmentCount = 1;
-		info.pAttachments = attachment;
-		info.width = extent.width;
-		info.height = extent.height;
-		info.layers = 1;
+		
 		for (uint32_t i = 0; i < framebuffers.size(); i++)
 		{
-			ImGui_ImplVulkanH_Frame* fd = &wd->Frames[i];
-			attachment[0] = fd->BackbufferView;
-			err = vkCreateFramebuffer(device, &info, allocator, &fd->Framebuffer);
-			check_vk_result(err);
-		}*/
+			// todo imgui용 프레임버퍼 만들기
+			VkImageView attachment[1] = { swapchain.getSwapChianImageView(i) };
+			VkFramebufferCreateInfo info = {};
+			info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			info.renderPass = device.imguiRenderPass;
+			info.attachmentCount = 1;
+			info.pAttachments = attachment;
+			info.width = extent.width;
+			info.height = extent.height;
+			info.layers = 1;
+			if (vkCreateFramebuffer(device.getLogicalDevice(), &info, nullptr, &framebuffers[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("create imgui frame buffer failed!!!");
+			}
+		}
 	}
 
 	ImguiRenderSystem::~ImguiRenderSystem()

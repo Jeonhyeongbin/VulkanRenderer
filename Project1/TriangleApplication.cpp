@@ -144,7 +144,7 @@ namespace jhb {
 		dependency.srcAccessMask = 0;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		std::vector<VkSubpassDependency> imguidepency = { dependency };
-		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device);
+		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
 
 		std::vector<VkDescriptorImageInfo> descImageInfos = { brdfImgInfo , skyBoximageInfo, irradianceImgInfo, prefilterImgInfo };
 		// for image sampler descriptor pool
@@ -241,8 +241,10 @@ namespace jhb {
 				skyboxRenderSystem.renderSkyBox(frameInfo);
 				simpleRenderSystem.renderGameObjects(frameInfo, &instanceBuffer);
 				pointLightSystem.renderGameObjects(frameInfo);
+				renderer.endSwapChainRenderPass(commandBuffer);
+				
 
-
+				renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass,imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
 				imguiRenderSystem->newFrame();
 				ImDrawData* draw_data = ImGui::GetDrawData();
 				ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);

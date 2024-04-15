@@ -28,7 +28,7 @@ namespace jhb {
 		float extentAspectRatio() {
 			return static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height);
 		}
-		VkImageView getSwapChianImageView(int index) {
+		VkImageView getSwapChianImageView(int index) const {
 			return swapChainImageviews[index];
 		}
 		VkRenderPass getRenderPass() { return renderPass; }

@@ -21,7 +21,7 @@
 namespace jhb {
 	class ImguiRenderSystem {
 	public:
-		ImguiRenderSystem(Device& device);
+		ImguiRenderSystem(Device& device, const SwapChain& swapchain);
 		~ImguiRenderSystem();
 
 		ImguiRenderSystem(const ImguiRenderSystem&) = delete;
@@ -34,6 +34,7 @@ namespace jhb {
 		float roughness= 0.1f;
 	private:
 		ImGuiStyle vulkanStyle;
+	public:
 		std::vector<VkFramebuffer> framebuffers{SwapChain::MAX_FRAMES_IN_FLIGHT};
 	};
 }
