@@ -83,10 +83,6 @@ namespace jhb {
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
 		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
-		//descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-		//	.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());// imgui font
-
-
 
 		// for uniform buffer descriptor pool
 		std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -132,23 +128,11 @@ namespace jhb {
 		prefilterImgInfo.imageView = preFilterCubeImgView;
 		prefilterImgInfo.sampler = preFilterCubeSampler;
 		
-
 		std::vector<VkPushConstantRange> pushConstantRanges;
 		VkPushConstantRange pushConstantRange{};
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT ; // This means that both vertex and fragment shader using constant 
 		pushConstantRange.offset = 0;
-		pushConstantRange.size = sizeof(ImguiRenderSystem::PushConstBlock);
 		pushConstantRanges.push_back(pushConstantRange);
-
-		//InitImgui();
-		//VkDescriptorImageInfo imguiFontImgInfo{};
-		//imguiFontImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		//imguiFontImgInfo.imageView = fontView;
-		//imguiFontImgInfo.sampler = Sampler;
-		/*for (int i = 0; i < brdfImageSamplerDescriptorSets.size(); i++)
-		{
-			DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, &imguiFontImgInfo).build(imguiImageSamplerDescriptorSets[i]);
-		}*/
 
 		std::vector<VkDescriptorSetLayout> desclayoutsForImgui = { };
 
@@ -160,10 +144,7 @@ namespace jhb {
 		dependency.srcAccessMask = 0;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		std::vector<VkSubpassDependency> imguidepency = { dependency };
-		//Renderer imguiRenderer{ device.getWindow(), device, imguidepency, false, VK_FORMAT_R8G8B8A8_SRGB ,1 };
-		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.getSwapChainRenderPass(), desclayoutsForImgui ,"shaders/imgui.vert.spv",
-			"shaders/imgui.frag.spv" , pushConstantRanges );
-
+		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device);
 
 		std::vector<VkDescriptorImageInfo> descImageInfos = { brdfImgInfo , skyBoximageInfo, irradianceImgInfo, prefilterImgInfo };
 		// for image sampler descriptor pool
@@ -260,10 +241,9 @@ namespace jhb {
 				skyboxRenderSystem.renderSkyBox(frameInfo);
 				simpleRenderSystem.renderGameObjects(frameInfo, &instanceBuffer);
 				pointLightSystem.renderGameObjects(frameInfo);
-				
-				//renderer.endSwapChainRenderPass(commandBuffer);
+
+
 				imguiRenderSystem->newFrame();
-				imguiRenderSystem->render(commandBuffer);
 				ImDrawData* draw_data = ImGui::GetDrawData();
 				ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
 				renderer.endSwapChainRenderPass(commandBuffer);

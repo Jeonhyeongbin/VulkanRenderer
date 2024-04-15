@@ -82,7 +82,6 @@ namespace jhb {
 		dependency.srcAccessMask = 0;  // or VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		
-		VkRenderPass imguiRenderPass;
 		VkRenderPassCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		info.attachmentCount = 1;

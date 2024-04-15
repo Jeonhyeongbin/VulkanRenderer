@@ -108,6 +108,7 @@ namespace jhb {
 
 	public:
 		VkPhysicalDeviceProperties properties;
+		VkRenderPass imguiRenderPass;
 
 	private:
 		Window& window;
@@ -120,7 +121,6 @@ namespace jhb {
 		VkSwapchainKHR swapChain;
 		VkDebugUtilsMessengerEXT debugMessenger;
 		VkCommandPool commandPool;
-
 
 		const std::vector<const char*> validationLayers = {
 		"VK_LAYER_KHRONOS_validation"

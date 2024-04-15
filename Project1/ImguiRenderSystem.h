@@ -19,59 +19,21 @@
 #include <stdint.h>
 
 namespace jhb {
-	class ImguiRenderSystem : public BaseRenderSystem {
+	class ImguiRenderSystem {
 	public:
-		// UI params are set via push constants
-		struct PushConstBlock {
-			glm::vec2 scale;
-			glm::vec2 translate;
-		} pushConstBlock;
-	public:
-		ImguiRenderSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange);
+		ImguiRenderSystem(Device& device);
 		~ImguiRenderSystem();
 
 		ImguiRenderSystem(const ImguiRenderSystem&) = delete;
 		ImguiRenderSystem(ImguiRenderSystem&&) = delete;
 		ImguiRenderSystem& operator=(const ImguiRenderSystem&) = delete;
-
-		void render(VkCommandBuffer commandBuffer);
 		void newFrame();
-		void updateBuffer();
-	private:
-		// render pass only used to create pipeline
-		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass
-		void createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag) override;
 
-
-
-	public:
-		VkSampler sampler;
-		VkImageView fontView = VK_NULL_HANDLE;
 	public:
 		float metalic = 0.1f;
 		float roughness= 0.1f;
 	private:
-		VkDeviceMemory fontMemory = VK_NULL_HANDLE;
-		VkImage fontImage = VK_NULL_HANDLE;
 		ImGuiStyle vulkanStyle;
-		int selectedStyle = 0;
-
-		VkBuffer vertexBuffer;
-		VkBuffer indexBuffer;
-		VkDeviceMemory vertexMemory;
-		VkDeviceMemory indexMemory;
-		int32_t vertexCount = 0;
-		int32_t indexCount = 0;
-
-		void* indexMapped;
-		void* vertexMapped;
-
-
-		VkRenderPass imguiRenderPass;
-		VkCommandPool imguiCommandPool;
-		std::vector<VkCommandBuffer> imguiCommandBuffer;
-		std::vector<VkFramebuffer> imguiFrameBuffer;
-
-		bool swapChainRebuild = false;
+		std::vector<VkFramebuffer> framebuffers{SwapChain::MAX_FRAMES_IN_FLIGHT};
 	};
 }
