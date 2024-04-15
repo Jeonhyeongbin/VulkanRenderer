@@ -47,6 +47,9 @@ namespace jhb {
 	public:
 		VkSampler sampler;
 		VkImageView fontView = VK_NULL_HANDLE;
+	public:
+		float metalic = 0.1f;
+		float roughness= 0.1f;
 	private:
 		VkDeviceMemory fontMemory = VK_NULL_HANDLE;
 		VkImage fontImage = VK_NULL_HANDLE;

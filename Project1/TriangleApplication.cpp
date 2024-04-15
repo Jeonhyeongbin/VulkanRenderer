@@ -30,7 +30,6 @@ namespace jhb {
 		// each descriptor set contain two UNIFORM_BUFFER descriptor
 		createCube();
 		loadGameObjects();
-		prepareInstance();
 		create2DModelForBRDFLUT();
 	}
 
@@ -162,8 +161,8 @@ namespace jhb {
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		std::vector<VkSubpassDependency> imguidepency = { dependency };
 		//Renderer imguiRenderer{ device.getWindow(), device, imguidepency, false, VK_FORMAT_R8G8B8A8_SRGB ,1 };
-		ImguiRenderSystem imguiRendererSystem{ device, renderer.getSwapChainRenderPass(), desclayoutsForImgui ,"shaders/imgui.vert.spv",
-			"shaders/imgui.frag.spv" , pushConstantRanges };
+		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.getSwapChainRenderPass(), desclayoutsForImgui ,"shaders/imgui.vert.spv",
+			"shaders/imgui.frag.spv" , pushConstantRanges );
 
 
 		std::vector<VkDescriptorImageInfo> descImageInfos = { brdfImgInfo , skyBoximageInfo, irradianceImgInfo, prefilterImgInfo };
@@ -231,7 +230,7 @@ namespace jhb {
 					gameObjects
 				};
 
-
+				updateInstance();
 
 				// update part : resources
 				GlobalUbo ubo{};
@@ -263,8 +262,8 @@ namespace jhb {
 				pointLightSystem.renderGameObjects(frameInfo);
 				
 				//renderer.endSwapChainRenderPass(commandBuffer);
-				imguiRendererSystem.newFrame();
-				imguiRendererSystem.render(commandBuffer);
+				imguiRenderSystem->newFrame();
+				imguiRenderSystem->render(commandBuffer);
 				ImDrawData* draw_data = ImGui::GetDrawData();
 				ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
 				renderer.endSwapChainRenderPass(commandBuffer);
@@ -375,7 +374,7 @@ namespace jhb {
 		gameObjects.emplace(skyBox.getId(), std::move(skyBox));
 	}
 
-	void HelloTriangleApplication::prepareInstance()
+	void HelloTriangleApplication::updateInstance()
 	{
 		std::vector<InstanceData> instanceData;
 		instanceData.resize(64);
@@ -389,8 +388,8 @@ namespace jhb {
 			{
 				instanceData[i + j].pos.x += offsetx*j;
 				instanceData[i + j].pos.y = y;
-				instanceData[i + j].metallic =(1.f- (i/64.f));
-				instanceData[i + j].roughness =(0.3f);
+				instanceData[i + j].metallic = imguiRenderSystem->metalic;
+				instanceData[i + j].roughness = imguiRenderSystem->roughness;
 				instanceData[i + j].r = (i / 64.f );
 				instanceData[i + j].g = 0.0f;
 				instanceData[i + j].b = 0.0f;

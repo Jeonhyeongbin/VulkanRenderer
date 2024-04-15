@@ -170,12 +170,12 @@ namespace jhb {
 
 		io.DisplaySize = ImVec2((float)800, (float)600);
 		bool checkbox = true;
-		float lightSpeed = 0.f;
 		//// Example settings window
 		bool istool = true;
-		ImGui::Begin("Example settings", &istool, ImGuiWindowFlags_MenuBar);
+		ImGui::Begin("settings", &istool, ImGuiWindowFlags_MenuBar);
 
-		ImGui::SliderFloat("Light speed", &lightSpeed, 0.1f, 1.0f);
+		ImGui::SliderFloat("roughness", &roughness, 0.1f, 1.0f);
+		ImGui::SliderFloat("metalic", &metalic, 0.1f, 1.0f);
 		ImGui::End();
 
 		//SRS - ShowDemoWindow() sets its own initial position and size, cannot override here

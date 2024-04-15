@@ -44,7 +44,7 @@ namespace jhb {
 		void loadGameObjects();
 		void createCube();
 		void create2DModelForBRDFLUT();
-		void prepareInstance();
+		void updateInstance();
 		void InitImgui();
 
 		void generateBRDFLUT(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets);
@@ -89,5 +89,7 @@ namespace jhb {
 		VkImageView fontView;
 		VkSampler Sampler;
 		VkDeviceMemory fontMemory;
+
+		std::unique_ptr<class ImguiRenderSystem> imguiRenderSystem;
 	};
 }
