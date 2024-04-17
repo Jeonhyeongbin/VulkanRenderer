@@ -37,3 +37,5 @@
   - pbr, cube map, 인스턴싱 등 opengl advanced 개념을 익히는데 도움이 되었습니다.
 - https://learnopengl.com/
   - 위 강의의 보조용으로 활용하였습니다.
+- https://frguthmann.github.io/posts/vulkan_imgui/
+  - imgui 적용에 도움이 되는 글입니다.
