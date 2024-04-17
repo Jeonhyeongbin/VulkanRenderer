@@ -1,5 +1,5 @@
 #include "ImguiRenderSystem.h"
-#include "TriangleApplication.h"
+#include "JHBApplication.h"
 #include "Model.h"
 #include "FrameInfo.h"
 #include <memory>

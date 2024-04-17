@@ -1,5 +1,5 @@
 #include "BaseRenderSystem.h"
-#include "TriangleApplication.h"
+#include "JHBApplication.h"
 #include "Model.h"
 #include <memory>
 #include <array>

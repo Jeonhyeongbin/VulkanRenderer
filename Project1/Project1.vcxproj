@@ -138,14 +138,7 @@
     <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
   </PropertyGroup>
   <ItemGroup>
-    <CustomBuild Include="compile.bat">
-      <Message>Compile Shaders...</Message>
-      <Command>compile.bat</Command>
-    </CustomBuild>
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="BaseRenderSystem.cpp" />
-    <ClCompile Include="BRDFLUTRenderSystem.cpp" />
     <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Descriptors.cpp" />
@@ -161,6 +154,7 @@
     <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="ImguiRenderSystem.cpp" />
     <ClCompile Include="InputController.cpp" />
+    <ClCompile Include="JHBApplication.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="PBRRenderSystem.cpp" />
@@ -169,12 +163,10 @@
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="SkyBoxRenderSystem.cpp" />
     <ClCompile Include="SwapChain.cpp" />
-    <ClCompile Include="TriangleApplication.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BaseRenderSystem.h" />
-    <ClInclude Include="BRDFLUTRenderSystem.h" />
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Descriptors.h" />
@@ -192,6 +184,7 @@
     <ClInclude Include="imconfig.h" />
     <ClInclude Include="ImguiRenderSystem.h" />
     <ClInclude Include="InputController.h" />
+    <ClInclude Include="JHBApplication.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="PBRRenderSystem.h" />
     <ClInclude Include="Pipeline.h" />
@@ -199,7 +192,6 @@
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="SkyBoxRenderSystem.h" />
     <ClInclude Include="SwapChain.h" />
-    <ClInclude Include="TriangleApplication.h" />
     <ClInclude Include="Utils.hpp" />
     <ClInclude Include="Window.h" />
   </ItemGroup>

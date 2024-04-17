@@ -9,6 +9,4 @@ C:\VulkanSDK\1.3.275.0\Bin\glslc.exe shaders\irradiancecube.frag -o shaders\irra
 C:\VulkanSDK\1.3.275.0\Bin\glslc.exe shaders\prefilterenvmap.frag -o shaders\prefilterenvmap.frag.spv
 C:\VulkanSDK\1.3.275.0\Bin\glslc.exe shaders\genbrdflut.vert -o shaders\genbrdflut.vert.spv
 C:\VulkanSDK\1.3.275.0\Bin\glslc.exe shaders\genbrdflut.frag -o shaders\genbrdflut.frag.spv
-C:\VulkanSDK\1.3.275.0\Bin\glslc.exe shaders\imgui.vert -o shaders\imgui.vert.spv
-C:\VulkanSDK\1.3.275.0\Bin\glslc.exe shaders\imgui.frag -o shaders\imgui.frag.spv
 pause

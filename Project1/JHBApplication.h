@@ -20,7 +20,7 @@
 #include <array>
 
 namespace jhb {
-	class HelloTriangleApplication {
+	class JHBApplication {
 	public:
 		struct InstanceData {
 			glm::vec3 pos;
@@ -31,12 +31,12 @@ namespace jhb {
 			float r, g, b;
 		};
 	public:
-		HelloTriangleApplication();
-		~HelloTriangleApplication();
+		JHBApplication();
+		~JHBApplication();
 
-		HelloTriangleApplication(const HelloTriangleApplication&) = delete;
-		HelloTriangleApplication(HelloTriangleApplication&&) = delete;
-		HelloTriangleApplication& operator=(const HelloTriangleApplication&) = delete;
+		JHBApplication(const JHBApplication&) = delete;
+		JHBApplication(JHBApplication&&) = delete;
+		JHBApplication& operator=(const JHBApplication&) = delete;
 
 		void Run();
 

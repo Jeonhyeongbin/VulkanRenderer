@@ -1,4 +1,4 @@
-#include "TriangleApplication.h"
+#include "JHBApplication.h"
 #include "PBRRenderSystem.h"
 #include "SkyBoxRenderSystem.h"
 #include "ImguiRenderSystem.h"

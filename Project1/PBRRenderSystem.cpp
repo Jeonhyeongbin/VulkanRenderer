@@ -1,5 +1,5 @@
 #include "PBRRenderSystem.h"
-#include "TriangleApplication.h"
+#include "JHBApplication.h"
 #include "Model.h"
 #include "FrameInfo.h"
 #include <memory>
@@ -28,7 +28,7 @@ namespace jhb {
 		VkVertexInputBindingDescription bindingdesc{};
 
 		bindingdesc.binding = 1;
-		bindingdesc.stride = sizeof(jhb::HelloTriangleApplication::InstanceData);
+		bindingdesc.stride = sizeof(jhb::JHBApplication::InstanceData);
 		bindingdesc.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 		
 		pipelineConfig.bindingDescriptions.push_back(bindingdesc);
@@ -38,38 +38,38 @@ namespace jhb {
 		attrdesc[0].binding = 1;
 		attrdesc[0].location = 4;
 		attrdesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrdesc[0].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::pos);
+		attrdesc[0].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::pos);
 
 		attrdesc[1].binding = 1;
 		attrdesc[1].location = 5;
 		attrdesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrdesc[1].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::rot);
+		attrdesc[1].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::rot);
 
 		attrdesc[2].binding = 1;
 		attrdesc[2].location = 6;
 		attrdesc[2].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[2].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::scale);
+		attrdesc[2].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::scale);
 
 		attrdesc[3].binding = 1;
 		attrdesc[3].location = 7;
 		attrdesc[3].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[3].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::roughness);
+		attrdesc[3].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::roughness);
 		attrdesc[4].binding = 1;
 		attrdesc[4].location = 8;
 		attrdesc[4].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[4].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::metallic);
+		attrdesc[4].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::metallic);
 		attrdesc[5].binding = 1;
 		attrdesc[5].location = 9;
 		attrdesc[5].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[5].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::r);
+		attrdesc[5].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::r);
 		attrdesc[6].binding = 1;
 		attrdesc[6].location = 10;
 		attrdesc[6].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[6].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::g);
+		attrdesc[6].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::g);
 		attrdesc[7].binding = 1;
 		attrdesc[7].location = 11;
 		attrdesc[7].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[7].offset = offsetof(HelloTriangleApplication::InstanceData, HelloTriangleApplication::InstanceData::b);
+		attrdesc[7].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::b);
 
 		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
 

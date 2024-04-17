@@ -12,7 +12,7 @@
 #include "Utils.hpp"
 #include "Model.h"
 #include "Device.h"
-#include "TriangleApplication.h"
+#include "JHBApplication.h"
 #include <ktx.h>
 #include <ktxvulkan.h>
 
