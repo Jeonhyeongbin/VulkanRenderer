@@ -12,6 +12,12 @@
 
 ```
 
+# In Progress
+- apply gltf 2.0 format with tinygltf
+
+# TODO
+- animation
+
 # 조작법
 - 마우스로 회전 및 wasd키로 이동 및 마우스휠로 줌인 줌아웃.
 
