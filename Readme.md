@@ -22,16 +22,15 @@ try {
 
 # Feature
 ![실행 결과](./image.png)
-```
+
 - Instancing
 - PBR
-- HDR Tone Mapping : uncharted tone mapping [GDC](https://www.gdcvault.com/play/1012351/Uncharted-2-HDR)
+- HDR Tone Mapping : uncharted tone mapping [gdcvault/Uncharted-2-HDR](https://www.gdcvault.com/play/1012351/Uncharted-2-HDR)
 - KTX(Khronos Texture) texture storage Format을 사용하였습니다.
 
-```
 
 # In Progress
-- apply gltf 2.0 format with tinygltf [tinygltf](https://github.com/syoyo/tinygltf).
+- apply gltf 2.0 format with [tinygltf](https://github.com/syoyo/tinygltf).
 
 # TODO
 - animation
