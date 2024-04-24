@@ -5,13 +5,15 @@
 # Entry Point
 - Project1/Main.cpp
 ```C++
-int main() {
+int main()
+{
 	try {
 		// swapchain, framebuffer, color, depth attachment are to fixed with window size
 		// every time window resize, you must create new swapcahin and others...
 		jhb::JHBApplication app;
 		app.Run();
 	}
+}
 ```
 
 # Feature
