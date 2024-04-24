@@ -1,18 +1,22 @@
 ﻿# VulkanRenderer
 - vulkan api를 사용한 미니 렌더러입니다.
 
+# 세팅
+- vulkanSDK(https://vulkan.lunarg.com/sdk/home#windows)를 다운받아 설치 해주세요.
+- 그런 후 Project1/ShaderCompile.bat를 실행하여 쉐이더를 한번 컴파일해 줘야합니다.
+- vs2022에서만 빌드 및 실행이 가능합니다.
 
 # Entry Point
 - Project1/Main.cpp
 ```C++
 int main()
 {
-	try {
-		// swapchain, framebuffer, color, depth attachment are to fixed with window size
-		// every time window resize, you must create new swapcahin and others...
-		jhb::JHBApplication app;
-		app.Run();
-	}
+try {
+	// swapchain, framebuffer, color, depth attachment are to fixed with window size
+	// every time window resize, you must create new swapcahin and others...
+	jhb::JHBApplication app;
+	app.Run();
+}
 }
 ```
 
@@ -21,13 +25,13 @@ int main()
 ```
 - Instancing
 - PBR
-- HDR Tone Mapping : uncharted tone mapping (https://www.gdcvault.com/play/1012351/Uncharted-2-HDR)
+- HDR Tone Mapping : uncharted tone mapping [GDC](https://www.gdcvault.com/play/1012351/Uncharted-2-HDR)
 - KTX(Khronos Texture) texture storage Format을 사용하였습니다.
 
 ```
 
 # In Progress
-- apply gltf 2.0 format with tinygltf
+- apply gltf 2.0 format with tinygltf [tinygltf](https://github.com/syoyo/tinygltf).
 
 # TODO
 - animation
@@ -37,12 +41,6 @@ int main()
 
 # 구조
 ![구조](./flowchart.png)
-
-
-# 세팅
-- vulkanSDK(https://vulkan.lunarg.com/sdk/home#windows)를 다운받아 설치 해주세요.
-- 그런 후 Project1/ShaderCompile.bat를 실행하여 쉐이더를 한번 컴파일해 줘야합니다.
-- vs2022에서만 빌드 및 실행이 가능합니다.
 
 # 참고 자료들
 - https://vulkan-tutorial.com/
