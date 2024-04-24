@@ -27,9 +27,6 @@
     <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TriangleApplication.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Pipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -78,9 +75,6 @@
     <ClCompile Include="ImguiRenderSystem.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
-    <ClCompile Include="BRDFLUTRenderSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="PBRRenderSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -105,11 +99,11 @@
     <ClCompile Include="External\Imgui\imgui_impl_vulkan.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
+    <ClCompile Include="JHBApplication.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="TriangleApplication.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Pipeline.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -161,9 +155,6 @@
     <ClInclude Include="ImguiRenderSystem.h">
       <Filter>Systems</Filter>
     </ClInclude>
-    <ClInclude Include="BRDFLUTRenderSystem.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="imconfig.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -194,6 +185,9 @@
     <ClInclude Include="External\Imgui\imgui_impl_vulkan.h">
       <Filter>imgui</Filter>
     </ClInclude>
+    <ClInclude Include="JHBApplication.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shader.vert">
@@ -203,10 +197,5 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="imgui.ini" />
-  </ItemGroup>
-  <ItemGroup>
-    <CustomBuild Include="compile.bat">
-      <Filter>Source Files</Filter>
-    </CustomBuild>
   </ItemGroup>
 </Project>

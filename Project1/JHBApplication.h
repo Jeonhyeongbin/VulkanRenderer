@@ -46,6 +46,7 @@ namespace jhb {
 		void create2DModelForBRDFLUT();
 		void updateInstance();
 		void InitImgui();
+		void loadGLTFFile(const std::string& filename);
 
 		void generateBRDFLUT(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets);
 		void generateIrradianceCube(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets);

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -76,14 +76,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)\External\tinyObjLoader;$(ProjectDir)\External\KTX-Software\include;%VULKAN_SDK%\Include;$(ProjectDir)\External\glfw-3.4.bin.WIN64\include;$(ProjectDir)\External\glm;$(ProjectDir)\External\textureLoader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\External\tinyObjLoader;$(ProjectDir)\External\KTX-Software\include;%VULKAN_SDK%\Include;$(ProjectDir)\External\glfw-3.4.bin.WIN64\include;$(ProjectDir)\External\glm;$(ProjectDir)\External\textureLoader;$(ProjectDir)\External\tinygltf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)\External\KTX-Software\lib;%VULKAN_SDK%\Lib;$(ProjectDir)\External\glfw-3.4.bin.WIN64\lib-vc2022;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;ktx.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)\External\KTX-Software\lib;%VULKAN_SDK%\Lib;$(ProjectDir)\External\glfw-3.4.bin.WIN64\lib-vc2022;$(ProjectDir)\External\Assimp\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;ktx.lib;assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -92,14 +92,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)\External\tinyObjLoader;$(ProjectDir)\External\KTX-Software\include;%VULKAN_SDK%\Include;$(ProjectDir)\External\glfw-3.4.bin.WIN64\include;$(ProjectDir)\External\glm;$(ProjectDir)\External\textureLoader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\External\tinyObjLoader;$(ProjectDir)\External\KTX-Software\include;%VULKAN_SDK%\Include;$(ProjectDir)\External\glfw-3.4.bin.WIN64\include;$(ProjectDir)\External\glm;$(ProjectDir)\External\textureLoader;$(ProjectDir)\External\tinygltf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)\External\KTX-Software\lib;%VULKAN_SDK%\Lib;$(ProjectDir)\External\glfw-3.4.bin.WIN64\lib-vc2022;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;ktx.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)\External\KTX-Software\lib;%VULKAN_SDK%\Lib;$(ProjectDir)\External\glfw-3.4.bin.WIN64\lib-vc2022;$(ProjectDir)\External\Assimp\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;ktx.lib;assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -108,14 +108,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)\External\tinyObjLoader;$(ProjectDir)\External\KTX-Software\include;%VULKAN_SDK%\Include;$(ProjectDir)\External\glfw-3.4.bin.WIN64\include;$(ProjectDir)\External\glm;$(ProjectDir)\External\textureLoader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\External\tinyObjLoader;$(ProjectDir)\External\KTX-Software\include;%VULKAN_SDK%\Include;$(ProjectDir)\External\glfw-3.4.bin.WIN64\include;$(ProjectDir)\External\glm;$(ProjectDir)\External\textureLoader;$(ProjectDir)\External\tinygltf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)\External\KTX-Software\lib;%VULKAN_SDK%\Lib;$(ProjectDir)\External\glfw-3.4.bin.WIN64\lib-vc2022;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;ktx.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)\External\KTX-Software\lib;%VULKAN_SDK%\Lib;$(ProjectDir)\External\glfw-3.4.bin.WIN64\lib-vc2022;$(ProjectDir)\External\Assimp\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;ktx.lib;assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -124,14 +124,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)\External\tinyObjLoader;$(ProjectDir)\External\KTX-Software\include;%VULKAN_SDK%\Include;$(ProjectDir)\External\glfw-3.4.bin.WIN64\include;$(ProjectDir)\External\glm;$(ProjectDir)\External\textureLoader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\External\tinyObjLoader;$(ProjectDir)\External\KTX-Software\include;%VULKAN_SDK%\Include;$(ProjectDir)\External\glfw-3.4.bin.WIN64\include;$(ProjectDir)\External\glm;$(ProjectDir)\External\textureLoader;$(ProjectDir)\External\tinygltf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)\External\KTX-Software\lib;%VULKAN_SDK%\Lib;$(ProjectDir)\External\glfw-3.4.bin.WIN64\lib-vc2022;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;ktx.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)\External\KTX-Software\lib;%VULKAN_SDK%\Lib;$(ProjectDir)\External\glfw-3.4.bin.WIN64\lib-vc2022;$(ProjectDir)\External\Assimp\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;ktx.lib;assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <PropertyGroup>
