@@ -7,6 +7,12 @@
 
 namespace jhb {
 
+	PBRRendererSystem::PBRRendererSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange,
+		const std::vector<Material>& materials) :
+		BaseRenderSystem(device, renderPass, globalSetLayOut, pushConstanRange) {
+		createPipelinePerMaterial(renderPass, vert, frag, materials);
+	}
+
 	PBRRendererSystem::PBRRendererSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange) :
 		BaseRenderSystem(device, renderPass, globalSetLayOut, pushConstanRange) {
 		createPipeline(renderPass, vert, frag);
@@ -16,15 +22,15 @@ namespace jhb {
 	{
 	}
 
-	void PBRRendererSystem::createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag)
+	void PBRRendererSystem::createPipelinePerMaterial(VkRenderPass renderPass, const std::string& vert, const std::string& frag, const std::vector<Material>& materials)
 	{
 		assert(pipelineLayout != nullptr && "Cannot Create pipeline before pipeline layout!!");
 
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthTestEnable = true;
 		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
-		pipelineConfig.attributeDescriptions = jhb::Model::Vertex::getAttrivuteDescriptions();
-		pipelineConfig.bindingDescriptions = jhb::Model::Vertex::getBindingDescriptions();
+		pipelineConfig.attributeDescriptions = jhb::Vertex::getAttrivuteDescriptions();
+		pipelineConfig.bindingDescriptions = jhb::Vertex::getBindingDescriptions();
 		VkVertexInputBindingDescription bindingdesc{};
 
 		bindingdesc.binding = 1;
@@ -80,7 +86,7 @@ namespace jhb {
 			device,
 			"shaders/shader.vert.spv",
 			"shaders/shader.frag.spv",
-			pipelineConfig);
+			pipelineConfig, materials);
 	}
 
 
@@ -138,7 +144,7 @@ namespace jhb {
 				{
 					obj.model->bind(frameInfo.commandBuffer);
 				}
-				obj.model->draw(frameInfo.commandBuffer, 64);
+				obj.model->draw(frameInfo.commandBuffer, pipelineLayout, frameInfo.frameIndex, 64);
 			}
 		}
 	}

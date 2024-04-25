@@ -25,9 +25,6 @@ namespace jhb {
 		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();	// irradiane
 		globalPools[4] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); //prefiter
 		
-		// for glft model matrix
-		globalPools[5] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
-
 		// for gltf model color map and normal map
 		globalPools[6] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 2).build(); 
 	
@@ -90,7 +87,6 @@ namespace jhb {
 		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
 
-
 		// for gltf normal map and color map
 		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2).build());
@@ -103,7 +99,6 @@ namespace jhb {
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
 			DescriptorWriter(*descSetLayouts[0], *globalPools[0]).writeBuffer(0, &bufferInfo).build(globalDescriptorSets[i]);
 		}
-
 
 		std::vector<VkDescriptorSet> CubeBoxDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT); // skybox
 		VkDescriptorImageInfo skyBoximageInfo{};
@@ -126,7 +121,7 @@ namespace jhb {
 		std::vector<VkDescriptorSet> brdfImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		std::vector<VkDescriptorSet> irradianceImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		std::vector<VkDescriptorSet> prefilterImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
-		//std::vector<VkDescriptorSet> imguiImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
 		VkDescriptorImageInfo brdfImgInfo{};
 		brdfImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		brdfImgInfo.imageView = lutBrdfView;
@@ -145,6 +140,11 @@ namespace jhb {
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT ; // This means that both vertex and fragment shader using constant 
 		pushConstantRange.offset = 0;
 		pushConstantRanges.push_back(pushConstantRange);
+		VkPushConstantRange pushConstantRangeGltfMat{};
+		pushConstantRangeGltfMat.stageFlags = VK_SHADER_STAGE_VERTEX_BIT ; // This means that both vertex and fragment shader using constant 
+		pushConstantRangeGltfMat.offset = sizeof(PBRPushConstantData);
+		pushConstantRangeGltfMat.size = sizeof(gltfPushConstantData);
+		pushConstantRanges.push_back(pushConstantRangeGltfMat);
 
 		std::vector<VkDescriptorSetLayout> desclayoutsForImgui = { };
 
@@ -160,7 +160,6 @@ namespace jhb {
 
 		std::vector<VkDescriptorImageInfo> descImageInfos = { brdfImgInfo , skyBoximageInfo, irradianceImgInfo, prefilterImgInfo };
 		// for image sampler descriptor pool
-		// for vase texture;
 		for (int i = 0; i < brdfImageSamplerDescriptorSets.size(); i++)
 		{
 			DescriptorWriter(*descSetLayouts[1], *globalPools[1]).writeImage(0, &descImageInfos[0]).build(brdfImageSamplerDescriptorSets[i]);
@@ -175,10 +174,21 @@ namespace jhb {
 			desclayouts.push_back(descSetLayouts[i]->getDescriptorSetLayout());
 		}
 
+		// for gltf color map and normal map
+		auto gltfModel = gameObjects[1].model;
+		for (auto material : gltfModel->materials)
+		{
+			for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
+			{
+				DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, &gltfModel->getTexture(material.baseColorTextureIndex).descriptor).build(material.descriptorSets[i]);
+				DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(1, &gltfModel->getTexture(material.normalTextureIndex).descriptor).build(material.descriptorSets[i]);
+			}
+		}
+
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-		pushConstantRanges[0].size = sizeof(SimplePushConstantData);
-		PBRRendererSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/shader.vert.spv",
-			"shaders/shader.frag.spv" , pushConstantRanges };
+		pushConstantRanges[0].size = sizeof(PBRPushConstantData);
+		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/pbr.vert.spv",
+			"shaders/pbr.frag.spv" , pushConstantRanges, gameObjects[1].model->materials};
 		pushConstantRanges[0].size = sizeof(PointLightPushConstants);
 		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), desclayouts, "shaders/point_light.vert.spv",
 			"shaders/point_light.frag.spv" , pushConstantRanges };
@@ -191,7 +201,6 @@ namespace jhb {
 		InputController cameraController{device.getWindow().GetGLFWwindow(), viewerObject};
 		double x, y;
 		auto currentTime = std::chrono::high_resolution_clock::now();
-		
 
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
@@ -251,7 +260,7 @@ namespace jhb {
 				renderer.beginSwapChainRenderPass(commandBuffer);
 
 				skyboxRenderSystem.renderSkyBox(frameInfo);
-				simpleRenderSystem.renderGameObjects(frameInfo, &instanceBuffer);
+				pbrRenderSystem.renderGameObjects(frameInfo, &instanceBuffer);
 				pointLightSystem.renderGameObjects(frameInfo);
 				renderer.endSwapChainRenderPass(commandBuffer);
 				
@@ -269,14 +278,13 @@ namespace jhb {
 	}
 	void JHBApplication::loadGameObjects()
 	{
-		std::shared_ptr<Model> model =
-		Model::createModelFromFile(device, "Models/smooth_vase.obj", "Texture/vase_txture.jpg");
-		auto flatVase = GameObject::createGameObject();
-		flatVase.model = model;
-		flatVase.transform.translation = { -.5f, .5f, 0.f };
-		flatVase.transform.scale = { 3.f, 1.5f, 3.f };
-		gameObjects.emplace(flatVase.getId(), std::move(flatVase));
-
+		//std::shared_ptr<Model> model =
+		//Model::createModelFromFile(device, "Models/smooth_vase.obj", "Texture/vase_txture.jpg");
+		//auto flatVase = GameObject::createGameObject();
+		//flatVase.model = model;
+		//flatVase.transform.translation = { -.5f, .5f, 0.f };
+		//flatVase.transform.scale = { 3.f, 1.5f, 3.f };
+		loadGLTFFile("Models\cerberus\cerberus.gltf");
 
 		std::vector<glm::vec3> lightColors{
 			{1.f, 1.f, 1.f},
@@ -416,7 +424,7 @@ namespace jhb {
 
 		std::vector<uint32_t> indexBuffer;
 		std::vector<Vertex> vertexBuffer;
-		std::unique_ptr<Model> model = std::make_unique<Model>(device);
+		std::shared_ptr<Model> model = std::make_shared<Model>(device);
 
 		if (fileLoaded) {
 			model->loadImages(glTFInput);
@@ -435,6 +443,13 @@ namespace jhb {
 
 		model->createVertexBuffer(vertexBuffer);
 		model->createIndexBuffer(indexBuffer);
+
+		auto gameModel = GameObject::createGameObject();
+		gameModel.model = model;
+		gameModel.transform.translation = { -.5f, .5f, 0.f };
+		gameModel.transform.scale = { 3.f, 1.5f, 3.f };
+
+		gameObjects.emplace(gameModel.getId(), std::move(gameModel));
 	}
 
 	void JHBApplication::generateBRDFLUT(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets)

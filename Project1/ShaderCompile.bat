@@ -1,5 +1,5 @@
-%VULKAN_SDK%\Bin\glslc.exe shaders\shader.vert -o shaders\shader.vert.spv
-%VULKAN_SDK%\Bin\glslc.exe shaders\shader.frag -o shaders\shader.frag.spv
+%VULKAN_SDK%\Bin\glslc.exe shaders\pbr.vert -o shaders\pbr.vert.spv
+%VULKAN_SDK%\Bin\glslc.exe shaders\pbr.frag -o shaders\pbr.frag.spv
 %VULKAN_SDK%\Bin\glslc.exe shaders\point_light.vert -o shaders\point_light.vert.spv
 %VULKAN_SDK%\Bin\glslc.exe shaders\point_light.frag -o shaders\point_light.frag.spv
 %VULKAN_SDK%\Bin\glslc.exe shaders\skybox.vert -o shaders\skybox.vert.spv

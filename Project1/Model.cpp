@@ -2,8 +2,6 @@
 #include <iostream>
 #include <unordered_map>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 #define GLM_ENABLE_EXPERIMENTAL
@@ -15,6 +13,7 @@
 #include "JHBApplication.h"
 #include <ktx.h>
 #include <ktxvulkan.h>
+#include "BaseRenderSystem.h"
 
 namespace std{
 	template <>
@@ -39,23 +38,22 @@ jhb::Model::~Model()
 {
 }
 
-std::unique_ptr<jhb::Model> jhb::Model::createModelFromFile(Device& device, const std::string& Modelfilepath, const std::string& Texturefilepath)
+void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, int frameIndex, uint32_t instanceCount)
 {
-	//std::unique_ptr<Builder> builder = std::make_unique<Builder>(device);
-	//builder->loadModel(Modelfilepath);
-	//builder->loadTexture2D(Texturefilepath);
-	//
-	//return std::make_unique<Model>(device, std::move(builder));
-}
-
-void jhb::Model::draw(VkCommandBuffer commandBuffer, uint32_t instanceCount)
-{
-	if (hasIndexBuffer)
+	if (!nodes.empty())
 	{
-		vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount,0,0,0);
+		for (auto& node : nodes) {
+			drawNode(commandBuffer, pipelineLayout, node, frameIndex);
+		}
 	}
 	else {
-		vkCmdDraw(commandBuffer, vertexCount, instanceCount, 0, 0);
+		if (hasIndexBuffer)
+		{
+			vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, 0);
+		}
+		else {
+			vkCmdDraw(commandBuffer, vertexCount, instanceCount, 0, 0);
+		}
 	}
 }
 
@@ -435,7 +433,7 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 	}
 }
 
-void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node)
+void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex)
 {
 	if (!node->visible) {
 		return;
@@ -450,121 +448,121 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 			currentParent = currentParent->parent;
 		}
 		// Pass the final matrix to the vertex shader using push constants
-		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeMatrix);
+		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(glm::mat4), &nodeMatrix);
 		for (Primitive& primitive : node->mesh.primitives) {
 			if (primitive.indexCount > 0) {
 				Material& material = materials[primitive.materialIndex];
 				// POI: Bind the pipeline for the node's material
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.pipeline);
-				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &material.descriptorSet, 0, nullptr);
+				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 4, 1, &material.descriptorSets[frameIndex], 0, nullptr);
 				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
 			}
 		}
 	}
 	for (auto& child : node->children) {
-		drawNode(commandBuffer, pipelineLayout, child);
+		drawNode(commandBuffer, pipelineLayout, child, frameIndex);
 	}
 }
 
 void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 {
-	int texWidth, texHeight, texChannels;
-	if (filepath.size() <= 0)
-		return;
+	//int texWidth, texHeight, texChannels;
+	//if (filepath.size() <= 0)
+	//	return;
 
-	float* pixels = stbi_loadf(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-	VkDeviceSize imageSize = texWidth * texHeight * texChannels * 4; // 4byte per pixel
+	//float* pixels = stbi_loadf(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	//VkDeviceSize imageSize = texWidth * texHeight * texChannels * 4; // 4byte per pixel
 
-	if (!pixels) {
-		throw std::runtime_error("failed to load texture image!");
-	}
+	//if (!pixels) {
+	//	throw std::runtime_error("failed to load texture image!");
+	//}
 
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
+	//VkBuffer stagingBuffer;
+	//VkDeviceMemory stagingBufferMemory;
 
-	device.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-	void* data;
-	vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
-	memcpy(data, pixels, static_cast<size_t>(imageSize));
-	vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
+	//device.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+	//void* data;
+	//vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
+	//memcpy(data, pixels, static_cast<size_t>(imageSize));
+	//vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
 
-	stbi_image_free(pixels);
+	//stbi_image_free(pixels);
 
-	VkImageCreateInfo imageInfo{};
-	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.extent.width = static_cast<uint32_t>(texWidth);
-	imageInfo.extent.height = static_cast<uint32_t>(texHeight);
-	imageInfo.extent.depth = 1;
-	imageInfo.mipLevels = 1;
-	imageInfo.arrayLayers = 1;
-	imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
-	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	imageInfo.flags = 0; // Optional
-	device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, image, deviceMemory);
+	//VkImageCreateInfo imageInfo{};
+	//imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	//imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	//imageInfo.extent.width = static_cast<uint32_t>(texWidth);
+	//imageInfo.extent.height = static_cast<uint32_t>(texHeight);
+	//imageInfo.extent.depth = 1;
+	//imageInfo.mipLevels = 1;
+	//imageInfo.arrayLayers = 1;
+	//imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+	//imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	//imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	//imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	//imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	//imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	//imageInfo.flags = 0; // Optional
+	//device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, image, deviceMemory);
 
-	VkImageSubresourceRange subresourceRange = {};
-	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	subresourceRange.baseMipLevel = 0;
-	subresourceRange.levelCount = 1;
-	subresourceRange.layerCount = 1;
+	//VkImageSubresourceRange subresourceRange = {};
+	//subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	//subresourceRange.baseMipLevel = 0;
+	//subresourceRange.levelCount = 1;
+	//subresourceRange.layerCount = 1;
 
-	VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
-	device.transitionImageLayout(commandBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
-	device.endSingleTimeCommands(commandBuffer);
+	//VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
+	//device.transitionImageLayout(commandBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+	//device.endSingleTimeCommands(commandBuffer);
 
-	device.copyBufferToImage(stagingBuffer, image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
+	//device.copyBufferToImage(stagingBuffer, image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
 
-	commandBuffer = device.beginSingleTimeCommands();
-	device.transitionImageLayout(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
-	device.endSingleTimeCommands(commandBuffer);
+	//commandBuffer = device.beginSingleTimeCommands();
+	//device.transitionImageLayout(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
+	//device.endSingleTimeCommands(commandBuffer);
 
-	// create image view and image sampler
-	VkImageViewCreateInfo viewInfo{};
-	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewInfo.image = image;
-	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
-	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	viewInfo.subresourceRange.baseMipLevel = 0;
-	viewInfo.subresourceRange.levelCount = 1;
-	viewInfo.subresourceRange.baseArrayLayer = 0;
-	viewInfo.subresourceRange.layerCount = 1;
+	//// create image view and image sampler
+	//VkImageViewCreateInfo viewInfo{};
+	//viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	//viewInfo.image = image;
+	//viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	//viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+	//viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	//viewInfo.subresourceRange.baseMipLevel = 0;
+	//viewInfo.subresourceRange.levelCount = 1;
+	//viewInfo.subresourceRange.baseArrayLayer = 0;
+	//viewInfo.subresourceRange.layerCount = 1;
 
-	if (vkCreateImageView(device.getLogicalDevice(), &viewInfo, nullptr, &view) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create texture image view!");
-	}
+	//if (vkCreateImageView(device.getLogicalDevice(), &viewInfo, nullptr, &view) != VK_SUCCESS) {
+	//	throw std::runtime_error("failed to create texture image view!");
+	//}
 
-	VkSamplerCreateInfo samplerInfo{};
-	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerInfo.magFilter = VK_FILTER_LINEAR;
-	samplerInfo.minFilter = VK_FILTER_LINEAR;
+	//VkSamplerCreateInfo samplerInfo{};
+	//samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	//samplerInfo.magFilter = VK_FILTER_LINEAR;
+	//samplerInfo.minFilter = VK_FILTER_LINEAR;
 
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	//samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	//samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+	//samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 
-	VkPhysicalDeviceProperties properties{};
-	vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
-	samplerInfo.anisotropyEnable = VK_FALSE;
-	samplerInfo.maxAnisotropy = 0;
-	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-	samplerInfo.unnormalizedCoordinates = VK_FALSE;
-	samplerInfo.compareEnable = VK_FALSE;
-	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	//VkPhysicalDeviceProperties properties{};
+	//vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
+	//samplerInfo.anisotropyEnable = VK_FALSE;
+	//samplerInfo.maxAnisotropy = 0;
+	//samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	//samplerInfo.unnormalizedCoordinates = VK_FALSE;
+	//samplerInfo.compareEnable = VK_FALSE;
+	//samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
 
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerInfo.mipLodBias = 0.0f;
-	samplerInfo.minLod = 0.0f;
-	samplerInfo.maxLod = 1;
+	//samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	//samplerInfo.mipLodBias = 0.0f;
+	//samplerInfo.minLod = 0.0f;
+	//samplerInfo.maxLod = 1;
 
-	if (vkCreateSampler(device.getLogicalDevice(), &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create texture sampler!");
-	}
+	//if (vkCreateSampler(device.getLogicalDevice(), &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
+	//	throw std::runtime_error("failed to create texture sampler!");
+	//}
 }
 
 void jhb::Image::loadKTXTexture(Device& device, const std::string& filepath, VkImageViewType imgViewType, int arrayCount)

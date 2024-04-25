@@ -17,7 +17,7 @@ namespace jhb {
 		pipeline->bind(cmd);
 
 		gameObject.model->bind(cmd);
-		gameObject.model->draw(cmd);
+		gameObject.model->draw(cmd, pipelineLayout, 0 ,1);
 	}
 
 	void SkyBoxRenderSystem::renderSkyBox(VkCommandBuffer cmd, GameObject& gameObject, std::vector<VkDescriptorSet> descSets, const jhb::PrefileterPushBlock& push)
@@ -43,7 +43,7 @@ namespace jhb {
 		);
 		vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PrefileterPushBlock), &push);
 		gameObject.model->bind(cmd);
-		gameObject.model->draw(cmd);
+		gameObject.model->draw(cmd, pipelineLayout, 0 ,1);
 	}
 
 	void SkyBoxRenderSystem::renderSkyBox(VkCommandBuffer cmd, GameObject& gameObject, std::vector<VkDescriptorSet> descSets, const jhb::IrradiencePushBlock& push)
@@ -70,7 +70,7 @@ namespace jhb {
 
 		vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(IrradiencePushBlock), &push);
 		gameObject.model->bind(cmd);
-		gameObject.model->draw(cmd);
+		gameObject.model->draw(cmd, pipelineLayout, 0, 1);
 	}
 
 	void SkyBoxRenderSystem::renderSkyBox(FrameInfo& frameInfo)
@@ -99,7 +99,7 @@ namespace jhb {
 			vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
 
 			obj.model->bind(frameInfo.commandBuffer);
-			obj.model->draw(frameInfo.commandBuffer);
+			obj.model->draw(frameInfo.commandBuffer, pipelineLayout, 0, 1);
 		}
 	}
 
@@ -110,8 +110,8 @@ namespace jhb {
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthTestEnable = false;
 		pipelineConfig.depthStencilInfo.depthWriteEnable= false;
-		pipelineConfig.attributeDescriptions = jhb::Model::Vertex::getAttrivuteDescriptions();
-		pipelineConfig.bindingDescriptions = jhb::Model::Vertex::getBindingDescriptions();
+		pipelineConfig.attributeDescriptions = jhb::Vertex::getAttrivuteDescriptions();
+		pipelineConfig.bindingDescriptions = jhb::Vertex::getBindingDescriptions();
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;

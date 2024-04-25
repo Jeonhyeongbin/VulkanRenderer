@@ -8,6 +8,11 @@
 
 #include <glm/glm.hpp>
 
+#include "SwapChain.h"
+
+#define TINYGLTF_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION_WRITE
 #include "tiny_gltf.h"
 
 namespace jhb {
@@ -38,7 +43,7 @@ namespace jhb {
 		int32_t materialIndex;
 	};
 
-	// 재질마다 각기 다른 파이프라인을 쓰도록 (비록 바인딩 되는 쉐이더는 같더라도 texture가 달라지므로)
+	// 재질마다 각기 다른 파이프라인을 쓰도록 (alpha나 재질이 양면일수도 있으므로 )
 	struct Material {
 		glm::vec4 baseColorFactor = glm::vec4(1.0f);
 		uint32_t baseColorTextureIndex;
@@ -46,7 +51,7 @@ namespace jhb {
 		std::string alphaMode = "OPAQUE";
 		float alphaCutOff;
 		bool doubleSided = false;
-		VkDescriptorSet descriptorSet;
+		std::vector<VkDescriptorSet> descriptorSets{SwapChain::MAX_FRAMES_IN_FLIGHT}; // same type descriptor set for each frame
 		VkPipeline pipeline;
 	};
 
@@ -103,8 +108,8 @@ namespace jhb {
 			return images[idx];
 		}
 
-		static std::unique_ptr<Model> createModelFromFile(Device& device, const std::string& Modelfilepath, const std::string& texturefilepath);
-		void draw(VkCommandBuffer buffer, uint32_t instancCount = 1);
+		//static std::unique_ptr<Model> createModelFromFile(Device& device, const std::string& Modelfilepath, const std::string& texturefilepath);
+		void draw(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, int frameIndex, uint32_t instancCount = 1);
 		void bind(VkCommandBuffer buffer, VkBuffer* instancing = nullptr);
 
 		void createVertexBuffer(const std::vector<Vertex>& vertices);
@@ -116,7 +121,7 @@ namespace jhb {
 		void loadTextures(tinygltf::Model& input);
 		void loadMaterials(tinygltf::Model& input);
 		void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
-		void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node);
+		void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
 
 	private:
 		Device& device;
@@ -130,7 +135,7 @@ namespace jhb {
 		std::vector<uint32_t> indices;
 		std::unique_ptr<jhb::Buffer> indexBuffer;
 		uint32_t indexCount;
-	private:
+	public:
 		std::vector<Material> materials;
 		std::vector<Node*> nodes;
 		std::vector<Image> images;
