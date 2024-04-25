@@ -10,9 +10,8 @@
 
 #include "SwapChain.h"
 
-#define TINYGLTF_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION_WRITE
+#define TINYGLTF_NO_STB_IMAGE_WRITE
 #include "tiny_gltf.h"
 
 namespace jhb {
@@ -138,7 +137,7 @@ namespace jhb {
 	public:
 		std::vector<Material> materials;
 		std::vector<Node*> nodes;
-		std::vector<Image> images;
+		std::vector<Image> images{ Image{} };
 		std::vector<Texture> textures;
 	};
 }

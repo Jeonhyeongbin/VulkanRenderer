@@ -7,6 +7,12 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
+
+#define TINYGLTF_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_MSC_SECURE_CRT
+
+
 #include "Utils.hpp"
 #include "Model.h"
 #include "Device.h"
