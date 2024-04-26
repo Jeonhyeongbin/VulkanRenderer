@@ -119,6 +119,7 @@ namespace jhb {
 		void loadImages(tinygltf::Model& input);
 		void loadTextures(tinygltf::Model& input);
 		void loadMaterials(tinygltf::Model& input);
+		void generateMipmap(Device& device, VkImage image, int miplevels, uint32_t width, uint32_t height, VkImageSubresourceRange subresourceRange);
 		void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
 		void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
 
