@@ -284,7 +284,7 @@ namespace jhb {
 		//flatVase.model = model;
 		//flatVase.transform.translation = { -.5f, .5f, 0.f };
 		//flatVase.transform.scale = { 3.f, 1.5f, 3.f };
-		loadGLTFFile("Models/cerberus/cerberus.gltf");
+		loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf");
 
 		std::vector<glm::vec3> lightColors{
 			{1.f, 1.f, 1.f},

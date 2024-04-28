@@ -87,6 +87,7 @@ namespace jhb {
 
 		void loadTexture2D(Device& device, const std::string& filepath);
 		void loadKTXTexture(Device& device, const std::string& filepath, VkImageViewType imgViewType = VK_IMAGE_VIEW_TYPE_2D, int arrayCount = 1);
+		void generateMipmap(Device& device, VkImage image, int miplevels, uint32_t width, uint32_t height, VkImageSubresourceRange subresourceRange);
 	};
 
 	// A glTF texture stores a reference to the image and a sampler
@@ -119,7 +120,6 @@ namespace jhb {
 		void loadImages(tinygltf::Model& input);
 		void loadTextures(tinygltf::Model& input);
 		void loadMaterials(tinygltf::Model& input);
-		void generateMipmap(Device& device, VkImage image, int miplevels, uint32_t width, uint32_t height, VkImageSubresourceRange subresourceRange);
 		void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
 		void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
 

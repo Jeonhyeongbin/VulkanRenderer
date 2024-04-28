@@ -315,10 +315,12 @@ void jhb::Model::loadMaterials(tinygltf::Model& input)
 	}
 }
 
-void jhb::Model::generateMipmap(Device& device, VkImage image, int mipLevels, uint32_t width, uint32_t height, VkImageSubresourceRange subresourceRange)
+void jhb::Image::generateMipmap(Device& device, VkImage image, int mipLevels, uint32_t width, uint32_t height, VkImageSubresourceRange subresourceRange)
 {
 	// Generate the mip chain (glTF uses jpg and png, so we need to create this manually)
 	VkCommandBuffer blitCmd = device.beginSingleTimeCommands();
+
+	VkImageMemoryBarrier imageMemoryBarrier{};
 	for (uint32_t i = 1; i < mipLevels; i++) {
 		VkImageBlit imageBlit{};
 
@@ -342,7 +344,6 @@ void jhb::Model::generateMipmap(Device& device, VkImage image, int mipLevels, ui
 		mipSubRange.levelCount = 1;
 		mipSubRange.layerCount = 1;
 
-		VkImageMemoryBarrier imageMemoryBarrier{};
 		{
 			imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 			imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -367,9 +368,6 @@ void jhb::Model::generateMipmap(Device& device, VkImage image, int mipLevels, ui
 			vkCmdPipelineBarrier(blitCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 		}
 	}
-
-	subresourceRange.levelCount = mipLevels;
-	imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 	imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -626,6 +624,8 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 	if (vkCreateImageView(device.getLogicalDevice(), &viewInfo, nullptr, &view) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create texture image view!");
 	}
+
+	generateMipmap(device, image, mipLevels, width, height, subresourceRange);
 
 	VkSamplerCreateInfo samplerInfo{};
 	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
