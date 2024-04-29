@@ -42,38 +42,38 @@ namespace jhb {
 		std::vector<VkVertexInputAttributeDescription> attrdesc(8);
 
 		attrdesc[0].binding = 1;
-		attrdesc[0].location = 4;
+		attrdesc[0].location = 5;
 		attrdesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attrdesc[0].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::pos);
 
 		attrdesc[1].binding = 1;
-		attrdesc[1].location = 5;
+		attrdesc[1].location = 6;
 		attrdesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attrdesc[1].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::rot);
 
 		attrdesc[2].binding = 1;
-		attrdesc[2].location = 6;
+		attrdesc[2].location = 7;
 		attrdesc[2].format = VK_FORMAT_R32_SFLOAT;
 		attrdesc[2].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::scale);
 
 		attrdesc[3].binding = 1;
-		attrdesc[3].location = 7;
+		attrdesc[3].location = 8;
 		attrdesc[3].format = VK_FORMAT_R32_SFLOAT;
 		attrdesc[3].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::roughness);
 		attrdesc[4].binding = 1;
-		attrdesc[4].location = 8;
+		attrdesc[4].location = 9;
 		attrdesc[4].format = VK_FORMAT_R32_SFLOAT;
 		attrdesc[4].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::metallic);
 		attrdesc[5].binding = 1;
-		attrdesc[5].location = 9;
+		attrdesc[5].location = 10;
 		attrdesc[5].format = VK_FORMAT_R32_SFLOAT;
 		attrdesc[5].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::r);
 		attrdesc[6].binding = 1;
-		attrdesc[6].location = 10;
+		attrdesc[6].location = 11;
 		attrdesc[6].format = VK_FORMAT_R32_SFLOAT;
 		attrdesc[6].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::g);
 		attrdesc[7].binding = 1;
-		attrdesc[7].location = 11;
+		attrdesc[7].location = 12;
 		attrdesc[7].format = VK_FORMAT_R32_SFLOAT;
 		attrdesc[7].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::b);
 

@@ -140,11 +140,6 @@ namespace jhb {
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT ; // This means that both vertex and fragment shader using constant 
 		pushConstantRange.offset = 0;
 		pushConstantRanges.push_back(pushConstantRange);
-		VkPushConstantRange pushConstantRangeGltfMat{};
-		pushConstantRangeGltfMat.stageFlags = VK_SHADER_STAGE_VERTEX_BIT ; // This means that both vertex and fragment shader using constant 
-		pushConstantRangeGltfMat.offset = sizeof(PBRPushConstantData);
-		pushConstantRangeGltfMat.size = sizeof(gltfPushConstantData);
-		pushConstantRanges.push_back(pushConstantRangeGltfMat);
 
 		std::vector<VkDescriptorSetLayout> desclayoutsForImgui = { };
 
@@ -178,18 +173,25 @@ namespace jhb {
 		auto gltfModel = gameObjects[1].model;
 		for (auto material : gltfModel->materials)
 		{
+			std::vector<VkDescriptorImageInfo> imageinfos = { gltfModel->getTexture(material.baseColorTextureIndex).descriptor, gltfModel->getTexture(material.normalTextureIndex).descriptor };
 			for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
 			{
-				DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, &gltfModel->getTexture(material.baseColorTextureIndex).descriptor).build(material.descriptorSets[i]);
-				DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(1, &gltfModel->getTexture(material.normalTextureIndex).descriptor).build(material.descriptorSets[i]);
+				DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, imageinfos.data()).build(material.descriptorSets[i]);
 			}
 		}
 
-		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-		pushConstantRanges[0].size = sizeof(PBRPushConstantData);
+		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		pushConstantRanges[0].size = sizeof(PBRPushConstantData) + sizeof(glm::mat4);
+		//VkPushConstantRange gltfModelMatrixConstantRange{};
+		//gltfModelMatrixConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // This means that both vertex and fragment shader using constant 
+		//gltfModelMatrixConstantRange.offset = sizeof(PBRPushConstantData);
+		//gltfModelMatrixConstantRange.size = sizeof(glm::mat4);
+		//pushConstantRanges.push_back(gltfModelMatrixConstantRange);
+
 		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/pbr.vert.spv",
 			"shaders/pbr.frag.spv" , pushConstantRanges, gameObjects[1].model->materials};
 		pushConstantRanges[0].size = sizeof(PointLightPushConstants);
+		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), desclayouts, "shaders/point_light.vert.spv",
 			"shaders/point_light.frag.spv" , pushConstantRanges };
 		pushConstantRanges[0].size = sizeof(SimplePushConstantData);
@@ -425,6 +427,7 @@ namespace jhb {
 		std::vector<uint32_t> indexBuffer;
 		std::vector<Vertex> vertexBuffer;
 		std::shared_ptr<Model> model = std::make_shared<Model>(device);
+		model->path = filename.substr(0, pos);
 
 		if (fileLoaded) {
 			model->loadImages(glTFInput);
@@ -810,8 +813,6 @@ namespace jhb {
 			{
 				throw std::runtime_error("failed to create renderpass!");
 			}
-
-
 
 			std::vector<VkImageView> attachments = { offscreenImageView };
 

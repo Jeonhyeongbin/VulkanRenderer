@@ -99,9 +99,6 @@ namespace jhb {
 		configInfo.dynamicStateInfo.dynamicStateCount =
 			static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
 		configInfo.dynamicStateInfo.flags = 0;
-
-		configInfo.bindingDescriptions = configInfo.bindingDescriptions;
-		configInfo.attributeDescriptions = configInfo.attributeDescriptions;
 	}
 
 	std::vector<char> jhb::Pipeline::readFile(const std::string& filepath)

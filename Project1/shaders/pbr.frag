@@ -37,8 +37,8 @@ layout (location = 0) out vec4 outColor;
 #define PI 3.1415926535897932384626433832795
 
 layout(push_constant) uniform Push{
-	mat4 transform; // projection * view * model
 	mat4 normalMatrix;
+	layout(offset = 32) mat4 transform; // projection * view * model
 } push;
 
 // From http://filmicgames.com/archives/75

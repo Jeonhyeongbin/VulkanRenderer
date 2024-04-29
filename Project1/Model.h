@@ -88,6 +88,7 @@ namespace jhb {
 		void loadTexture2D(Device& device, const std::string& filepath);
 		void loadKTXTexture(Device& device, const std::string& filepath, VkImageViewType imgViewType = VK_IMAGE_VIEW_TYPE_2D, int arrayCount = 1);
 		void generateMipmap(Device& device, VkImage image, int miplevels, uint32_t width, uint32_t height, VkImageSubresourceRange subresourceRange);
+		void updateDescriptor();
 	};
 
 	// A glTF texture stores a reference to the image and a sampler
@@ -140,5 +141,6 @@ namespace jhb {
 		std::vector<Node*> nodes;
 		std::vector<Image> images{ Image{} };
 		std::vector<Texture> textures;
+		std::string path;
 	};
 }
