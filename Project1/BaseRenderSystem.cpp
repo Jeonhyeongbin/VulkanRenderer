@@ -39,8 +39,6 @@ namespace jhb {
 
 	void BaseRenderSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
 	{
-		pipeline->bind(frameInfo.commandBuffer);
-
 		vkCmdBindDescriptorSets(
 			frameInfo.commandBuffer,
 			VK_PIPELINE_BIND_POINT_GRAPHICS,

@@ -8,7 +8,7 @@
 namespace jhb {
 
 	PBRRendererSystem::PBRRendererSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange,
-		const std::vector<Material>& materials) :
+		std::vector<Material>& materials) :
 		BaseRenderSystem(device, renderPass, globalSetLayOut, pushConstanRange) {
 		createPipelinePerMaterial(renderPass, vert, frag, materials);
 	}
@@ -22,7 +22,7 @@ namespace jhb {
 	{
 	}
 
-	void PBRRendererSystem::createPipelinePerMaterial(VkRenderPass renderPass, const std::string& vert, const std::string& frag, const std::vector<Material>& materials)
+	void PBRRendererSystem::createPipelinePerMaterial(VkRenderPass renderPass, const std::string& vert, const std::string& frag, std::vector<Material>& materials)
 	{
 		assert(pipelineLayout != nullptr && "Cannot Create pipeline before pipeline layout!!");
 
@@ -194,13 +194,12 @@ namespace jhb {
 			{
 				continue;
 			}
-			SimplePushConstantData push{};
-			push.ModelMatrix = obj.transform.mat4();
+			PBRPushConstantData push{};
 			push.normalMatrix = obj.transform.normalMatrix();
 
 			if (kv.first == 1)
 			{
-				vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
+				vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PBRPushConstantData), &push);
 
 				if (kv.first == 1)
 				{

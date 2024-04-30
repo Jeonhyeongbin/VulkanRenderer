@@ -75,6 +75,7 @@ namespace jhb {
 
 	void SkyBoxRenderSystem::renderSkyBox(FrameInfo& frameInfo)
 	{
+		pipeline->bind(frameInfo.commandBuffer);
 		BaseRenderSystem::renderGameObjects(frameInfo, nullptr);
 		vkCmdBindDescriptorSets(
 			frameInfo.commandBuffer,
@@ -85,22 +86,15 @@ namespace jhb {
 			0, nullptr
 		);
 
-		for (auto& kv : frameInfo.gameObjects)
-		{
-			auto& obj = kv.second;
-			if (obj.model == nullptr)
-			{
-				continue;
-			}
-			SimplePushConstantData push{};
-			push.ModelMatrix = obj.transform.mat4();
-			push.normalMatrix = obj.transform.normalMatrix();
+		auto& obj = frameInfo.gameObjects[0];
+		SimplePushConstantData push{};
+		push.ModelMatrix = obj.transform.mat4();
+		push.normalMatrix = obj.transform.normalMatrix();
 
-			vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
+		vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
 
-			obj.model->bind(frameInfo.commandBuffer);
-			obj.model->draw(frameInfo.commandBuffer, pipelineLayout, 0, 1);
-		}
+		obj.model->bind(frameInfo.commandBuffer);
+		obj.model->draw(frameInfo.commandBuffer, pipelineLayout, 0, 1);
 	}
 
 	void SkyBoxRenderSystem::createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag)

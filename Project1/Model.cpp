@@ -542,7 +542,7 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 			currentParent = currentParent->parent;
 		}
 		// Pass the final matrix to the vertex shader using push constants
-		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(glm::mat4), &nodeMatrix);
+		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(glm::mat4), &nodeMatrix);
 		for (Primitive& primitive : node->mesh.primitives) {
 			if (primitive.indexCount > 0) {
 				Material& material = materials[primitive.materialIndex];

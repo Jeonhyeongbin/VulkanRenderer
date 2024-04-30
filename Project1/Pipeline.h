@@ -33,7 +33,7 @@ namespace jhb {
 	public:
 		Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo);
 		Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo
-			, const std::vector<Material>& materials);
+			,std::vector<Material>& materials);
 		~Pipeline();
 
 		Pipeline(const Pipeline&) = delete;
@@ -46,7 +46,7 @@ namespace jhb {
 
 		void createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo);
 		void createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo,
-			const std::vector<Material>& materials);
+			std::vector<Material>& materials);
 
 		void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
 

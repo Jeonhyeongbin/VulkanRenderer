@@ -162,7 +162,7 @@ namespace jhb {
 			DescriptorWriter(*descSetLayouts[4], *globalPools[4]).writeImage(0, &descImageInfos[3]).build(prefilterImageSamplerDescriptorSets[i]);
 		}
 
-		for (int i = 1; i <= 4; i++)
+		for (int i = 1; i <= 5; i++)
 		{
 			if (i == 3)
 				continue;
@@ -171,12 +171,12 @@ namespace jhb {
 
 		// for gltf color map and normal map
 		auto gltfModel = gameObjects[1].model;
-		for (auto material : gltfModel->materials)
+		for (auto& material : gltfModel->materials)
 		{
 			std::vector<VkDescriptorImageInfo> imageinfos = { gltfModel->getTexture(material.baseColorTextureIndex).descriptor, gltfModel->getTexture(material.normalTextureIndex).descriptor };
 			for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
 			{
-				DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, imageinfos.data()).build(material.descriptorSets[i]);
+				DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, imageinfos.data(), imageinfos.size()).build(material.descriptorSets[i]);
 			}
 		}
 
@@ -266,7 +266,6 @@ namespace jhb {
 				pointLightSystem.renderGameObjects(frameInfo);
 				renderer.endSwapChainRenderPass(commandBuffer);
 				
-
 				renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass,imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
 				imguiRenderSystem->newFrame();
 				ImDrawData* draw_data = ImGui::GetDrawData();

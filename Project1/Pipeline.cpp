@@ -11,7 +11,7 @@ namespace jhb {
 		createGraphicsPipeline(vertFilepath, fragFilepath, configInfo);
 	}
 
-	Pipeline::Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo, const std::vector<Material>& materials)
+	Pipeline::Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo, std::vector<Material>& materials)
 		: device{ device }
 	{
 		createGraphicsPipelinePerMaterial(vertFilepath, fragFilepath, configInfo, materials);
@@ -198,7 +198,7 @@ namespace jhb {
 
 	}
 
-	void Pipeline::createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo, const std::vector<Material>& materials)
+	void Pipeline::createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo, std::vector<Material>& materials)
 	{
 		assert(
 			configInfo.pipelineLayout != VK_NULL_HANDLE &&
@@ -290,7 +290,7 @@ namespace jhb {
 				1,
 				&pipelineInfo,
 				nullptr,
-				&graphicsPipeline) != VK_SUCCESS) {
+				&material.pipeline) != VK_SUCCESS) {
 				throw std::runtime_error("failed to create graphics pipeline!");
 			}
 		}
