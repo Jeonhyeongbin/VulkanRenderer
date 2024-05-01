@@ -38,7 +38,7 @@ layout (location = 0) out vec4 outColor;
 
 layout(push_constant) uniform Push{
 	mat4 normalMatrix;
-	layout(offset = 32) mat4 transform; // projection * view * model
+	layout(offset = 64) mat4 transform; // projection * view * model
 } push;
 
 // From http://filmicgames.com/archives/75

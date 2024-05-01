@@ -21,7 +21,6 @@
 namespace jhb {
 	struct PBRPushConstantData {
 		//glm::mat4 ModelMatrix{ 1.f };
-		glm::mat4 normalMatrix{ 1.f };
 	};
 
 	struct SimplePushConstantData {

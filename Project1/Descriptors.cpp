@@ -157,7 +157,7 @@ namespace jhb {
     }
 
     DescriptorWriter& DescriptorWriter::writeImage(
-        uint32_t binding, VkDescriptorImageInfo* imageInfo, int imageinfoSize) {
+        uint32_t binding, VkDescriptorImageInfo* imageInfo) {
         assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
 
         auto& bindingDescription = setLayout.bindings[binding];
@@ -171,7 +171,7 @@ namespace jhb {
         write.descriptorType = bindingDescription.descriptorType;
         write.dstBinding = binding;
         write.pImageInfo = imageInfo;
-        write.descriptorCount = imageinfoSize;
+        write.descriptorCount = 1;
 
         writes.push_back(write);
         return *this;

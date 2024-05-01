@@ -89,7 +89,7 @@ namespace jhb {
 
 		// for gltf normal map and color map
 		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2).build());
+			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
 
 
 		// for uniform buffer descriptor pool
@@ -162,13 +162,6 @@ namespace jhb {
 			DescriptorWriter(*descSetLayouts[4], *globalPools[4]).writeImage(0, &descImageInfos[3]).build(prefilterImageSamplerDescriptorSets[i]);
 		}
 
-		for (int i = 1; i <= 5; i++)
-		{
-			if (i == 3)
-				continue;
-			desclayouts.push_back(descSetLayouts[i]->getDescriptorSetLayout());
-		}
-
 		// for gltf color map and normal map
 		auto gltfModel = gameObjects[1].model;
 		for (auto& material : gltfModel->materials)
@@ -176,12 +169,20 @@ namespace jhb {
 			std::vector<VkDescriptorImageInfo> imageinfos = { gltfModel->getTexture(material.baseColorTextureIndex).descriptor, gltfModel->getTexture(material.normalTextureIndex).descriptor };
 			for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
 			{
-				DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, imageinfos.data(), imageinfos.size()).build(material.descriptorSets[i]);
+				DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, &imageinfos[0]).writeImage(1, &imageinfos[1]).build(material.descriptorSets[i]);
 			}
 		}
 
+		for (int i = 1; i <= 5; i++)
+		{
+			if (i == 3 || i==2)
+				continue;
+			desclayouts.push_back(descSetLayouts[i]->getDescriptorSetLayout());
+		}
+
+
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-		pushConstantRanges[0].size = sizeof(PBRPushConstantData) + sizeof(glm::mat4);
+		pushConstantRanges[0].size = sizeof(gltfPushConstantData);
 		//VkPushConstantRange gltfModelMatrixConstantRange{};
 		//gltfModelMatrixConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // This means that both vertex and fragment shader using constant 
 		//gltfModelMatrixConstantRange.offset = sizeof(PBRPushConstantData);
@@ -190,6 +191,7 @@ namespace jhb {
 
 		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/pbr.vert.spv",
 			"shaders/pbr.frag.spv" , pushConstantRanges, gameObjects[1].model->materials};
+		pushConstantRanges.pop_back();
 		pushConstantRanges[0].size = sizeof(PointLightPushConstants);
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), desclayouts, "shaders/point_light.vert.spv",
