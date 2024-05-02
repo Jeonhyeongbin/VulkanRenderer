@@ -100,6 +100,7 @@ namespace jhb {
 	class Model{
 	public:
 		Model(Device& device);
+		Model(Device& device, glm::mat4 modelMatrix);
 		~Model();
 
 		Model(const Model&) = delete;
@@ -126,6 +127,7 @@ namespace jhb {
 
 	private:
 		Device& device;
+		glm::mat4 modelMatrix;
 
 		std::vector<Vertex> vertices;
 		std::unique_ptr<jhb::Buffer> vertexBuffer;

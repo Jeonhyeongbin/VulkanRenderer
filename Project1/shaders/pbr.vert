@@ -40,8 +40,7 @@ layout(set=0, binding = 0) uniform GlobalUbo{
 
 
 layout(push_constant) uniform Push{
-	mat4 normalMatrix;
-	layout(offset = 64) mat4 model;
+	mat4 model;
 } push;
 
 void main(){
@@ -53,7 +52,7 @@ void main(){
 	vec4 positionWorld = push.model * vec4(position + instancePos, 1.0);
 	gl_Position =  ubo.projection * ubo.view * positionWorld;
 	fraguv = uv;
-	fragNormalWorld = normalize(mat3(push.normalMatrix) * normal);
+	fragNormalWorld = normalize(mat3(push.model) * normal);
 	fragPosWorld = positionWorld.xyz;
 	fragColor = color;
 }

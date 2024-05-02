@@ -34,7 +34,11 @@ namespace std{
 }
 
 
-jhb::Model::Model(Device& _device) : device { _device }
+jhb::Model::Model(Device& _device) : device{ _device }
+{
+}
+
+jhb::Model::Model(Device& _device, glm::mat4 modelMatrix) : device{ _device }, modelMatrix{modelMatrix}
 {
 	//createVertexBuffer(builder->vertices);
 	//createIndexBuffer(builder->indices);
@@ -298,7 +302,9 @@ void jhb::Model::loadMaterials(tinygltf::Model& input)
 		tinygltf::Material glTFMaterial = input.materials[i];
 		// Get the base color factor
 		if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end()) {
-			materials[i].baseColorFactor = glm::vec4{ static_cast<float>(*glTFMaterial.values["baseColorFactor"].ColorFactor().data())};
+			materials[i].baseColorFactor = glm::vec4{ static_cast<float>(glTFMaterial.values["baseColorFactor"].ColorFactor()[0]),static_cast<float>(glTFMaterial.values["baseColorFactor"].ColorFactor()[1])
+			, static_cast<float>(glTFMaterial.values["baseColorFactor"].ColorFactor()[2]), static_cast<float>(glTFMaterial.values["baseColorFactor"].ColorFactor()[3])
+			};
 		}
 		// Get base color texture index
 		if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) {
@@ -430,6 +436,9 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 			uint32_t indexCount = 0;
 			// Vertices
 			{
+				int posByteStride;
+				int normByteStride;
+
 				const float* positionBuffer = nullptr;
 				const float* normalsBuffer = nullptr;
 				const float* texCoordsBuffer = nullptr;
@@ -442,6 +451,7 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
 					positionBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
 					vertexCount = accessor.count;
+					posByteStride = accessor.ByteStride(view) ? (accessor.ByteStride(view) / sizeof(float)) : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
 				}
 				// Get buffer data for vertex normals
 				if (glTFPrimitive.attributes.find("NORMAL") != glTFPrimitive.attributes.end()) {
@@ -466,11 +476,11 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 				// Append data to model's vertex buffer
 				for (size_t v = 0; v < vertexCount; v++) {
 					Vertex vert{};
-					vert.position = glm::vec4(glm::vec3(positionBuffer[v * 3]), 1.0f);
-					vert.normal = glm::normalize(glm::vec3(normalsBuffer ? glm::vec3(normalsBuffer[v * 3]) : glm::vec3(0.0f)));
-					vert.uv = texCoordsBuffer ? glm::vec2(texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
-					vert.color = glm::vec3(1.0f);
-					vert.tangent = tangentsBuffer ? glm::vec4(tangentsBuffer[v * 4]) : glm::vec4(0.0f);
+					vert.position = glm::vec4(glm::vec3(positionBuffer[3*v], positionBuffer[3*v+1], positionBuffer[3*v+2]), 1.0f);
+					vert.normal = glm::normalize(glm::vec3(normalsBuffer ? glm::vec3(normalsBuffer[3 * v], normalsBuffer[3 * v + 1], normalsBuffer[3 * v + 2]) : glm::vec3(0.0f)));
+					vert.uv = texCoordsBuffer ? glm::vec2(texCoordsBuffer[v * 2], texCoordsBuffer[v * 2 + 1]) : glm::vec3(0.0f);
+					vert.color = glm::vec3(1.f);
+					vert.tangent = tangentsBuffer ? glm::vec4(tangentsBuffer[v * 4], tangentsBuffer[v * 4 + 1], tangentsBuffer[v * 4 + 2], tangentsBuffer[v * 4 + 3]) : glm::vec4(0.0f);
 					vertexBuffer.push_back(vert);
 				}
 			}
@@ -535,14 +545,14 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix = node->matrix;
+		glm::mat4 nodeMatrix = modelMatrix * node->matrix;
 		Node* currentParent = node->parent;
 		while (currentParent) {
 			nodeMatrix = currentParent->matrix * nodeMatrix;
 			currentParent = currentParent->parent;
 		}
 		// Pass the final matrix to the vertex shader using push constants
-		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(glm::mat4), &nodeMatrix);
+		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeMatrix);
 		for (Primitive& primitive : node->mesh.primitives) {
 			if (primitive.indexCount > 0) {
 				Material& material = materials[primitive.materialIndex];
@@ -565,8 +575,8 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 	if (filepath.size() <= 0)
 		return;
 
-	float* pixels = stbi_loadf(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-	VkDeviceSize imageSize = texWidth * texHeight * texChannels * 4; // 4byte per pixel
+	auto pixels = stbi_load(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	VkDeviceSize imageSize = texWidth * texHeight * texChannels; // 4byte per pixel
 
 	if (!pixels) {
 		throw std::runtime_error("failed to load texture image!");
@@ -612,10 +622,10 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 
 	device.copyBufferToImage(stagingBuffer, image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
 
-	generateMipmap(device, image, mipLevels, width, height, subresourceRange);
-/*	commandBuffer = device.beginSingleTimeCommands();
+	//generateMipmap(device, image, mipLevels, width, height, subresourceRange);
+	commandBuffer = device.beginSingleTimeCommands();
 	device.transitionImageLayout(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
-	device.endSingleTimeCommands(commandBuffer)*/;
+	device.endSingleTimeCommands(commandBuffer);
 
 	// create image view and image sampler
 	VkImageViewCreateInfo viewInfo{};

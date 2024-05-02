@@ -191,7 +191,6 @@ namespace jhb {
 
 		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/pbr.vert.spv",
 			"shaders/pbr.frag.spv" , pushConstantRanges, gameObjects[1].model->materials};
-		pushConstantRanges.pop_back();
 		pushConstantRanges[0].size = sizeof(PointLightPushConstants);
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), desclayouts, "shaders/point_light.vert.spv",
@@ -427,7 +426,16 @@ namespace jhb {
 
 		std::vector<uint32_t> indexBuffer;
 		std::vector<Vertex> vertexBuffer;
-		std::shared_ptr<Model> model = std::make_shared<Model>(device);
+
+		auto gameModel = GameObject::createGameObject();
+		gameModel.transform.translation = { -.5f, .5f, 0.f };
+		gameModel.transform.scale = { 1.f, 1.f, 1.f };
+		gameModel.transform.rotation = glm::vec3{ 5.f, 2.f, 5.f };
+
+
+		std::shared_ptr<Model> model = std::make_shared<Model>(device, gameModel.transform.mat4());
+		gameModel.model = model;
+
 		model->path = filename.substr(0, pos);
 
 		if (fileLoaded) {
@@ -447,11 +455,6 @@ namespace jhb {
 
 		model->createVertexBuffer(vertexBuffer);
 		model->createIndexBuffer(indexBuffer);
-
-		auto gameModel = GameObject::createGameObject();
-		gameModel.model = model;
-		gameModel.transform.translation = { -.5f, .5f, 0.f };
-		gameModel.transform.scale = { 3.f, 1.5f, 3.f };
 
 		gameObjects.emplace(gameModel.getId(), std::move(gameModel));
 	}

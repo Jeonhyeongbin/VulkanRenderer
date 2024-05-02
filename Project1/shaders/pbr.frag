@@ -32,14 +32,12 @@ layout(set=0, binding = 0) uniform GlobalUbo{
 	float gamma;
 } ubo;
 
+layout (constant_id = 0) const bool ALPHA_MASK = false;
+layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
+
 layout (location = 0) out vec4 outColor;
 
 #define PI 3.1415926535897932384626433832795
-
-layout(push_constant) uniform Push{
-	mat4 normalMatrix;
-	layout(offset = 64) mat4 transform; // projection * view * model
-} push;
 
 // From http://filmicgames.com/archives/75
 vec3 Uncharted2Tonemap(vec3 x)
@@ -140,6 +138,12 @@ void main() {
 
 	vec3 F0 = vec3(0.04);
 	vec4 albedo = texture(samplerColorMap, fraguv) * vec4(fragColor, 1);
+		if (ALPHA_MASK) {
+		if (albedo.a < ALPHA_MASK_CUTOFF) {
+			discard;
+		}
+	}
+
 	F0 = mix(F0, albedo.xyz, fragmetallic);
 
 	vec3 Lo = vec3(0.0);
