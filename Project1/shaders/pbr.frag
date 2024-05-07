@@ -117,7 +117,7 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 		vec3 F = F_Schlick(dotNV, F0);
 		vec3 spec = D * F * G / (4.0 * dotNL * dotNV + 0.001);
 		vec3 kD = (vec3(1.0) - F) * (1.0 - metallic);
-		color += (kD * albedo.xyz / PI + spec) * radiance* dotNL;
+		color += (kD * albedo.rgb / PI + spec) * radiance* dotNL;
 	}
 
 	return color;
@@ -127,11 +127,6 @@ void main() {
 	vec3 cameraPosWorld = ubo.invView[3].xyz;
 
 	vec3 N = normalize(fragNormalWorld);
-	vec3 T = normalize(fragtangent.xyz);
-	vec3 B = cross(fragNormalWorld, fragtangent.xyz) * fragtangent.w;
-	mat3 TBN = mat3(T, B, N);
-
-	N = TBN * normalize(texture(samplerNormalMap, fraguv).xyz * 2.0 - vec3(1.0));
 
 	vec3 V = normalize(cameraPosWorld - fragPosWorld);
 	vec3 R = reflect(-V, N);
@@ -157,7 +152,7 @@ void main() {
 	vec3 irradiance = texture(samplerIrradiance, N).rgb;
 
 	// Diffuse based on irradiance
-	vec3 diffuse = irradiance * albedo.xyz;
+	vec3 diffuse = irradiance * albedo.rgb;
 
 	vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, fragroughness);
 

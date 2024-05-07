@@ -321,11 +321,11 @@ void jhb::Model::loadMaterials(tinygltf::Model& input)
 	}
 }
 
-void jhb::Image::generateMipmap(Device& device, VkImage image, int mipLevels, uint32_t width, uint32_t height, VkImageSubresourceRange subresourceRange)
+void jhb::Image::generateMipmap(Device& device, VkImage image, int mipLevels, uint32_t width, uint32_t height)
 {
 	// Generate the mip chain (glTF uses jpg and png, so we need to create this manually)
 	VkCommandBuffer blitCmd = device.beginSingleTimeCommands();
-
+	VkImageSubresourceRange mipSubRange = {};
 	VkImageMemoryBarrier imageMemoryBarrier{};
 	for (uint32_t i = 1; i < mipLevels; i++) {
 		VkImageBlit imageBlit{};
@@ -344,24 +344,11 @@ void jhb::Image::generateMipmap(Device& device, VkImage image, int mipLevels, ui
 		imageBlit.dstOffsets[1].y = int32_t(height >> i);
 		imageBlit.dstOffsets[1].z = 1;
 
-		VkImageSubresourceRange mipSubRange = {};
+
 		mipSubRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		mipSubRange.baseMipLevel = i;
+		mipSubRange.baseMipLevel = i-1;
 		mipSubRange.levelCount = 1;
 		mipSubRange.layerCount = 1;
-
-		{
-			imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-			imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-			imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-			imageMemoryBarrier.srcAccessMask = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-			imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-			imageMemoryBarrier.image = image;
-			imageMemoryBarrier.subresourceRange = mipSubRange;
-			vkCmdPipelineBarrier(blitCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
-		}
-
-		vkCmdBlitImage(blitCmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, VK_FILTER_LINEAR);
 
 		{
 			imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -373,15 +360,30 @@ void jhb::Image::generateMipmap(Device& device, VkImage image, int mipLevels, ui
 			imageMemoryBarrier.subresourceRange = mipSubRange;
 			vkCmdPipelineBarrier(blitCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 		}
+
+		vkCmdBlitImage(blitCmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, VK_FILTER_LINEAR);
+
+		{
+			imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			imageMemoryBarrier.image = image;
+			imageMemoryBarrier.subresourceRange = mipSubRange;
+			vkCmdPipelineBarrier(blitCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+		}
 	}
 	imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	
+	mipSubRange.baseMipLevel = mipLevels - 1;
 	imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 	imageMemoryBarrier.image = image;
-	imageMemoryBarrier.subresourceRange = subresourceRange;
+	imageMemoryBarrier.subresourceRange = mipSubRange;
 	vkCmdPipelineBarrier(blitCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 
 	device.endSingleTimeCommands(blitCmd);
@@ -571,13 +573,13 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 {
 	int texWidth, texHeight, texChannels;
-	int mipleves = static_cast<uint32_t>(floor(log2(max(width, height))) + 1.0);
+
 	if (filepath.size() <= 0)
 		return;
 
 	auto pixels = stbi_load(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-	VkDeviceSize imageSize = texWidth * texHeight * texChannels; // 4byte per pixel
-
+	VkDeviceSize imageSize = texWidth * texHeight * 4; // 4byte per pixel
+	int mipleves = static_cast<uint32_t>(floor(log2(max(texWidth, texHeight))) + 1.0);
 	if (!pixels) {
 		throw std::runtime_error("failed to load texture image!");
 	}
@@ -599,12 +601,12 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 	imageInfo.extent.width = static_cast<uint32_t>(texWidth);
 	imageInfo.extent.height = static_cast<uint32_t>(texHeight);
 	imageInfo.extent.depth = 1;
-	imageInfo.mipLevels = 1;
+	imageInfo.mipLevels = mipleves;
 	imageInfo.arrayLayers = 1;
 	imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
 	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageInfo.flags = 0; // Optional
@@ -613,19 +615,17 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 	VkImageSubresourceRange subresourceRange = {};
 	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	subresourceRange.baseMipLevel = 0;
-	subresourceRange.levelCount = 1;
+	subresourceRange.levelCount = mipleves;
 	subresourceRange.layerCount = 1;
 
 	VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
 	device.transitionImageLayout(commandBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
-	device.endSingleTimeCommands(commandBuffer);
 
-	device.copyBufferToImage(stagingBuffer, image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
-
-	//generateMipmap(device, image, mipLevels, width, height, subresourceRange);
-	commandBuffer = device.beginSingleTimeCommands();
-	device.transitionImageLayout(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
+	device.copyBufferToImage(commandBuffer, stagingBuffer, image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
 	device.endSingleTimeCommands(commandBuffer);
+	generateMipmap(device, image, mipleves, texWidth, texHeight);
+	//device.transitionImageLayout(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
+
 
 	// create image view and image sampler
 	VkImageViewCreateInfo viewInfo{};
@@ -635,7 +635,7 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 	viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
 	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	viewInfo.subresourceRange.baseMipLevel = 0;
-	viewInfo.subresourceRange.levelCount = 1;
+	viewInfo.subresourceRange.levelCount = mipleves;
 	viewInfo.subresourceRange.baseArrayLayer = 0;
 	viewInfo.subresourceRange.layerCount = 1;
 
@@ -664,7 +664,7 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	samplerInfo.mipLodBias = 0.0f;
 	samplerInfo.minLod = 0.0f;
-	samplerInfo.maxLod = 1;
+	samplerInfo.maxLod = mipleves;
 
 	if (vkCreateSampler(device.getLogicalDevice(), &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create texture sampler!");

@@ -182,13 +182,13 @@ namespace jhb {
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;  // Optional
 		pipelineInfo.basePipelineIndex = -1;               // Optional
 		// Pipeline cache
-		VkPipelineCache pipelinCache;
-		VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
-		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-		vkCreatePipelineCache(device.getLogicalDevice(), &pipelineCacheCreateInfo, nullptr, &pipelinCache);
+		//VkPipelineCache pipelinCache;
+		//VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
+		//pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+		//vkCreatePipelineCache(device.getLogicalDevice(), &pipelineCacheCreateInfo, nullptr, &pipelinCache);
 		if (vkCreateGraphicsPipelines(
 			device.getLogicalDevice(),
-			pipelinCache,
+			nullptr,
 			1,
 			&pipelineInfo,
 			nullptr,
@@ -283,7 +283,7 @@ namespace jhb {
 			shaderStages[1].pSpecializationInfo = &specializationInfo;
 
 			// For double sided materials, culling will be disabled
-			configInfo.rasterizationInfo.cullMode = material.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
+			configInfo.rasterizationInfo.cullMode = material.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_NONE;
 			if (vkCreateGraphicsPipelines(
 				device.getLogicalDevice(),
 				pipelinCache,

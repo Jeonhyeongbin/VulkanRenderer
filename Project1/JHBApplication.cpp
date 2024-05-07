@@ -183,21 +183,22 @@ namespace jhb {
 
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		pushConstantRanges[0].size = sizeof(gltfPushConstantData);
-		//VkPushConstantRange gltfModelMatrixConstantRange{};
-		//gltfModelMatrixConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // This means that both vertex and fragment shader using constant 
-		//gltfModelMatrixConstantRange.offset = sizeof(PBRPushConstantData);
-		//gltfModelMatrixConstantRange.size = sizeof(glm::mat4);
-		//pushConstantRanges.push_back(gltfModelMatrixConstantRange);
+
 
 		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/pbr.vert.spv",
 			"shaders/pbr.frag.spv" , pushConstantRanges, gameObjects[1].model->materials};
 		pushConstantRanges[0].size = sizeof(PointLightPushConstants);
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), desclayouts, "shaders/point_light.vert.spv",
+
+
+		std::vector<VkDescriptorSetLayout> pointlightDesclayouts = { descSetLayouts[0]->getDescriptorSetLayout() };
+
+		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), pointlightDesclayouts, "shaders/point_light.vert.spv",
 			"shaders/point_light.frag.spv" , pushConstantRanges };
 		pushConstantRanges[0].size = sizeof(SimplePushConstantData);
 		SkyBoxRenderSystem skyboxRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/skybox.vert.spv",
 			"shaders/skybox.frag.spv" , pushConstantRanges };
+
 
 		auto viewerObject = GameObject::createGameObject();
 		viewerObject.transform.translation.z = -2.5f;
@@ -280,12 +281,6 @@ namespace jhb {
 	}
 	void JHBApplication::loadGameObjects()
 	{
-		//std::shared_ptr<Model> model =
-		//Model::createModelFromFile(device, "Models/smooth_vase.obj", "Texture/vase_txture.jpg");
-		//auto flatVase = GameObject::createGameObject();
-		//flatVase.model = model;
-		//flatVase.transform.translation = { -.5f, .5f, 0.f };
-		//flatVase.transform.scale = { 3.f, 1.5f, 3.f };
 		loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf");
 
 		std::vector<glm::vec3> lightColors{

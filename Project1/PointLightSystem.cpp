@@ -57,6 +57,7 @@ namespace jhb {
 
 	void PointLightSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
 	{
+		pipeline->bind(frameInfo.commandBuffer);
 		BaseRenderSystem::renderGameObjects(frameInfo, instanceBuffer);
 		for (auto& kv : frameInfo.gameObjects)
 		{
