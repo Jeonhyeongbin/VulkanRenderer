@@ -24,7 +24,10 @@ namespace jhb {
 		globalPools[2] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); // skybox
 		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();	// irradiane
 		globalPools[4] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); //prefiter
-		//globalPools[5] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); // imgui font 
+		
+		// for gltf model color map and normal map
+		globalPools[5] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 2).build(); 
+	
 
 		// two descriptor sets
 		// each descriptor set contain two UNIFORM_BUFFER descriptor
@@ -76,13 +79,18 @@ namespace jhb {
 			build());
 		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
-		// this global set is used by all shaders
+
 		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
 		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
 		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
+
+		// for gltf normal map and color map
+		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
+
 
 		// for uniform buffer descriptor pool
 		std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -92,12 +100,11 @@ namespace jhb {
 			DescriptorWriter(*descSetLayouts[0], *globalPools[0]).writeBuffer(0, &bufferInfo).build(globalDescriptorSets[i]);
 		}
 
-
 		std::vector<VkDescriptorSet> CubeBoxDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT); // skybox
 		VkDescriptorImageInfo skyBoximageInfo{};
 		skyBoximageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		skyBoximageInfo.imageView = gameObjects[0].model->builder->textureImageview;
-		skyBoximageInfo.sampler = gameObjects[0].model->builder->textureSampler;
+		skyBoximageInfo.imageView = gameObjects[0].model->getTexture(0).view;
+		skyBoximageInfo.sampler = gameObjects[0].model->getTexture(0).sampler;
 
 		std::vector<VkDescriptorSetLayout> desclayouts = { descSetLayouts[0]->getDescriptorSetLayout() , descSetLayouts[2]->getDescriptorSetLayout() };
 
@@ -114,7 +121,7 @@ namespace jhb {
 		std::vector<VkDescriptorSet> brdfImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		std::vector<VkDescriptorSet> irradianceImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		std::vector<VkDescriptorSet> prefilterImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
-		//std::vector<VkDescriptorSet> imguiImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
 		VkDescriptorImageInfo brdfImgInfo{};
 		brdfImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		brdfImgInfo.imageView = lutBrdfView;
@@ -148,7 +155,6 @@ namespace jhb {
 
 		std::vector<VkDescriptorImageInfo> descImageInfos = { brdfImgInfo , skyBoximageInfo, irradianceImgInfo, prefilterImgInfo };
 		// for image sampler descriptor pool
-		// for vase texture;
 		for (int i = 0; i < brdfImageSamplerDescriptorSets.size(); i++)
 		{
 			DescriptorWriter(*descSetLayouts[1], *globalPools[1]).writeImage(0, &descImageInfos[0]).build(brdfImageSamplerDescriptorSets[i]);
@@ -156,30 +162,49 @@ namespace jhb {
 			DescriptorWriter(*descSetLayouts[4], *globalPools[4]).writeImage(0, &descImageInfos[3]).build(prefilterImageSamplerDescriptorSets[i]);
 		}
 
-		for (int i = 1; i <= 4; i++)
+		// for gltf color map and normal map
+		auto gltfModel = gameObjects[1].model;
+		for (auto& material : gltfModel->materials)
 		{
-			if (i == 3)
+			std::vector<VkDescriptorImageInfo> imageinfos = { gltfModel->getTexture(material.baseColorTextureIndex).descriptor, gltfModel->getTexture(material.normalTextureIndex).descriptor };
+			for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
+			{
+				DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, &imageinfos[0]).writeImage(1, &imageinfos[1]).build(material.descriptorSets[i]);
+			}
+		}
+
+		for (int i = 1; i <= 5; i++)
+		{
+			if (i == 3 || i==2)
 				continue;
 			desclayouts.push_back(descSetLayouts[i]->getDescriptorSetLayout());
 		}
 
-		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-		pushConstantRanges[0].size = sizeof(SimplePushConstantData);
-		PBRRendererSystem simpleRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/shader.vert.spv",
-			"shaders/shader.frag.spv" , pushConstantRanges };
+
+		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		pushConstantRanges[0].size = sizeof(gltfPushConstantData);
+
+
+		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/pbr.vert.spv",
+			"shaders/pbr.frag.spv" , pushConstantRanges, gameObjects[1].model->materials};
 		pushConstantRanges[0].size = sizeof(PointLightPushConstants);
-		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), desclayouts, "shaders/point_light.vert.spv",
+		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+
+		std::vector<VkDescriptorSetLayout> pointlightDesclayouts = { descSetLayouts[0]->getDescriptorSetLayout() };
+
+		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), pointlightDesclayouts, "shaders/point_light.vert.spv",
 			"shaders/point_light.frag.spv" , pushConstantRanges };
 		pushConstantRanges[0].size = sizeof(SimplePushConstantData);
 		SkyBoxRenderSystem skyboxRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/skybox.vert.spv",
 			"shaders/skybox.frag.spv" , pushConstantRanges };
+
 
 		auto viewerObject = GameObject::createGameObject();
 		viewerObject.transform.translation.z = -2.5f;
 		InputController cameraController{device.getWindow().GetGLFWwindow(), viewerObject};
 		double x, y;
 		auto currentTime = std::chrono::high_resolution_clock::now();
-		
 
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
@@ -239,11 +264,10 @@ namespace jhb {
 				renderer.beginSwapChainRenderPass(commandBuffer);
 
 				skyboxRenderSystem.renderSkyBox(frameInfo);
-				simpleRenderSystem.renderGameObjects(frameInfo, &instanceBuffer);
+				pbrRenderSystem.renderGameObjects(frameInfo, &instanceBuffer);
 				pointLightSystem.renderGameObjects(frameInfo);
 				renderer.endSwapChainRenderPass(commandBuffer);
 				
-
 				renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass,imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
 				imguiRenderSystem->newFrame();
 				ImDrawData* draw_data = ImGui::GetDrawData();
@@ -257,14 +281,7 @@ namespace jhb {
 	}
 	void JHBApplication::loadGameObjects()
 	{
-		std::shared_ptr<Model> model =
-		Model::createModelFromFile(device, "Models/smooth_vase.obj", "Texture/vase_txture.jpg");
-		auto flatVase = GameObject::createGameObject();
-		flatVase.model = model;
-		flatVase.transform.translation = { -.5f, .5f, 0.f };
-		flatVase.transform.scale = { 3.f, 1.5f, 3.f };
-		gameObjects.emplace(flatVase.getId(), std::move(flatVase));
-
+		loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf");
 
 		std::vector<glm::vec3> lightColors{
 			{1.f, 1.f, 1.f},
@@ -283,10 +300,8 @@ namespace jhb {
 
 	void JHBApplication::createCube()
 	{
-		std::unique_ptr<jhb::Model::Builder> builder = std::make_unique<jhb::Model::Builder>(device);
-		std::vector<std::string> cubefiles = { "Texture/pisa_cube.ktx" };
-		builder->loadTextrue3D(cubefiles);
-		builder->vertices = {
+		std::vector<std::string> cubefiles = {  };
+		std::vector<Vertex> vertices = {
 			{{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
 	  {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
 	  {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
@@ -323,10 +338,13 @@ namespace jhb {
 	  {{.5f, -.5f, -0.5f}, {.5f, .8f, .5f}},
 		};
 
-		builder->indices = { 0,  1,  2,  0,  3,  1,  4,  5,  6,  4,  7,  5,  8,  9,  10, 8,  11, 9,
+		std::vector<uint32_t> indices = { 0,  1,  2,  0,  3,  1,  4,  5,  6,  4,  7,  5,  8,  9,  10, 8,  11, 9,
 								12, 13, 14, 12, 15, 13, 16, 17, 18, 16, 19, 17, 20, 21, 22, 20, 23, 21 };
 
-		std::shared_ptr<Model> cube = std::make_unique<Model>(device, std::move(builder));
+		std::shared_ptr<Model> cube = std::make_unique<Model>(device);
+		cube->createVertexBuffer(vertices);
+		cube->createIndexBuffer(indices);
+		cube->getTexture(0).loadKTXTexture(device, "Texture/pisa_cube.ktx", VK_IMAGE_VIEW_TYPE_CUBE, 6);
 		auto skyBox = GameObject::createGameObject();
 		skyBox.model = cube;
 		skyBox.transform.translation = { 0.f, 0.f, 0.f };
@@ -336,19 +354,19 @@ namespace jhb {
 
 	void JHBApplication::create2DModelForBRDFLUT()
 	{
-		std::unique_ptr<jhb::Model::Builder> builder = std::make_unique<jhb::Model::Builder>(device);
-		std::vector<std::string> cubefiles = { "Texture/pisa_cube.ktx" };
-		builder->loadTextrue3D(cubefiles);
-		builder->vertices = {
+		std::vector<Vertex> vertices = {
 			{{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
 	  {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
 	  {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
 	
 		};
 
-		builder->indices = { 0,  1,  2};
+		std::vector<uint32_t> indices = { 0,  1,  2};
 
-		std::shared_ptr<Model> cube = std::make_unique<Model>(device, std::move(builder));
+		std::shared_ptr<Model> cube = std::make_unique<Model>(device);
+		cube->createVertexBuffer(vertices);
+		cube->createIndexBuffer(indices);
+		cube->getTexture(0).loadKTXTexture(device, "Texture/pisa_cube.ktx", VK_IMAGE_VIEW_TYPE_CUBE, 6);
 		auto skyBox = GameObject::createGameObject();
 		skyBox.model = cube;
 		skyBox.transform.translation = { 0.f, 0.f, 0.f };
@@ -388,121 +406,52 @@ namespace jhb {
 
 	void JHBApplication::InitImgui()
 	{
-		//IMGUI_CHECKVERSION();
-		//ImGui::CreateContext();
-		//ImGuiIO& io = ImGui::GetIO(); (void)io;
-		////io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-		////io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-		//// Setup Dear ImGui style
-		//ImGui::StyleColorsDark();
+		
+	}
 
-		//int texWidth, texHeight;
-		//VkBuffer stagingBuffer;
-		//VkDeviceMemory stagingBufferMemory;
-		//ImGui::CreateContext();
-		//auto io = ImGui::GetIO();
-		//auto vulkanStyle = ImGui::GetStyle();
-		//vulkanStyle.Colors[ImGuiCol_TitleBg] = ImVec4(1.0f, 0.0f, 0.0f, 0.6f);
-		//vulkanStyle.Colors[ImGuiCol_TitleBgActive] = ImVec4(1.0f, 0.0f, 0.0f, 0.8f);
-		//vulkanStyle.Colors[ImGuiCol_MenuBarBg] = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
-		//vulkanStyle.Colors[ImGuiCol_Header] = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
-		//vulkanStyle.Colors[ImGuiCol_CheckMark] = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
+	void JHBApplication::loadGLTFFile(const std::string& filename)
+	{
+		tinygltf::Model glTFInput;
+		tinygltf::TinyGLTF gltfContext;
+		std::string error, warning;
 
-		//io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-		//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-		//io.Fonts->AddFontDefault();
-		//ImGui::StyleColorsDark();
-		//// Create font texture
-		//unsigned char* fontData;
-		//io.Fonts->GetTexDataAsRGBA32(&fontData, &texWidth, &texHeight);
-		//VkDeviceSize uploadSize = texWidth * texHeight * 4 * sizeof(char);
-		//void* mapped;
-		//device.createBuffer(uploadSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-		//vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, uploadSize, 0, &mapped);
-		//memcpy(mapped, fontData, uploadSize);
-		//vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
+		bool fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, filename);
 
-		//VkImageCreateInfo imageInfo{};
-		//imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		//imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		//imageInfo.extent.width = static_cast<uint32_t>(texWidth);
-		//imageInfo.extent.height = static_cast<uint32_t>(texHeight);
-		//imageInfo.extent.depth = 1;
-		//imageInfo.mipLevels = 1;
-		//imageInfo.arrayLayers = 1;
-		//imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-		//imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		//imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		//imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		//imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		//imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		//imageInfo.flags = 0; // Optional
-		//device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, fontImage, fontMemory);
+		size_t pos = filename.find_last_of('/');
 
-		//VkImageSubresourceRange subresourceRange = {};
-		//subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		//subresourceRange.baseMipLevel = 0;
-		//subresourceRange.levelCount = 1;
-		//subresourceRange.layerCount = 1;
+		std::vector<uint32_t> indexBuffer;
+		std::vector<Vertex> vertexBuffer;
 
-		//VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
-		//device.transitionImageLayout(commandBuffer, fontImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+		auto gameModel = GameObject::createGameObject();
+		gameModel.transform.translation = { -.5f, .5f, 0.f };
+		gameModel.transform.scale = { 1.f, 1.f, 1.f };
+		gameModel.transform.rotation = glm::vec3{ 5.f, 2.f, 5.f };
 
 
-		//VkBufferImageCopy bufferCopyRegion = {};
-		//bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		//bufferCopyRegion.imageSubresource.mipLevel = 0;
-		//bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
-		//bufferCopyRegion.imageSubresource.layerCount = 1;
-		//bufferCopyRegion.imageExtent.width = static_cast<uint32_t>(texWidth);
-		//bufferCopyRegion.imageExtent.height = static_cast<uint32_t>(texHeight);
-		//bufferCopyRegion.imageExtent.depth = 1;
-		//bufferCopyRegion.bufferOffset = 0;
-		//vkCmdCopyBufferToImage(
-		//	commandBuffer,
-		//	stagingBuffer,
-		//	fontImage, 
-		//	VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		//	1,
-		//	&bufferCopyRegion);
-		////device.copyBufferToImage(commandBuffer ,stagingBuffer, fontImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
+		std::shared_ptr<Model> model = std::make_shared<Model>(device, gameModel.transform.mat4());
+		gameModel.model = model;
 
-		//device.transitionImageLayout(commandBuffer, fontImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
-		//device.endSingleTimeCommands(commandBuffer);
+		model->path = filename.substr(0, pos);
 
-		//// create image view and image sampler
-		//VkImageViewCreateInfo viewInfo{};
-		//viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		//viewInfo.image = fontImage;
-		//viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		//viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-		//viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		//viewInfo.subresourceRange.baseMipLevel = 0;
-		//viewInfo.subresourceRange.levelCount = 1;
-		//viewInfo.subresourceRange.baseArrayLayer = 0;
-		//viewInfo.subresourceRange.layerCount = 1;
+		if (fileLoaded) {
+			model->loadImages(glTFInput);
+			model->loadMaterials(glTFInput);
+			model->loadTextures(glTFInput);
+			const tinygltf::Scene& scene = glTFInput.scenes[0];
+			for (size_t i = 0; i < scene.nodes.size(); i++) {
+				const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
+				model->loadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
+			}
+		}
+		else {
+			throw std::runtime_error("Could not open the glTF file.\n\nMake sure the assets submodule has been checked out and is up-to-date.");
+			return;
+		}
 
-		//if (vkCreateImageView(device.getLogicalDevice(), &viewInfo, nullptr, &fontView) != VK_SUCCESS) {
-		//	throw std::runtime_error("failed to create texture image view!");
-		//}
+		model->createVertexBuffer(vertexBuffer);
+		model->createIndexBuffer(indexBuffer);
 
-		//VkSamplerCreateInfo samplerInfo{};
-		//samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		//samplerInfo.magFilter = VK_FILTER_LINEAR;
-		//samplerInfo.minFilter = VK_FILTER_LINEAR;
-
-		//samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		//samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		//samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-
-		//VkPhysicalDeviceProperties properties{};
-		//vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
-		//samplerInfo.anisotropyEnable = VK_FALSE;
-		//samplerInfo.maxAnisotropy = 1.0;
-
-		//if (vkCreateSampler(device.getLogicalDevice(), &samplerInfo, nullptr, &Sampler) != VK_SUCCESS) {
-		//	throw std::runtime_error("failed to create texture sampler!");
-		//}
+		gameObjects.emplace(gameModel.getId(), std::move(gameModel));
 	}
 
 	void JHBApplication::generateBRDFLUT(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets)
@@ -863,8 +812,6 @@ namespace jhb {
 			{
 				throw std::runtime_error("failed to create renderpass!");
 			}
-
-
 
 			std::vector<VkImageView> attachments = { offscreenImageView };
 

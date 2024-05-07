@@ -11,6 +11,12 @@ namespace jhb {
 		createGraphicsPipeline(vertFilepath, fragFilepath, configInfo);
 	}
 
+	Pipeline::Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo, std::vector<Material>& materials)
+		: device{ device }
+	{
+		createGraphicsPipelinePerMaterial(vertFilepath, fragFilepath, configInfo, materials);
+	}
+
 	Pipeline::~Pipeline()
 	{
 		vkDestroyShaderModule(device.getLogicalDevice(), fragShaderModule, nullptr);
@@ -93,9 +99,6 @@ namespace jhb {
 		configInfo.dynamicStateInfo.dynamicStateCount =
 			static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
 		configInfo.dynamicStateInfo.flags = 0;
-
-		configInfo.bindingDescriptions = configInfo.bindingDescriptions;
-		configInfo.attributeDescriptions = configInfo.attributeDescriptions;
 	}
 
 	std::vector<char> jhb::Pipeline::readFile(const std::string& filepath)
@@ -179,13 +182,13 @@ namespace jhb {
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;  // Optional
 		pipelineInfo.basePipelineIndex = -1;               // Optional
 		// Pipeline cache
-		VkPipelineCache pipelinCache;
-		VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
-		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-		vkCreatePipelineCache(device.getLogicalDevice(), &pipelineCacheCreateInfo, nullptr, &pipelinCache);
+		//VkPipelineCache pipelinCache;
+		//VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
+		//pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+		//vkCreatePipelineCache(device.getLogicalDevice(), &pipelineCacheCreateInfo, nullptr, &pipelinCache);
 		if (vkCreateGraphicsPipelines(
 			device.getLogicalDevice(),
-			pipelinCache,
+			nullptr,
 			1,
 			&pipelineInfo,
 			nullptr,
@@ -194,6 +197,105 @@ namespace jhb {
 		}
 
 	}
+
+	void Pipeline::createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo, std::vector<Material>& materials)
+	{
+		assert(
+			configInfo.pipelineLayout != VK_NULL_HANDLE &&
+			"Cannot create graphics pipeline: no pipelineLayout provided in configInfo");
+		assert(
+			configInfo.renderPass != VK_NULL_HANDLE &&
+			"Cannot create graphics pipeline: no renderPass provided in configInfo");
+
+		auto vertCode = readFile(vertFilepath);
+		auto fragCode = readFile(fragFilepath);
+
+		createShaderModule(vertCode, &vertShaderModule);
+		createShaderModule(fragCode, &fragShaderModule);
+
+		VkPipelineShaderStageCreateInfo shaderStages[2];
+		shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+		shaderStages[0].module = vertShaderModule;
+		shaderStages[0].pName = "main";
+		shaderStages[0].flags = 0;
+		shaderStages[0].pNext = nullptr;
+		shaderStages[0].pSpecializationInfo = nullptr;
+		shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		shaderStages[1].module = fragShaderModule;
+		shaderStages[1].pName = "main";
+		shaderStages[1].flags = 0;
+		shaderStages[1].pNext = nullptr;
+
+		auto bindingDescription = configInfo.bindingDescriptions;
+		auto attributeDescription = configInfo.attributeDescriptions;
+
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescription.size());
+		vertexInputInfo.pVertexBindingDescriptions = bindingDescription.data();
+		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescription.size());;
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescription.data();
+
+		VkGraphicsPipelineCreateInfo pipelineInfo = {};
+		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		pipelineInfo.stageCount = 2;
+		pipelineInfo.pStages = shaderStages;
+		pipelineInfo.pVertexInputState = &vertexInputInfo;
+		pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;
+		pipelineInfo.pViewportState = &configInfo.viewportInfo;
+		pipelineInfo.pRasterizationState = &configInfo.rasterizationInfo;
+		pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;
+		pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;
+		pipelineInfo.pDynamicState = nullptr;  // Optional
+		pipelineInfo.pDepthStencilState = &configInfo.depthStencilInfo;
+		pipelineInfo.pDynamicState = &configInfo.dynamicStateInfo;
+
+		pipelineInfo.layout = configInfo.pipelineLayout;
+		pipelineInfo.renderPass = configInfo.renderPass;
+		pipelineInfo.subpass = configInfo.subpass;
+
+		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;  // Optional
+		pipelineInfo.basePipelineIndex = -1;               // Optional
+
+		// Pipeline cache
+		VkPipelineCache pipelinCache;
+		VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
+		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+		vkCreatePipelineCache(device.getLogicalDevice(), &pipelineCacheCreateInfo, nullptr, &pipelinCache);
+		for (auto& material : materials) {
+
+			struct MaterialSpecializationData {
+				VkBool32 alphaMask;
+				float alphaMaskCutoff;
+			} materialSpecializationData;
+
+			materialSpecializationData.alphaMask = material.alphaMode == "MASK";
+			materialSpecializationData.alphaMaskCutoff = material.alphaCutOff;
+
+			// POI: Constant fragment shader material parameters will be set using specialization constants
+			std::vector<VkSpecializationMapEntry> specializationMapEntries = {
+				{0, offsetof(MaterialSpecializationData, alphaMask), sizeof(MaterialSpecializationData::alphaMask)},
+				{1, offsetof(MaterialSpecializationData, alphaMaskCutoff), sizeof(MaterialSpecializationData::alphaMaskCutoff)},
+			};
+			VkSpecializationInfo specializationInfo = { specializationMapEntries.size(), specializationMapEntries.data(), sizeof(materialSpecializationData), &materialSpecializationData };
+			shaderStages[1].pSpecializationInfo = &specializationInfo;
+
+			// For double sided materials, culling will be disabled
+			configInfo.rasterizationInfo.cullMode = material.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_NONE;
+			if (vkCreateGraphicsPipelines(
+				device.getLogicalDevice(),
+				pipelinCache,
+				1,
+				&pipelineInfo,
+				nullptr,
+				&material.pipeline) != VK_SUCCESS) {
+				throw std::runtime_error("failed to create graphics pipeline!");
+			}
+		}
+	}
+
 	void Pipeline::createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule)
 	{
 		VkShaderModuleCreateInfo createInfo{};

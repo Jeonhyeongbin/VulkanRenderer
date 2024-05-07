@@ -19,9 +19,17 @@
 #include <math.h>
 
 namespace jhb {
+	struct PBRPushConstantData {
+		//glm::mat4 ModelMatrix{ 1.f };
+	};
+
 	struct SimplePushConstantData {
 		glm::mat4 ModelMatrix{ 1.f };
 		glm::mat4 normalMatrix{ 1.f };
+	};
+
+	struct gltfPushConstantData {
+		glm::mat4 gltfMatrix{1.f};
 	};
 
 	struct PrefileterPushBlock {

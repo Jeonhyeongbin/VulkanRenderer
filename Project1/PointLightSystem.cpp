@@ -19,8 +19,8 @@ namespace jhb {
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_TRUE;
 		pipelineConfig.depthStencilInfo.depthTestEnable= VK_TRUE;
-		pipelineConfig.attributeDescriptions = jhb::Model::Vertex::getAttrivuteDescriptions();
-		pipelineConfig.bindingDescriptions = jhb::Model::Vertex::getBindingDescriptions();
+		pipelineConfig.attributeDescriptions = jhb::Vertex::getAttrivuteDescriptions();
+		pipelineConfig.bindingDescriptions = jhb::Vertex::getBindingDescriptions();
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.attributeDescriptions.clear();
 		pipelineConfig.bindingDescriptions.clear();
@@ -57,6 +57,7 @@ namespace jhb {
 
 	void PointLightSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
 	{
+		pipeline->bind(frameInfo.commandBuffer);
 		BaseRenderSystem::renderGameObjects(frameInfo, instanceBuffer);
 		for (auto& kv : frameInfo.gameObjects)
 		{
