@@ -165,23 +165,7 @@ namespace jhb {
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
 			pipelineLayout,
 			1, 1
-			, &frameInfo.brdfImageSamplerDescriptorSet,
-			0, nullptr
-		);
-		vkCmdBindDescriptorSets(
-			frameInfo.commandBuffer,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			2, 1
-			, &frameInfo.irradianceImageSamplerDescriptorSet,
-			0, nullptr
-		);
-		vkCmdBindDescriptorSets(
-			frameInfo.commandBuffer,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			3, 1
-			, &frameInfo.prefilterImageSamplerDescriptorSet,
+			, &frameInfo.pbrImageSamplerDescriptorSet,
 			0, nullptr
 		);
 
@@ -194,13 +178,9 @@ namespace jhb {
 			{
 				continue;
 			}
-			/*PBRPushConstantData push{};
-			push.normalMatrix = obj.transform.normalMatrix();*/
 
 			if (kv.first == 1)
 			{
-				//vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PBRPushConstantData), &push);
-
 				if (kv.first == 1)
 				{
 					VkBuffer buffer[1] = { instanceBuffer->getBuffer() };

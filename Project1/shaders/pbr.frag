@@ -12,10 +12,10 @@ layout (location = 8) in float fg;
 layout (location = 9) in float fb;
 
 layout (set = 1, binding = 0) uniform sampler2D samplerBRDFLUT;
-layout (set = 2, binding = 0) uniform samplerCube samplerIrradiance;
-layout (set = 3, binding = 0) uniform samplerCube prefilteredMap;
-layout (set = 4, binding = 0) uniform sampler2D samplerColorMap;
-layout (set = 4, binding = 1) uniform sampler2D samplerNormalMap;
+layout (set = 1, binding = 1) uniform samplerCube samplerIrradiance;
+layout (set = 1, binding = 2) uniform samplerCube prefilteredMap;
+layout (set = 2, binding = 0) uniform sampler2D samplerColorMap;
+layout (set = 2, binding = 1) uniform sampler2D samplerNormalMap;
 struct PointLight{
 	vec4 position; // w is  just for allign
 	vec4 color; // w is intensity

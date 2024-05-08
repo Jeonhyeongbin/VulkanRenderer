@@ -66,6 +66,7 @@ namespace jhb {
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
+
 		//// Init imGui windows and elements
 		//// Debug window
 		ImGui::SetWindowPos(ImVec2(20.f, 20.f), ImGuiCond_Appearing);
@@ -82,10 +83,6 @@ namespace jhb {
 		ImGui::SliderFloat("metalic", &metalic, 0.1f, 1.0f);
 		ImGui::End();
 
-		//SRS - ShowDemoWindow() sets its own initial position and size, cannot override here
-
-		////ImGui::Image(descriptorSet, ImVec2(600.f, 800.f));
-		// Render to generate draw buffers
 		ImGui::Render();
 	}
 }

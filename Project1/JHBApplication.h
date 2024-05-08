@@ -48,7 +48,9 @@ namespace jhb {
 		void InitImgui();
 		void loadGLTFFile(const std::string& filename);
 
-		void generateBRDFLUT(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets);
+		void initDescriptorSets();
+
+		void generateBRDFLUT();
 		void generateIrradianceCube(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets);
 		void generatePrefilteredCube(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets);
 
@@ -56,12 +58,7 @@ namespace jhb {
 		// init top to bottom
 		Window window{ 800, 600, "TriangleApp!" };
 		Device device{ window };
-		//std::vector<VkSubpassDependency> dependencies = {
-		//	{VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-		//		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0,
-		//		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
-		//	},
-		//};
+
 		std::vector<VkSubpassDependency> subdependencies = { {VK_SUBPASS_EXTERNAL,0,VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT, 0
 			}, {VK_SUBPASS_EXTERNAL, 0,VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
@@ -69,10 +66,20 @@ namespace jhb {
 		} };
 		Renderer renderer{ window, device, subdependencies, true, VK_FORMAT_R16G16B16A16_SFLOAT, 2 };
 
-		std::array<std::unique_ptr<DescriptorPool>, 6> globalPools{};
+		std::array<std::unique_ptr<DescriptorPool>, 4> globalPools{};
+		std::vector<std::unique_ptr<Buffer>> uboBuffers{};
+	private:
+		std::vector<VkDescriptorSetLayout> vkDescSetLayouts;
+		std::vector<VkDescriptorSet> vkDescSets;
+
+		std::vector<VkDescriptorSet> CubeBoxDescriptorSets{}; // skybox
+		std::vector<VkDescriptorSet> globalDescriptorSets{}; // global uniform buffer
+		std::vector<VkDescriptorSet> pbrResourceDescriptorSets{}; // pbr resource
+
 		Buffer instanceBuffer;
 
 		GameObject::Map gameObjects;
+
 		VkImage preFilterCubeImg;
 		VkImage IrradianceCubeImg;
 		VkImageView preFilterCubeImgView;

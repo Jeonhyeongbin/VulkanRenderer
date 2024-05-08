@@ -8,7 +8,7 @@
 #include "PointLightSystem.h"
 #include "Model.h"
 #include "External/Imgui/imgui.h"
-
+#include "PBRResourceGenerator.h"
 
 #define _USE_MATH_DEFINESimgui
 #include <math.h>
@@ -18,22 +18,15 @@
 namespace jhb {
 	JHBApplication::JHBApplication() : instanceBuffer(Buffer(device, sizeof(InstanceData), 64, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
 	{
-		globalPools[0] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
-		// ubo and instancing
-		globalPools[1] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); // brud
-		globalPools[2] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); // skybox
-		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();	// irradiane
-		globalPools[4] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); //prefiter
-		
-		// for gltf model color map and normal map
-		globalPools[5] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 2).build(); 
-	
+		uboBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		CubeBoxDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		globalDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		pbrResourceDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
-		// two descriptor sets
-		// each descriptor set contain two UNIFORM_BUFFER descriptor
 		createCube();
 		loadGameObjects();
 		create2DModelForBRDFLUT();
+		initDescriptorSets();
 	}
 
 	JHBApplication::~JHBApplication()
@@ -44,161 +37,28 @@ namespace jhb {
 	}
 
 	void JHBApplication::Run()
-	{
-		std::vector<std::unique_ptr<Buffer>> uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT);
-		for (int i = 0; i < uboBuffers.size(); i++)
-		{
-			uboBuffers[i] = std::make_unique<Buffer>(
-				device,
-				sizeof(GlobalUbo),
-				1,
-				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-			);
-
-			uboBuffers[i]->map();
-		}
-		// because of simultenous
-		// for example, while frame0 rendering and frame1 using ubo either,
-		// so just copy instance makes you safe from multithread env
-		
-		// frame0 
-		//   write date -> globalUbo
-		//	 "Bind" (globalUbo)
-		//	 start Rendering
-		// frame01
-		//   write date -> globalUbo
-		//	 "Bind" (globalUbo)
-		//	 start Rendering
-		// can do all this without having to wait for frame0 to finish rendering
-
-
-		std::vector<std::unique_ptr<jhb::DescriptorSetLayout>> descSetLayouts;
-		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS).
-			build());
-		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
-
-		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
-		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
-		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
-
-		// for gltf normal map and color map
-		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
-
-
-		// for uniform buffer descriptor pool
-		std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
-		for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			auto bufferInfo = uboBuffers[i]->descriptorInfo();
-			DescriptorWriter(*descSetLayouts[0], *globalPools[0]).writeBuffer(0, &bufferInfo).build(globalDescriptorSets[i]);
-		}
-
-		std::vector<VkDescriptorSet> CubeBoxDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT); // skybox
-		VkDescriptorImageInfo skyBoximageInfo{};
-		skyBoximageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		skyBoximageInfo.imageView = gameObjects[0].model->getTexture(0).view;
-		skyBoximageInfo.sampler = gameObjects[0].model->getTexture(0).sampler;
-
-		std::vector<VkDescriptorSetLayout> desclayouts = { descSetLayouts[0]->getDescriptorSetLayout() , descSetLayouts[2]->getDescriptorSetLayout() };
-
-		for (int i = 0; i < CubeBoxDescriptorSets.size(); i++)
-		{
-			DescriptorWriter(*descSetLayouts[2], *globalPools[2]).writeImage(0, &skyBoximageInfo).build(CubeBoxDescriptorSets[i]);
-		}
-		std::vector<VkDescriptorSet> descSets = { globalDescriptorSets[0] , CubeBoxDescriptorSets[0]};
-
-		generateBRDFLUT(desclayouts, descSets);
-		generateIrradianceCube(desclayouts, descSets);
-		generatePrefilteredCube(desclayouts, descSets);
-
-		std::vector<VkDescriptorSet> brdfImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
-		std::vector<VkDescriptorSet> irradianceImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
-		std::vector<VkDescriptorSet> prefilterImageSamplerDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
-
-		VkDescriptorImageInfo brdfImgInfo{};
-		brdfImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		brdfImgInfo.imageView = lutBrdfView;
-		brdfImgInfo.sampler = lutBrdfSampler;
-		VkDescriptorImageInfo irradianceImgInfo{};
-		irradianceImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		irradianceImgInfo.imageView = IrradianceCubeImgView;
-		irradianceImgInfo.sampler = IrradianceCubeSampler;
-		VkDescriptorImageInfo prefilterImgInfo{};
-		prefilterImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		prefilterImgInfo.imageView = preFilterCubeImgView;
-		prefilterImgInfo.sampler = preFilterCubeSampler;
-		
+	{	
 		std::vector<VkPushConstantRange> pushConstantRanges;
 		VkPushConstantRange pushConstantRange{};
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT ; // This means that both vertex and fragment shader using constant 
 		pushConstantRange.offset = 0;
 		pushConstantRanges.push_back(pushConstantRange);
 
-		std::vector<VkDescriptorSetLayout> desclayoutsForImgui = { };
-
-		VkSubpassDependency dependency = {};
-		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependency.dstSubpass = 0;
-		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency.srcAccessMask = 0;
-		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		std::vector<VkSubpassDependency> imguidepency = { dependency };
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
-
-		std::vector<VkDescriptorImageInfo> descImageInfos = { brdfImgInfo , skyBoximageInfo, irradianceImgInfo, prefilterImgInfo };
-		// for image sampler descriptor pool
-		for (int i = 0; i < brdfImageSamplerDescriptorSets.size(); i++)
-		{
-			DescriptorWriter(*descSetLayouts[1], *globalPools[1]).writeImage(0, &descImageInfos[0]).build(brdfImageSamplerDescriptorSets[i]);
-			DescriptorWriter(*descSetLayouts[3], *globalPools[3]).writeImage(0, &descImageInfos[2]).build(irradianceImageSamplerDescriptorSets[i]);
-			DescriptorWriter(*descSetLayouts[4], *globalPools[4]).writeImage(0, &descImageInfos[3]).build(prefilterImageSamplerDescriptorSets[i]);
-		}
-
-		// for gltf color map and normal map
-		auto gltfModel = gameObjects[1].model;
-		for (auto& material : gltfModel->materials)
-		{
-			std::vector<VkDescriptorImageInfo> imageinfos = { gltfModel->getTexture(material.baseColorTextureIndex).descriptor, gltfModel->getTexture(material.normalTextureIndex).descriptor };
-			for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
-			{
-				DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, &imageinfos[0]).writeImage(1, &imageinfos[1]).build(material.descriptorSets[i]);
-			}
-		}
-
-		for (int i = 1; i <= 5; i++)
-		{
-			if (i == 3 || i==2)
-				continue;
-			desclayouts.push_back(descSetLayouts[i]->getDescriptorSetLayout());
-		}
-
 
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		pushConstantRanges[0].size = sizeof(gltfPushConstantData);
 
-
-		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/pbr.vert.spv",
+		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), vkDescSetLayouts,"shaders/pbr.vert.spv",
 			"shaders/pbr.frag.spv" , pushConstantRanges, gameObjects[1].model->materials};
 		pushConstantRanges[0].size = sizeof(PointLightPushConstants);
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-
-		std::vector<VkDescriptorSetLayout> pointlightDesclayouts = { descSetLayouts[0]->getDescriptorSetLayout() };
-
-		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), pointlightDesclayouts, "shaders/point_light.vert.spv",
+		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), { vkDescSetLayouts[0] }, "shaders/point_light.vert.spv",
 			"shaders/point_light.frag.spv" , pushConstantRanges };
 		pushConstantRanges[0].size = sizeof(SimplePushConstantData);
-		SkyBoxRenderSystem skyboxRenderSystem{ device, renderer.getSwapChainRenderPass(), desclayouts ,"shaders/skybox.vert.spv",
+		SkyBoxRenderSystem skyboxRenderSystem{ device, renderer.getSwapChainRenderPass(), { vkDescSetLayouts[0], vkDescSetLayouts[1] } ,"shaders/skybox.vert.spv",
 			"shaders/skybox.frag.spv" , pushConstantRanges };
-
 
 		auto viewerObject = GameObject::createGameObject();
 		viewerObject.transform.translation.z = -2.5f;
@@ -229,9 +89,7 @@ namespace jhb {
 					commandBuffer,
 					*window.getCamera(),
 					globalDescriptorSets[frameIndex],
-					brdfImageSamplerDescriptorSets[frameIndex],
-					irradianceImageSamplerDescriptorSets[frameIndex],
-					prefilterImageSamplerDescriptorSets[frameIndex],
+					pbrResourceDescriptorSets[frameIndex],
 					CubeBoxDescriptorSets[frameIndex],
 					gameObjects
 				};
@@ -279,6 +137,7 @@ namespace jhb {
 
 		vkDeviceWaitIdle(device.getLogicalDevice());
 	}
+
 	void JHBApplication::loadGameObjects()
 	{
 		loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf");
@@ -307,31 +166,26 @@ namespace jhb {
 	  {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
 	  {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
 
-	  // right face (yellow)
 	  {{.5f, -.5f, -.5f}, {.8f, .8f, .5f}},
 	  {{.5f, .5f, .5f}, {.8f, .8f, .5f}},
 	  {{.5f, -.5f, .5f}, {.8f, .8f, .5f}},
 	  {{.5f, .5f, -.5f}, {.8f, .8f, .5f}},
 
-	  // top face (orange, remember y axis points down)
 	  {{-.5f, -.5f, -.5f}, {.9f, .6f, .5f}},
 	  {{.5f, -.5f, .5f}, {.9f, .6f, .5f}},
 	  {{-.5f, -.5f, .5f}, {.9f, .6f, .5f}},
 	  {{.5f, -.5f, -.5f}, {.9f, .6f, .5f}},
 
-	  // bottom face (red)
 	  {{-.5f, .5f, -.5f}, {.8f, .5f, .5f}},
 	  {{.5f, .5f, .5f}, {.8f, .5f, .5f}},
 	  {{-.5f, .5f, .5f}, {.8f, .5f, .5f}},
 	  {{.5f, .5f, -.5f}, {.8f, .5f, .5f}},
 
-	  // nose face (blue)
 	  {{-.5f, -.5f, 0.5f}, {.5f, .5f, .8f}},
 	  {{.5f, .5f, 0.5f}, {.5f, .5f, .8f}},
 	  {{-.5f, .5f, 0.5f}, {.5f, .5f, .8f}},
 	  {{.5f, -.5f, 0.5f}, {.5f, .5f, .8f}},
 
-	  // tail face (green)
 	  {{-.5f, -.5f, -0.5f}, {.5f, .8f, .5f}},
 	  {{.5f, .5f, -0.5f}, {.5f, .8f, .5f}},
 	  {{-.5f, .5f, -0.5f}, {.5f, .8f, .5f}},
@@ -427,7 +281,6 @@ namespace jhb {
 		gameModel.transform.scale = { 1.f, 1.f, 1.f };
 		gameModel.transform.rotation = glm::vec3{ 5.f, 2.f, 5.f };
 
-
 		std::shared_ptr<Model> model = std::make_shared<Model>(device, gameModel.transform.mat4());
 		gameModel.model = model;
 
@@ -454,7 +307,125 @@ namespace jhb {
 		gameObjects.emplace(gameModel.getId(), std::move(gameModel));
 	}
 
-	void JHBApplication::generateBRDFLUT(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets)
+	void JHBApplication::initDescriptorSets()
+	{
+		globalPools[0] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
+		// ubo
+		globalPools[1] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); // skybox
+		globalPools[2] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 3).build();	// prefiter, brud, irradiane
+
+		// for gltf model color map and normal map
+		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 2).build();
+
+		for (int i = 0; i < uboBuffers.size(); i++)
+		{
+			uboBuffers[i] = std::make_unique<Buffer>(
+				device,
+				sizeof(GlobalUbo),
+				1,
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+			);
+
+			uboBuffers[i]->map();
+		}
+		// because of simultenous
+		// for example, while frame0 rendering and frame1 using ubo either,
+		// so just copy instance makes you safe from multithread env
+
+		// frame0 
+		//   write date -> globalUbo
+		//	 "Bind" (globalUbo)
+		//	 start Rendering
+		// frame01
+		//   write date -> globalUbo
+		//	 "Bind" (globalUbo)
+		//	 start Rendering
+		// can do all this without having to wait for frame0 to finish rendering
+
+		// two descriptor sets
+		// each descriptor set contain two UNIFORM_BUFFER descriptor
+		std::vector<std::unique_ptr<jhb::DescriptorSetLayout>> descSetLayouts;
+		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS).
+			build());
+
+		// for sky box
+		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
+
+		// for pbr resource
+		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).
+			addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).
+			addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
+
+		// for gltf normal map and color map
+		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
+
+		// transition wrapping desciptorsetlayout to vkdescriptorsetlayout.
+		for (int i =0;i<descSetLayouts.size();i++)
+		{
+			vkDescSetLayouts.push_back(descSetLayouts[i].get()->getDescriptorSetLayout());
+		}
+
+		// for uniform buffer
+		for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			auto bufferInfo = uboBuffers[i]->descriptorInfo();
+			DescriptorWriter(*descSetLayouts[0], *globalPools[0]).writeBuffer(0, &bufferInfo).build(globalDescriptorSets[i]);
+		}
+
+		VkDescriptorImageInfo skyBoximageInfo{};
+		skyBoximageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		skyBoximageInfo.imageView = gameObjects[0].model->getTexture(0).view;
+		skyBoximageInfo.sampler = gameObjects[0].model->getTexture(0).sampler;
+
+		for (int i = 0; i < CubeBoxDescriptorSets.size(); i++)
+		{
+			DescriptorWriter(*descSetLayouts[1], *globalPools[1]).writeImage(0, &skyBoximageInfo).build(CubeBoxDescriptorSets[i]);
+		}
+
+		// should create pbr resource images using pipeline once
+		generateBRDFLUT();
+		generateIrradianceCube({ vkDescSetLayouts[0], vkDescSetLayouts[1]}, { globalDescriptorSets[0], CubeBoxDescriptorSets[0]});
+		generatePrefilteredCube({ vkDescSetLayouts[0], vkDescSetLayouts[1] }, { globalDescriptorSets[0], CubeBoxDescriptorSets[0]});
+
+		VkDescriptorImageInfo brdfImgInfo{};
+		brdfImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		brdfImgInfo.imageView = lutBrdfView;
+		brdfImgInfo.sampler = lutBrdfSampler;
+		VkDescriptorImageInfo irradianceImgInfo{};
+		irradianceImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		irradianceImgInfo.imageView = IrradianceCubeImgView;
+		irradianceImgInfo.sampler = IrradianceCubeSampler;
+		VkDescriptorImageInfo prefilterImgInfo{};
+		prefilterImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		prefilterImgInfo.imageView = preFilterCubeImgView;
+		prefilterImgInfo.sampler = preFilterCubeSampler;
+
+		std::vector<VkDescriptorImageInfo> descImageInfos = { brdfImgInfo, irradianceImgInfo, prefilterImgInfo };
+		// for image sampler descriptor pool
+		for (int i = 0; i < pbrResourceDescriptorSets.size(); i++)
+		{
+			DescriptorWriter(*descSetLayouts[2], *globalPools[2]).writeImage(0, &descImageInfos[0]).writeImage(1, &descImageInfos[1])
+				.writeImage(2, &descImageInfos[2]).build(pbrResourceDescriptorSets[i]);
+		}
+
+		// for gltf color map and normal map
+		auto gltfModel = gameObjects[1].model;
+		for (auto& material : gltfModel->materials)
+		{
+			std::vector<VkDescriptorImageInfo> imageinfos = { gltfModel->getTexture(material.baseColorTextureIndex).descriptor, gltfModel->getTexture(material.normalTextureIndex).descriptor };
+			for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
+			{
+				DescriptorWriter(*descSetLayouts[3], *globalPools[3]).writeImage(0, &imageinfos[0]).writeImage(1, &imageinfos[1]).build(material.descriptorSets[i]);
+			}
+		}
+	}
+
+	void JHBApplication::generateBRDFLUT()
 	{
 		const VkFormat format = VK_FORMAT_R16G16_SFLOAT;	// R16G16 is supported pretty much everywhere
 		const int32_t dim = 512;
@@ -603,7 +574,7 @@ namespace jhb {
 			throw std::runtime_error("failed to create renderpass!");
 		}
 		std::vector<VkDescriptorSetLayout> setlayouts = { descriptorsetlayout };
-		SkyBoxRenderSystem skyboxRenderSystem{ device, renderpass, setlayouts ,"shaders/genbrdflut.vert.spv",
+		PBRResourceGenerator BRDFLUTGenerator{ device, renderpass, setlayouts ,"shaders/genbrdflut.vert.spv",
 			"shaders/genbrdflut.frag.spv" , pushConstantRanges };
 
 		VkFramebufferCreateInfo fbufCreateInfo{};
@@ -622,7 +593,7 @@ namespace jhb {
 		}
 
 		auto cmd = device.beginSingleTimeCommands();
-		skyboxRenderSystem.bindPipeline(cmd);
+		BRDFLUTGenerator.bindPipeline(cmd);
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = renderpass;
@@ -651,7 +622,7 @@ namespace jhb {
 		vkCmdSetViewport(cmd, 0, 1, &viewport);
 		vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-		skyboxRenderSystem.renderSkyBox(cmd, gameObjects[3], descSets);
+		BRDFLUTGenerator.generateBRDFLUT(cmd, gameObjects[3]);
 		vkCmdEndRenderPass(cmd);
 		device.endSingleTimeCommands(cmd);
 
@@ -834,7 +805,7 @@ namespace jhb {
 			device.endSingleTimeCommands(cmd);
 		}
 
-		SkyBoxRenderSystem skyboxRenderSystem{ device, renderpass, desclayouts ,"shaders/filtercube.vert.spv",
+		PBRResourceGenerator irradianceCubeGenerator{ device, renderpass, desclayouts ,"shaders/filtercube.vert.spv",
 	"shaders/irradiancecube.frag.spv" , pushConstantRanges };
 
 		VkRenderPassBeginInfo renderPassInfo{};
@@ -894,18 +865,13 @@ namespace jhb {
 				viewport.height = static_cast<float>(dim * std::pow(0.5f, m));
 				vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
 
-				//// Render scene from cube face's point of view
-				//vkCmdBeginRenderPass(cmdBuf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
+				// Render scene from cube face's point of view
 				vkCmdBeginRenderPass(cmdBuf, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 				// Update shader push constant block
 				pushBlock.mvp = glm::perspective((float)(M_PI / 2.0), 1.0f, 0.1f, 512.0f) * matrices[f];
 
-				//vkCmdPushConstants(cmdBuf, pipelinelayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushBlock), &pushBlock);
-				skyboxRenderSystem.bindPipeline(cmdBuf);
-				//vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-				//vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinelayout, 0, 1, &descriptorset, 0, NULL);
-				skyboxRenderSystem.renderSkyBox(cmdBuf, gameObjects[0], descSets, pushBlock);
+				irradianceCubeGenerator.bindPipeline(cmdBuf);
+				irradianceCubeGenerator.generateIrradianceCube(cmdBuf, gameObjects[0], descSets, pushBlock);
 				vkCmdEndRenderPass(cmdBuf);
 
 				device.transitionImageLayout(
@@ -1112,7 +1078,7 @@ namespace jhb {
 			throw std::runtime_error("failed to create renderpass!");
 		}
 
-		SkyBoxRenderSystem skyboxRenderSystem{ device, renderpass, desclayouts ,"shaders/filtercube.vert.spv",
+		PBRResourceGenerator prefilteredCubeGenerator{ device, renderpass, desclayouts ,"shaders/filtercube.vert.spv",
 		"shaders/prefilterenvmap.frag.spv" , pushConstantRanges };
 		
 
@@ -1187,7 +1153,7 @@ namespace jhb {
 		vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
 		vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-		skyboxRenderSystem.bindPipeline(cmdBuf);
+		prefilteredCubeGenerator.bindPipeline(cmdBuf);
 		device.transitionImageLayout(cmdBuf, preFilterCubeImg, VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
 
@@ -1198,19 +1164,14 @@ namespace jhb {
 				viewport.height = static_cast<float>(dim * std::pow(0.5f, m));
 				vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
 
-				//// Render scene from cube face's point of view
-				//vkCmdBeginRenderPass(cmdBuf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-				
+				// Render scene from cube face's point of view
 				vkCmdBeginRenderPass(cmdBuf, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 				// Update shader push constant block
 				pushBlock.mvp = glm::perspective((float)(M_PI / 2.0), 1.0f, 0.1f, 512.0f) * matrices[f];
-				skyboxRenderSystem.bindPipeline(cmdBuf);
-				//vkCmdPushConstants(cmdBuf, pipelinelayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushBlock), &pushBlock);
+				prefilteredCubeGenerator.bindPipeline(cmdBuf);
 
-				//vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-				//vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinelayout, 0, 1, &descriptorset, 0, NULL);
-				skyboxRenderSystem.renderSkyBox(cmdBuf, gameObjects[0], descSets, pushBlock);
+				prefilteredCubeGenerator.generatePrefilteredCube(cmdBuf, gameObjects[0], descSets, pushBlock);
 				vkCmdEndRenderPass(cmdBuf);
 
 				device.transitionImageLayout(
