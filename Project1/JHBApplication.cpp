@@ -49,15 +49,18 @@ namespace jhb {
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		pushConstantRanges[0].size = sizeof(gltfPushConstantData);
 
-		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), vkDescSetLayouts,"shaders/pbr.vert.spv",
+
+		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), {descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout(),
+		descSetLayouts[3]->getDescriptorSetLayout()
+		},"shaders/pbr.vert.spv",
 			"shaders/pbr.frag.spv" , pushConstantRanges, gameObjects[1].model->materials};
 		pushConstantRanges[0].size = sizeof(PointLightPushConstants);
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), { vkDescSetLayouts[0] }, "shaders/point_light.vert.spv",
+		PointLightSystem pointLightSystem{ device, renderer.getSwapChainRenderPass(), { descSetLayouts[0]->getDescriptorSetLayout()}, "shaders/point_light.vert.spv",
 			"shaders/point_light.frag.spv" , pushConstantRanges };
 		pushConstantRanges[0].size = sizeof(SimplePushConstantData);
-		SkyBoxRenderSystem skyboxRenderSystem{ device, renderer.getSwapChainRenderPass(), { vkDescSetLayouts[0], vkDescSetLayouts[1] } ,"shaders/skybox.vert.spv",
+		SkyBoxRenderSystem skyboxRenderSystem{ device, renderer.getSwapChainRenderPass(), { descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout() } ,"shaders/skybox.vert.spv",
 			"shaders/skybox.frag.spv" , pushConstantRanges };
 
 		auto viewerObject = GameObject::createGameObject();
@@ -312,6 +315,7 @@ namespace jhb {
 		globalPools[0] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
 		// ubo
 		globalPools[1] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); // skybox
+
 		globalPools[2] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 3).build();	// prefiter, brud, irradiane
 
 		// for gltf model color map and normal map
@@ -329,6 +333,7 @@ namespace jhb {
 
 			uboBuffers[i]->map();
 		}
+
 		// because of simultenous
 		// for example, while frame0 rendering and frame1 using ubo either,
 		// so just copy instance makes you safe from multithread env
@@ -345,7 +350,6 @@ namespace jhb {
 
 		// two descriptor sets
 		// each descriptor set contain two UNIFORM_BUFFER descriptor
-		std::vector<std::unique_ptr<jhb::DescriptorSetLayout>> descSetLayouts;
 		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
 			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS).
 			build());
@@ -363,12 +367,6 @@ namespace jhb {
 		// for gltf normal map and color map
 		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
-
-		// transition wrapping desciptorsetlayout to vkdescriptorsetlayout.
-		for (int i =0;i<descSetLayouts.size();i++)
-		{
-			vkDescSetLayouts.push_back(descSetLayouts[i].get()->getDescriptorSetLayout());
-		}
 
 		// for uniform buffer
 		for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
@@ -389,8 +387,8 @@ namespace jhb {
 
 		// should create pbr resource images using pipeline once
 		generateBRDFLUT();
-		generateIrradianceCube({ vkDescSetLayouts[0], vkDescSetLayouts[1]}, { globalDescriptorSets[0], CubeBoxDescriptorSets[0]});
-		generatePrefilteredCube({ vkDescSetLayouts[0], vkDescSetLayouts[1] }, { globalDescriptorSets[0], CubeBoxDescriptorSets[0]});
+		generateIrradianceCube({ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout() }, {globalDescriptorSets[0], CubeBoxDescriptorSets[0]});
+		generatePrefilteredCube({ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout() }, { globalDescriptorSets[0], CubeBoxDescriptorSets[0]});
 
 		VkDescriptorImageInfo brdfImgInfo{};
 		brdfImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -430,50 +428,13 @@ namespace jhb {
 		const VkFormat format = VK_FORMAT_R16G16_SFLOAT;	// R16G16 is supported pretty much everywhere
 		const int32_t dim = 512;
 
-		// Descriptors
-		VkDescriptorSetLayout descriptorsetlayout;
-		std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {};
-		VkDescriptorSetLayoutCreateInfo descriptorsetlayoutCI{};
-		descriptorsetlayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		descriptorsetlayoutCI.pBindings = setLayoutBindings.data();
-		descriptorsetlayoutCI.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
-		if (vkCreateDescriptorSetLayout(device.getLogicalDevice(), &descriptorsetlayoutCI, nullptr, &descriptorsetlayout) != VK_SUCCESS)
-		{
-			throw std::runtime_error("descriptor set layout create failed!");
-		}
+		DescriptorPool::Builder(device).setMaxSets(1)
+			.addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1).build();
 
-		// Descriptor Pool
-		std::vector<VkDescriptorPoolSize> poolSizes{};
-		VkDescriptorPoolSize descriptorPoolSize{};
-		descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptorPoolSize.descriptorCount = 1;
-
-		poolSizes.push_back(descriptorPoolSize);
-
-		VkDescriptorPoolCreateInfo descriptorPoolInfo{};
-		descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-		descriptorPoolInfo.pPoolSizes = poolSizes.data();
-		descriptorPoolInfo.maxSets = 2;
-
-		VkDescriptorPool descriptorpool;
-		if (vkCreateDescriptorPool(device.getLogicalDevice(), &descriptorPoolInfo, nullptr, &descriptorpool) != VK_SUCCESS)
-		{
-			throw std::runtime_error("descriptor Pool create failed!");
-		}
-
-		// Descriptor sets
-		VkDescriptorSet descriptorset;
-
-		VkDescriptorSetAllocateInfo descriptorSetAllocateInfo{};
-		descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		descriptorSetAllocateInfo.descriptorPool = descriptorpool;
-		descriptorSetAllocateInfo.pSetLayouts = &descriptorsetlayout;
-		descriptorSetAllocateInfo.descriptorSetCount = 1;
-		if (vkAllocateDescriptorSets(device.getLogicalDevice(), &descriptorSetAllocateInfo, &descriptorset) != VK_SUCCESS)
-		{
-			throw std::runtime_error("descriptors Sets create failed!");
-		}
+		auto descriptorSetLayout = DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS).
+			build();
+		// no apply descriptorset to descriptorsetlayout but allcoate descriptorsetlayout and descritptor pool in william sascha example
 
 		std::vector<VkSubpassDependency> tmpdependencies(2);
 		tmpdependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -573,8 +534,8 @@ namespace jhb {
 		{
 			throw std::runtime_error("failed to create renderpass!");
 		}
-		std::vector<VkDescriptorSetLayout> setlayouts = { descriptorsetlayout };
-		PBRResourceGenerator BRDFLUTGenerator{ device, renderpass, setlayouts ,"shaders/genbrdflut.vert.spv",
+
+		PBRResourceGenerator BRDFLUTGenerator{ device, renderpass, {descriptorSetLayout->getDescriptorSetLayout()},"shaders/genbrdflut.vert.spv",
 			"shaders/genbrdflut.frag.spv" , pushConstantRanges };
 
 		VkFramebufferCreateInfo fbufCreateInfo{};

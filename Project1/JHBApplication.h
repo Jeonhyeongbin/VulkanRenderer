@@ -69,7 +69,7 @@ namespace jhb {
 		std::array<std::unique_ptr<DescriptorPool>, 4> globalPools{};
 		std::vector<std::unique_ptr<Buffer>> uboBuffers{};
 	private:
-		std::vector<VkDescriptorSetLayout> vkDescSetLayouts;
+		std::vector<std::unique_ptr<jhb::DescriptorSetLayout>> descSetLayouts;
 		std::vector<VkDescriptorSet> vkDescSets;
 
 		std::vector<VkDescriptorSet> CubeBoxDescriptorSets{}; // skybox
