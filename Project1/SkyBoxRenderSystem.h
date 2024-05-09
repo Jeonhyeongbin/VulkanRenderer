@@ -31,9 +31,6 @@ namespace jhb {
 		{
 			pipeline->bind(cmd);
 		}
-		void renderSkyBox(VkCommandBuffer cmd, GameObject& gameObject, std::vector<VkDescriptorSet> descSets);
-		void renderSkyBox(VkCommandBuffer cmd, GameObject& gameObject, std::vector<VkDescriptorSet> descSets, const jhb::PrefileterPushBlock& push);
-		void renderSkyBox(VkCommandBuffer cmd, GameObject& gameObject, std::vector<VkDescriptorSet> descSets, const jhb::IrradiencePushBlock& push);
 
 		void renderSkyBox(FrameInfo& frameInfo);
 	private:

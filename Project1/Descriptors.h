@@ -33,7 +33,7 @@ namespace jhb {
         DescriptorSetLayout(const DescriptorSetLayout&) = delete;
         DescriptorSetLayout& operator=(const DescriptorSetLayout&) = delete;
 
-        VkDescriptorSetLayout getDescriptorSetLayout() const { return descriptorSetLayout; }
+        VkDescriptorSetLayout getDescriptorSetLayout()  { return descriptorSetLayout; }
 
     private:
         Device& device;

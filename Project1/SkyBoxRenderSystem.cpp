@@ -12,67 +12,6 @@ namespace jhb {
 	{
 	}
 
-	void SkyBoxRenderSystem::renderSkyBox(VkCommandBuffer cmd, GameObject& gameObject, std::vector<VkDescriptorSet> descSets)
-	{
-		pipeline->bind(cmd);
-
-		gameObject.model->bind(cmd);
-		gameObject.model->draw(cmd, pipelineLayout, 0 ,1);
-	}
-
-	void SkyBoxRenderSystem::renderSkyBox(VkCommandBuffer cmd, GameObject& gameObject, std::vector<VkDescriptorSet> descSets, const jhb::PrefileterPushBlock& push)
-	{
-		pipeline->bind(cmd);
-
-		vkCmdBindDescriptorSets(
-			cmd,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			0, 1
-			, &descSets[0],
-			0, nullptr
-		);
-
-		vkCmdBindDescriptorSets(
-			cmd,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			1, 1
-			, &descSets[1],
-			0, nullptr
-		);
-		vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PrefileterPushBlock), &push);
-		gameObject.model->bind(cmd);
-		gameObject.model->draw(cmd, pipelineLayout, 0 ,1);
-	}
-
-	void SkyBoxRenderSystem::renderSkyBox(VkCommandBuffer cmd, GameObject& gameObject, std::vector<VkDescriptorSet> descSets, const jhb::IrradiencePushBlock& push)
-	{
-		pipeline->bind(cmd);
-
-		vkCmdBindDescriptorSets(
-			cmd,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			0, 1
-			, &descSets[0],
-			0, nullptr
-		);
-
-		vkCmdBindDescriptorSets(
-			cmd,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			1, 1
-			, &descSets[1],
-			0, nullptr
-		);
-
-		vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(IrradiencePushBlock), &push);
-		gameObject.model->bind(cmd);
-		gameObject.model->draw(cmd, pipelineLayout, 0, 1);
-	}
-
 	void SkyBoxRenderSystem::renderSkyBox(FrameInfo& frameInfo)
 	{
 		pipeline->bind(frameInfo.commandBuffer);
