@@ -21,19 +21,20 @@ try {
 ```
 
 # Feature
-![실행 결과](./image1.png)
+![실행 결과](./image2.png)
 
 - Instancing
 - PBR
 - HDR Tone Mapping : uncharted tone mapping [gdcvault/Uncharted-2-HDR](https://www.gdcvault.com/play/1012351/Uncharted-2-HDR)
 - KTX(Khronos Texture) texture storage Format을 사용하였습니다.
+- gtlf 2.0 format with tinygltf [tinygltf](https://github.com/syoyo/tinygltf).
 
 
 # In Progress
-- apply gltf 2.0 format with [tinygltf](https://github.com/syoyo/tinygltf).
+- Shadow mapping
 
 # TODO
-- animation
+- multiSampling
 
 # 조작법
 - 마우스로 회전 및 wasd키로 이동 및 마우스휠로 줌인 줌아웃.

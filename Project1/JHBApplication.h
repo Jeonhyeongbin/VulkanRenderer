@@ -45,7 +45,7 @@ namespace jhb {
 		void createCube();
 		void create2DModelForBRDFLUT();
 		void updateInstance();
-		void InitImgui();
+
 		void loadGLTFFile(const std::string& filename);
 
 		void initDescriptorSets();

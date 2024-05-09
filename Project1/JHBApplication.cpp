@@ -49,7 +49,6 @@ namespace jhb {
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		pushConstantRanges[0].size = sizeof(gltfPushConstantData);
 
-
 		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), {descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout(),
 		descSetLayouts[3]->getDescriptorSetLayout()
 		},"shaders/pbr.vert.spv",
@@ -259,11 +258,6 @@ namespace jhb {
 		
 		device.copyBuffer(stagingBuffer.getBuffer(), instanceBuffer.getBuffer(), instanceBuffer.getBufferSize());
 		stagingBuffer.unmap();
-	}
-
-	void JHBApplication::InitImgui()
-	{
-		
 	}
 
 	void JHBApplication::loadGLTFFile(const std::string& filename)
