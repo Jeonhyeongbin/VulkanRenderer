@@ -151,6 +151,7 @@ namespace jhb {
 			{
 				renderer.setWindowExtent(window.getExtent());
 				imguiRenderSystem->recreateFrameBuffer(device, renderer.GetSwapChain(), window.getExtent());
+				window.resetWindowResizedFlag();
 				continue;
 			}
 		}

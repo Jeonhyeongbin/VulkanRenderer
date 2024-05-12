@@ -114,7 +114,7 @@ namespace jhb {
 		auto result = swapChain->submitCommandBuffers(&commandBuffer, &currentImageIndex);
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.wasWindowResized())
 		{
-			window.resetWindowResizedFlag();
+			//window.resetWindowResizedFlag();
 			recreateSwapChain(dependencies, extent, true, VK_FORMAT_R16G16B16A16_SFLOAT, 2);
 		}
 		else if (result != VK_SUCCESS)
