@@ -35,7 +35,6 @@ namespace jhb {
 		io.DisplaySize = ImVec2(extent.width, extent.height);
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
-		
 		for (uint32_t i = 0; i < framebuffers.size(); i++)
 		{
 			// todo imgui용 프레임버퍼 만들기
@@ -84,5 +83,29 @@ namespace jhb {
 		ImGui::End();
 
 		ImGui::Render();
+	}
+	void ImguiRenderSystem::recreateFrameBuffer(const Device& device, const SwapChain& swapchain, VkExtent2D extent)
+	{
+		for (auto framebuffer : framebuffers) {
+			vkDestroyFramebuffer(device.getLogicalDevice(), framebuffer, nullptr);
+		}
+
+		for (uint32_t i = 0; i < framebuffers.size(); i++)
+		{
+			// todo imgui용 프레임버퍼 만들기
+			VkImageView attachment[1] = { swapchain. getSwapChianImageView(i) };
+			VkFramebufferCreateInfo info = {};
+			info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			info.renderPass = device.imguiRenderPass;
+			info.attachmentCount = 1;
+			info.pAttachments = attachment;
+			info.width = extent.width;
+			info.height = extent.height;
+			info.layers = 1;
+			if (vkCreateFramebuffer(device.getLogicalDevice(), &info, nullptr, &framebuffers[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("create imgui frame buffer failed!!!");
+			}
+		}
 	}
 }

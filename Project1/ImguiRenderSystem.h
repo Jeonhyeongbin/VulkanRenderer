@@ -28,6 +28,7 @@ namespace jhb {
 		ImguiRenderSystem(ImguiRenderSystem&&) = delete;
 		ImguiRenderSystem& operator=(const ImguiRenderSystem&) = delete;
 		void newFrame();
+		void recreateFrameBuffer(const Device& device, const SwapChain& swapchain, VkExtent2D extent);
 
 	public:
 		float metalic = 0.1f;

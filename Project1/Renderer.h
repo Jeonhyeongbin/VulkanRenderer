@@ -31,6 +31,7 @@ namespace jhb {
 		VkRenderPass getSwapChainRenderPass() const { return swapChain->getRenderPass(); }
 		VkImageView getSwapChainImageView(int index) { return swapChain->getSwapChianImageView(index); }
 		float getAspectRatio() const { return swapChain->extentAspectRatio(); }
+		void setWindowExtent(VkExtent2D _extent) { extent = _extent; }
 
 		VkCommandBuffer beginFrame();
 		void endFrame();

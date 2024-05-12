@@ -82,58 +82,76 @@ namespace jhb {
 			window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
 			float aspect = renderer.getAspectRatio();
 			window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
-			if (auto commandBuffer = renderer.beginFrame()) // begine frame return null pointer if swap chain need recreated
+			auto commandBuffer = renderer.beginFrame();
+			if (commandBuffer == nullptr) // begine frame return null pointer if swap chain need recreated
 			{
-				int frameIndex = renderer.getFrameIndex();
-				FrameInfo frameInfo{
-					frameIndex,
-					frameTime,
-					commandBuffer,
-					*window.getCamera(),
-					globalDescriptorSets[frameIndex],
-					pbrResourceDescriptorSets[frameIndex],
-					CubeBoxDescriptorSets[frameIndex],
-					gameObjects
-				};
+				if (window.wasWindowResized())
+				{
+					renderer.setWindowExtent(window.getExtent());
+					imguiRenderSystem->recreateFrameBuffer(device, renderer.GetSwapChain(), window.getExtent());
+					renderer.endFrame();
+					continue;
+				}
+				continue;
+			}
 
-				updateInstance();
+			int frameIndex = renderer.getFrameIndex();
+			FrameInfo frameInfo{
+				frameIndex,
+				frameTime,
+				commandBuffer,
+				*window.getCamera(),
+				globalDescriptorSets[frameIndex],
+				pbrResourceDescriptorSets[frameIndex],
+				CubeBoxDescriptorSets[frameIndex],
+				gameObjects
+			};
 
-				// update part : resources
-				GlobalUbo ubo{};
-				ubo.projection = window.getCamera()->getProjection();
-				ubo.view = window.getCamera()->getView();
-				ubo.inverseView = window.getCamera()->getInverseView();
-				ubo.exposure = 1.f;
-				ubo.gamma = 1.f;
-				ubo.pointLights[0].color.r = 40.f;
-				ubo.pointLights[0].color.g = 40.f;
-				ubo.pointLights[0].color.b = 40.f;
-				ubo.pointLights[0].color.a = 30.f;
+			updateInstance();
+
+			// update part : resources
+			GlobalUbo ubo{};
+			ubo.projection = window.getCamera()->getProjection();
+			ubo.view = window.getCamera()->getView();
+			ubo.inverseView = window.getCamera()->getInverseView();
+			ubo.exposure = 1.f;
+			ubo.gamma = 1.f;
+			ubo.pointLights[0].color.r = 40.f;
+			ubo.pointLights[0].color.g = 40.f;
+			ubo.pointLights[0].color.b = 40.f;
+			ubo.pointLights[0].color.a = 30.f;
 				
-				pointLightSystem.update(frameInfo, ubo);
-				uboBuffers[frameIndex]->writeToBuffer(&ubo); // wrtie to using frame buffer index
-				uboBuffers[frameIndex]->flush(); //not using coherent_bit flag, so must to flush memory manually
-				// and now we need tell to pipeline object where this buffer is and how data within it's structure
-				// so using descriptor
+			pointLightSystem.update(frameInfo, ubo);
+			uboBuffers[frameIndex]->writeToBuffer(&ubo); // wrtie to using frame buffer index
+			uboBuffers[frameIndex]->flush(); //not using coherent_bit flag, so must to flush memory manually
+			// and now we need tell to pipeline object where this buffer is and how data within it's structure
+			// so using descriptor
 
-				// render part : vkcmd
-				// this is why beginFram and beginswapchian renderpass are not combined;
-				// because main application control over this multiple render pass like reflections, shadows, post-processing effects
-				//renderer.beginSwapChainRenderPass(commandBuffer);
+			// render part : vkcmd
+			// this is why beginFram and beginswapchian renderpass are not combined;
+			// because main application control over this multiple render pass like reflections, shadows, post-processing effects
+			//renderer.beginSwapChainRenderPass(commandBuffer);
 				
-				renderer.beginSwapChainRenderPass(commandBuffer);
+			renderer.beginSwapChainRenderPass(commandBuffer);
 
-				skyboxRenderSystem.renderSkyBox(frameInfo);
-				pbrRenderSystem.renderGameObjects(frameInfo, &instanceBuffer);
-				pointLightSystem.renderGameObjects(frameInfo);
-				renderer.endSwapChainRenderPass(commandBuffer);
-				
-				renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass,imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
-				imguiRenderSystem->newFrame();
-				ImDrawData* draw_data = ImGui::GetDrawData();
-				ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
-				renderer.endSwapChainRenderPass(commandBuffer);
-				renderer.endFrame();
+			skyboxRenderSystem.renderSkyBox(frameInfo);
+			pbrRenderSystem.renderGameObjects(frameInfo, &instanceBuffer);
+			pointLightSystem.renderGameObjects(frameInfo);
+			renderer.endSwapChainRenderPass(commandBuffer);
+			
+			
+
+			renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass, imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
+			imguiRenderSystem->newFrame();
+			ImDrawData* draw_data = ImGui::GetDrawData();
+			ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
+			renderer.endSwapChainRenderPass(commandBuffer);
+			renderer.endFrame();
+			if (window.wasWindowResized())
+			{
+				renderer.setWindowExtent(window.getExtent());
+				imguiRenderSystem->recreateFrameBuffer(device, renderer.GetSwapChain(), window.getExtent());
+				continue;
 			}
 		}
 
