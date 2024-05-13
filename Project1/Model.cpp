@@ -310,6 +310,25 @@ void jhb::Model::loadMaterials(tinygltf::Model& input)
 		if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) {
 			materials[i].baseColorTextureIndex = glTFMaterial.values["baseColorTexture"].TextureIndex();
 		}
+
+		if (glTFMaterial.values.find("roughnessFactor") != glTFMaterial.values.end()) {
+			materials[i].roughnessFactor = static_cast<float>(glTFMaterial.values["roughnessFactor"].Factor());
+		}
+		if (glTFMaterial.values.find("metallicFactor") != glTFMaterial.values.end()) {
+			materials[i].metallicFactor = static_cast<float>(glTFMaterial.values["metallicFactor"].Factor());
+		}
+
+		if (glTFMaterial.values.find("metallicRoughnessTexture") != glTFMaterial.values.end()) {
+			materials[i].metallicRoughnessTextureIndex = static_cast<float>(glTFMaterial.values["metallicRoughnessTexture"].TextureIndex());
+		}
+
+		if (glTFMaterial.additionalValues.find("emissiveTexture") != glTFMaterial.additionalValues.end()) {
+			materials[i].emissiveTextureIndex = glTFMaterial.additionalValues["emissiveTexture"].TextureIndex();
+		}
+		if (glTFMaterial.additionalValues.find("occlusionTexture") != glTFMaterial.additionalValues.end()) {
+			materials[i].occlusionTextureIndex = glTFMaterial.additionalValues["occlusionTexture"].TextureIndex();
+		}
+
 		// Get the normal map texture index
 		if (glTFMaterial.additionalValues.find("normalTexture") != glTFMaterial.additionalValues.end()) {
 			materials[i].normalTextureIndex = glTFMaterial.additionalValues["normalTexture"].TextureIndex();

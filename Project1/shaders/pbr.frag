@@ -16,6 +16,9 @@ layout (set = 1, binding = 1) uniform samplerCube samplerIrradiance;
 layout (set = 1, binding = 2) uniform samplerCube prefilteredMap;
 layout (set = 2, binding = 0) uniform sampler2D samplerColorMap;
 layout (set = 2, binding = 1) uniform sampler2D samplerNormalMap;
+layout (set = 2, binding = 2) uniform sampler2D samplerOcclusionMap;
+layout (set = 2, binding = 3) uniform sampler2D samplerEmissiveMap;
+layout (set = 2, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
 struct PointLight{
 	vec4 position; // w is  just for allign
 	vec4 color; // w is intensity
@@ -123,8 +126,21 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 	return color;
 }
 
+vec3 calculateNormal()
+{
+	vec3 tangentNormal = texture(samplerNormalMap, fraguv).xyz * 2.0 - 1.0;
+
+	vec3 N = normalize(fragNormalWorld);
+	vec3 T = normalize(inTangent.xyz);
+	vec3 B = normalize(cross(N, T));
+	mat3 TBN = mat3(T, B, N);
+	return normalize(TBN * tangentNormal);
+}
+
 void main() {
 	vec3 cameraPosWorld = ubo.invView[3].xyz;
+
+	vec3 metallicRoughness = texture(samplerMetallicRoughnessMap, fraguv).rgb;
 
 	vec3 N = normalize(fragNormalWorld);
 
@@ -132,37 +148,38 @@ void main() {
 	vec3 R = reflect(-V, N);
 
 	vec3 F0 = vec3(0.04);
-	vec4 albedo = texture(samplerColorMap, fraguv) * vec4(fragColor, 1);
+
+	vec4 albedo = texture(samplerColorMap, fraguv);
+	F0 = mix(F0, albedo.rgb, metallicRoughness.r);
+
 		if (ALPHA_MASK) {
 		if (albedo.a < ALPHA_MASK_CUTOFF) {
 			discard;
 		}
 	}
 
-	F0 = mix(F0, albedo.xyz, fragmetallic);
-
 	vec3 Lo = vec3(0.0);
 	for(int i = 0; i < ubo.pointLights.length(); i++) {
 		vec3 L = normalize(ubo.pointLights[i].position.xyz - fragPosWorld);
-		Lo += specularContribution(L, V, N, F0, fragmetallic, fragroughness, ubo.pointLights[i].color, albedo);
+		Lo += specularContribution(L, V, N, F0, metallicRoughness.r, metallicRoughness.g, ubo.pointLights[i].color, albedo);
 	}
 
-	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), fragroughness)).rg;
-	vec3 reflection = prefilteredReflection(R, fragroughness).rgb;
+	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), metallicRoughness.g)).rg;
+	vec3 reflection = prefilteredReflection(R, metallicRoughness.g).rgb;
 	vec3 irradiance = texture(samplerIrradiance, N).rgb;
 
 	// Diffuse based on irradiance
 	vec3 diffuse = irradiance * albedo.rgb;
 
-	vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, fragroughness);
+	vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, metallicRoughness.g);
 
 	// Specular reflectance
 	vec3 specular = reflection * (F * brdf.x + brdf.y);
 
 	// Ambient part
 	vec3 kD = 1.0 - F;
-	kD *= 1.0 - fragmetallic;
-	vec3 ambient = (kD * diffuse + specular);
+	kD *= 1.0 - metallicRoughness.r;
+	vec3 ambient = (kD * diffuse + specular) * texture(samplerOcclusionMap, fraguv).rrr;
 
 	vec3 color = ambient + Lo;
 
@@ -172,5 +189,6 @@ void main() {
 	// Gamma correction
 	color = pow(color, vec3(1.0f / ubo.gamma));
 
-	outColor = vec4(color, 1.0);
+	vec4 emission = texture(samplerEmissiveMap, fraguv) * fragColor.r;
+	outColor = vec4(color, 1.0) + emission;
 }

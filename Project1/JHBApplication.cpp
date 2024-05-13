@@ -139,8 +139,6 @@ namespace jhb {
 			pointLightSystem.renderGameObjects(frameInfo);
 			renderer.endSwapChainRenderPass(commandBuffer);
 			
-			
-
 			renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass, imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
 			imguiRenderSystem->newFrame();
 			ImDrawData* draw_data = ImGui::GetDrawData();
@@ -331,8 +329,8 @@ namespace jhb {
 
 		globalPools[2] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 3).build();	// prefiter, brud, irradiane
 
-		// for gltf model color map and normal map
-		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 2).build();
+		// for gltf model color map and normal map and emissive, occlusion, metallicRoughness Textures
+		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 5).build();
 
 		for (int i = 0; i < uboBuffers.size(); i++)
 		{
@@ -377,9 +375,12 @@ namespace jhb {
 			addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).
 			addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
 
-		// for gltf normal map and color map
+		// for gltf normal map and color map and emissive, occlusion, metallicRoughness Textures
 		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).build());
+			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+			.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT).addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+			.addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+			.build());
 
 		// for uniform buffer
 		for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
@@ -424,14 +425,18 @@ namespace jhb {
 				.writeImage(2, &descImageInfos[2]).build(pbrResourceDescriptorSets[i]);
 		}
 
-		// for gltf color map and normal map
+		// for gltf color map and normal map and emissive, occlusion, metallicRoughness Textures
 		auto gltfModel = gameObjects[1].model;
 		for (auto& material : gltfModel->materials)
 		{
-			std::vector<VkDescriptorImageInfo> imageinfos = { gltfModel->getTexture(material.baseColorTextureIndex).descriptor, gltfModel->getTexture(material.normalTextureIndex).descriptor };
+			std::vector<VkDescriptorImageInfo> imageinfos = { gltfModel->getTexture(material.baseColorTextureIndex).descriptor, gltfModel->getTexture(material.normalTextureIndex).descriptor
+			,gltfModel->getTexture(material.occlusionTextureIndex).descriptor, gltfModel->getTexture(material.emissiveTextureIndex).descriptor, gltfModel->getTexture(material.metallicRoughnessTextureIndex).descriptor
+			};
 			for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
 			{
-				DescriptorWriter(*descSetLayouts[3], *globalPools[3]).writeImage(0, &imageinfos[0]).writeImage(1, &imageinfos[1]).build(material.descriptorSets[i]);
+				DescriptorWriter(*descSetLayouts[3], *globalPools[3]).writeImage(0, &imageinfos[0]).writeImage(1, &imageinfos[1])
+					.writeImage(2, &imageinfos[2]).writeImage(3, &imageinfos[3]).writeImage(4, &imageinfos[4])
+					.build(material.descriptorSets[i]);
 			}
 		}
 	}
