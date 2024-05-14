@@ -169,9 +169,9 @@ namespace jhb {
 		{
 			auto pointLight = GameObject::makePointLight(1.f);
 			pointLight.color = lightColors[i];
-			pointLight.pointLight->lightIntensity = 1;
+			pointLight.pointLight->lightIntensity = 10.f;
 			auto rotateLight = glm::rotate(glm::mat4(1.f),(i * glm::two_pi<float>()/lightColors.size()), {0.f, -1.f, 0.f});
-			pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(1.f, 1.f, 1.f, 1.f));
+			pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(2.f, 1.f, 1.f, 1.f));
 			gameObjects.emplace(pointLight.getId(), std::move(pointLight));
 		}
 	}
@@ -291,9 +291,9 @@ namespace jhb {
 		std::vector<Vertex> vertexBuffer;
 
 		auto gameModel = GameObject::createGameObject();
-		gameModel.transform.translation = { -.5f, .5f, 0.f };
+		gameModel.transform.translation = { -.5f, 1.5f, 0.f };
 		gameModel.transform.scale = { 1.f, 1.f, 1.f };
-		gameModel.transform.rotation = glm::vec3{ 5.f, 2.f, 5.f };
+		gameModel.transform.rotation = glm::vec3{ 5.f, 2.f, 6.f };
 
 		std::shared_ptr<Model> model = std::make_shared<Model>(device, gameModel.transform.mat4());
 		gameModel.model = model;
@@ -308,6 +308,19 @@ namespace jhb {
 			for (size_t i = 0; i < scene.nodes.size(); i++) {
 				const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
 				model->loadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
+			}
+
+			if (!model->hasTangent)
+			{
+				for (int i = 0; i < indexBuffer.size(); i+=3)
+				{
+					Vertex& vertex1 = vertexBuffer[indexBuffer[i]];
+					Vertex& vertex2 = vertexBuffer[indexBuffer[i+1]];
+					Vertex& vertex3 = vertexBuffer[indexBuffer[i+2]];
+					model->calculateTangent(vertex1.uv, vertex2.uv, vertex3.uv, vertex1.position, vertex2.position, vertex3.position, vertex1.tangent);
+					model->calculateTangent(vertex2.uv, vertex1.uv, vertex3.uv, vertex2.position, vertex1.position, vertex3.position, vertex2.tangent);
+					model->calculateTangent(vertex3.uv, vertex2.uv, vertex1.uv, vertex3.position, vertex2.position, vertex1.position, vertex3.tangent);
+				}
 			}
 		}
 		else {

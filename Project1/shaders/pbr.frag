@@ -42,6 +42,12 @@ layout (location = 0) out vec4 outColor;
 
 #define PI 3.1415926535897932384626433832795
 
+vec4 SRGBtoLINEAR(vec4 srgbIn)
+{
+	vec3 linOut = pow(srgbIn.xyz,vec3(2.2));
+	return vec4(linOut,srgbIn.w);
+}
+
 // From http://filmicgames.com/archives/75
 vec3 Uncharted2Tonemap(vec3 x)
 {
@@ -126,14 +132,20 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 	return color;
 }
 
-vec3 calculateNormal()
+vec3 calculateNormal(vec3 inNormal)
 {
 	vec3 tangentNormal = texture(samplerNormalMap, fraguv).xyz * 2.0 - 1.0;
 
-	vec3 N = normalize(fragNormalWorld);
-	vec3 T = normalize(inTangent.xyz);
+	vec3 q1 = dFdx(fragPosWorld);
+	vec3 q2 = dFdy(fragPosWorld);
+	vec2 st1 = dFdx(fraguv);
+	vec2 st2 = dFdy(fraguv);
+
+	vec3 N = normalize(inNormal);
+	vec3 T = normalize(q1 * st2.t - q2 * st1.t);
 	vec3 B = normalize(cross(N, T));
 	mat3 TBN = mat3(T, B, N);
+
 	return normalize(TBN * tangentNormal);
 }
 
@@ -142,7 +154,7 @@ void main() {
 
 	vec3 metallicRoughness = texture(samplerMetallicRoughnessMap, fraguv).rgb;
 
-	vec3 N = normalize(fragNormalWorld);
+	vec3 N = calculateNormal(fragNormalWorld);
 
 	vec3 V = normalize(cameraPosWorld - fragPosWorld);
 	vec3 R = reflect(-V, N);
@@ -150,7 +162,7 @@ void main() {
 	vec3 F0 = vec3(0.04);
 
 	vec4 albedo = texture(samplerColorMap, fraguv);
-	F0 = mix(F0, albedo.rgb, metallicRoughness.r);
+	F0 = mix(F0, albedo.rgb, metallicRoughness.b);
 
 		if (ALPHA_MASK) {
 		if (albedo.a < ALPHA_MASK_CUTOFF) {
@@ -161,7 +173,7 @@ void main() {
 	vec3 Lo = vec3(0.0);
 	for(int i = 0; i < ubo.pointLights.length(); i++) {
 		vec3 L = normalize(ubo.pointLights[i].position.xyz - fragPosWorld);
-		Lo += specularContribution(L, V, N, F0, metallicRoughness.r, metallicRoughness.g, ubo.pointLights[i].color, albedo);
+		Lo += specularContribution(L, V, N, F0, metallicRoughness.b, metallicRoughness.g, ubo.pointLights[i].color, albedo);
 	}
 
 	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), metallicRoughness.g)).rg;
@@ -178,8 +190,8 @@ void main() {
 
 	// Ambient part
 	vec3 kD = 1.0 - F;
-	kD *= 1.0 - metallicRoughness.r;
-	vec3 ambient = (kD * diffuse + specular) * texture(samplerOcclusionMap, fraguv).rrr;
+	kD *= 1.0 - metallicRoughness.g;
+	vec3 ambient = (kD * diffuse + specular) * texture(samplerOcclusionMap, fraguv).r;
 
 	vec3 color = ambient + Lo;
 
@@ -189,6 +201,6 @@ void main() {
 	// Gamma correction
 	color = pow(color, vec3(1.0f / ubo.gamma));
 
-	vec4 emission = texture(samplerEmissiveMap, fraguv) * fragColor.r;
+	vec4 emission = vec4(SRGBtoLINEAR(texture(samplerEmissiveMap, fraguv)).rgb,1) * vec4(fragColor,1);
 	outColor = vec4(color, 1.0) + emission;
 }

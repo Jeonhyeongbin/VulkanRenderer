@@ -317,6 +317,10 @@ void jhb::Model::loadMaterials(tinygltf::Model& input)
 		if (glTFMaterial.values.find("metallicFactor") != glTFMaterial.values.end()) {
 			materials[i].metallicFactor = static_cast<float>(glTFMaterial.values["metallicFactor"].Factor());
 		}
+		if (glTFMaterial.additionalValues.find("emissiveFactor") != glTFMaterial.additionalValues.end()) {
+			materials[i].emissiveFactor = glm::vec4(glTFMaterial.additionalValues["emissiveFactor"].ColorFactor()[0], 
+				glTFMaterial.additionalValues["emissiveFactor"].ColorFactor()[1], glTFMaterial.additionalValues["emissiveFactor"].ColorFactor()[2], 1.0f);
+		}
 
 		if (glTFMaterial.values.find("metallicRoughnessTexture") != glTFMaterial.values.end()) {
 			materials[i].metallicRoughnessTextureIndex = static_cast<float>(glTFMaterial.values["metallicRoughnessTexture"].TextureIndex());
@@ -489,6 +493,8 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 				}
 				// POI: This sample uses normal mapping, so we also need to load the tangents from the glTF file
 				if (glTFPrimitive.attributes.find("TANGENT") != glTFPrimitive.attributes.end()) {
+					// if model has tangent, dont need to calculate tangent vector
+					hasTangent = true;
 					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("TANGENT")->second];
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
 					tangentsBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
@@ -540,6 +546,8 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 					std::cerr << "Index component type " << accessor.componentType << " not supported!" << std::endl;
 					return;
 				}
+
+
 			}
 
 			Primitive primitive{};
@@ -668,8 +676,8 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 	samplerInfo.minFilter = VK_FILTER_LINEAR;
 
 	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 
 	VkPhysicalDeviceProperties properties{};
 	vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
@@ -824,4 +832,27 @@ void jhb::Image::loadKTXTexture(Device& device, const std::string& filepath, VkI
 	}
 
 	updateDescriptor();
+}
+
+void jhb::Model::calculateTangent(glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3, glm::vec3 pos1, glm::vec3 pos2, glm::vec3 pos3, glm::vec4& tangent)
+{
+	glm::vec3 edge1 = pos2 - pos1;
+	glm::vec3 edge2 = pos3 - pos1;
+	glm::vec2 deltaUV1 = uv2 - uv1;
+	glm::vec2 deltaUV2 = uv3 - uv1;
+
+	float det = deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y;
+	if (det == 0.0f)
+	{
+		tangent.x = 0.f;
+		tangent.y = 0.f;
+		tangent.z = 0.f;
+		return;
+	}
+
+	float f = 1.0f / det;
+
+	tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+	tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+	tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
 }

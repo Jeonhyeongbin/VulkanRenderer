@@ -45,6 +45,8 @@ namespace jhb {
 	// 재질마다 각기 다른 파이프라인을 쓰도록 (alpha나 재질이 양면일수도 있으므로 )
 	struct Material {
 		glm::vec4 baseColorFactor = glm::vec4(1.0f);
+		glm::vec4 emissiveFactor = glm::vec4(1.0f);
+
 		uint32_t baseColorTextureIndex;
 		uint32_t normalTextureIndex;
 		uint32_t emissiveTextureIndex;
@@ -53,7 +55,6 @@ namespace jhb {
 
 		float roughnessFactor;
 		float metallicFactor;
-		float emissiveFactor;
 
 		std::string alphaMode = "OPAQUE";
 		float alphaCutOff;
@@ -132,7 +133,7 @@ namespace jhb {
 		void loadMaterials(tinygltf::Model& input);
 		void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
 		void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
-
+		void calculateTangent(glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3, glm::vec3 pos1, glm::vec3 pos2, glm::vec3 pos3, glm::vec4& tangent);
 	private:
 		Device& device;
 		glm::mat4 modelMatrix;
@@ -152,5 +153,8 @@ namespace jhb {
 		std::vector<Image> images{ Image{} };
 		std::vector<Texture> textures;
 		std::string path;
+
+	public:
+		bool hasTangent = false;
 	};
 }
