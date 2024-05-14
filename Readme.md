@@ -21,7 +21,7 @@ try {
 ```
 
 # Feature
-![실행 결과](./image2.png)
+![실행 결과](./image.png)
 
 - Instancing
 - PBR
