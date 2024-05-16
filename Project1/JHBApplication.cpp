@@ -131,7 +131,44 @@ namespace jhb {
 			// this is why beginFram and beginswapchian renderpass are not combined;
 			// because main application control over this multiple render pass like reflections, shadows, post-processing effects
 			//renderer.beginSwapChainRenderPass(commandBuffer);
-				
+			
+			/*
+			
+create offscreen framebuffer and images,
+
+if(mouse clicked event)
+{
+    first renderPass
+
+    record object id to offscreen image to color attachment;
+
+    end render pass
+
+======================================================================
+    
+    second renderPass
+
+    create staging buffer
+
+    copy offscreen image to staging buffer
+    
+    data map to staging buffer
+
+    get mouse click coordinate mx, my;
+
+    compare mx, my to data's coordinate
+
+    check the data's obejct id
+
+    if object exist, then rotate only that object;
+}
+
+else
+{
+    평소 처럼 렌더링
+
+}
+			*/
 			renderer.beginSwapChainRenderPass(commandBuffer);
 
 			skyboxRenderSystem.renderSkyBox(frameInfo);
