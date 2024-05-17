@@ -21,6 +21,10 @@ namespace jhb {
 		float gamma = 2.2f;
 	};
 
+	struct PickingUbo {
+		int objindex;
+	};
+
 	struct FrameInfo
 	{
 		int frameIndex;

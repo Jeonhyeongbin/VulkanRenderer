@@ -105,6 +105,9 @@
     <ClCompile Include="PBRResourceGenerator.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
+    <ClCompile Include="MousePickingRenderSystem.cpp">
+      <Filter>Systems</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Pipeline.h">
@@ -192,6 +195,9 @@
       <Filter>Systems</Filter>
     </ClInclude>
     <ClInclude Include="PBRResourceGenerator.h">
+      <Filter>Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="MousePickingRenderSystem.h">
       <Filter>Systems</Filter>
     </ClInclude>
   </ItemGroup>

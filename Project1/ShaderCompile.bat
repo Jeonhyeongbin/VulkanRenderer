@@ -9,4 +9,6 @@
 %VULKAN_SDK%\Bin\glslc.exe shaders\prefilterenvmap.frag -o shaders\prefilterenvmap.frag.spv
 %VULKAN_SDK%\Bin\glslc.exe shaders\genbrdflut.vert -o shaders\genbrdflut.vert.spv
 %VULKAN_SDK%\Bin\glslc.exe shaders\genbrdflut.frag -o shaders\genbrdflut.frag.spv
+%VULKAN_SDK%\Bin\glslc.exe shaders\picking.frag -o shaders\picking.frag.spv
+
 pause

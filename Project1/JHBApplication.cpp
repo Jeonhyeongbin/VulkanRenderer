@@ -9,6 +9,7 @@
 #include "Model.h"
 #include "External/Imgui/imgui.h"
 #include "PBRResourceGenerator.h"
+#include "MousePickingRenderSystem.h"
 
 #define _USE_MATH_DEFINESimgui
 #include <math.h>
@@ -22,6 +23,7 @@ namespace jhb {
 		CubeBoxDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		globalDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		pbrResourceDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		pickingObjUboDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
 		createCube();
 		loadGameObjects();
@@ -40,7 +42,7 @@ namespace jhb {
 	{	
 		std::vector<VkPushConstantRange> pushConstantRanges;
 		VkPushConstantRange pushConstantRange{};
-		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT ; // This means that both vertex and fragment shader using constant 
+		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		pushConstantRange.offset = 0;
 		pushConstantRanges.push_back(pushConstantRange);
 
@@ -48,6 +50,8 @@ namespace jhb {
 
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		pushConstantRanges[0].size = sizeof(gltfPushConstantData);
+
+		pickingPhaseInit(pushConstantRanges, { descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout()}); // todo : should add descriptorsetlayout for object index
 
 		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), {descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout(),
 		descSetLayouts[3]->getDescriptorSetLayout()
@@ -78,20 +82,13 @@ namespace jhb {
 			window.mouseMove(x, y, frameTime, viewerObject);
 			
 			auto forwardDir = cameraController.move(&window.GetGLFWwindow(), frameTime, viewerObject);
-			//camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 			window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
 			float aspect = renderer.getAspectRatio();
 			window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
+
 			auto commandBuffer = renderer.beginFrame();
 			if (commandBuffer == nullptr) // begine frame return null pointer if swap chain need recreated
 			{
-				if (window.wasWindowResized())
-				{
-					renderer.setWindowExtent(window.getExtent());
-					imguiRenderSystem->recreateFrameBuffer(device, renderer.GetSwapChain(), window.getExtent());
-					renderer.endFrame();
-					continue;
-				}
 				continue;
 			}
 
@@ -169,6 +166,13 @@ else
 
 }
 			*/
+			if (window.GetMousePressed())
+			{
+				renderer.beginSwapChainRenderPass(commandBuffer, pickingRenderpass, offscreenFrameBuffer[frameIndex], window.getExtent());
+				mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, gameObjects, {globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex]}, frameIndex, &instanceBuffer, uboPickingIndexBuffer[frameIndex].get());
+				renderer.endSwapChainRenderPass(commandBuffer);
+			}
+
 			renderer.beginSwapChainRenderPass(commandBuffer);
 
 			skyboxRenderSystem.renderSkyBox(frameInfo);
@@ -382,6 +386,9 @@ else
 		// for gltf model color map and normal map and emissive, occlusion, metallicRoughness Textures
 		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 5).build();
 
+		// for picking object index storage
+		globalPools[4] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
+
 		for (int i = 0; i < uboBuffers.size(); i++)
 		{
 			uboBuffers[i] = std::make_unique<Buffer>(
@@ -392,7 +399,16 @@ else
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
 			);
 
+			uboPickingIndexBuffer[i] = std::make_unique<Buffer>(
+				device,
+				sizeof(PickingUbo),
+				1,
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+			);
+
 			uboBuffers[i]->map();
+			uboPickingIndexBuffer[i]->map();
 		}
 
 		// because of simultenous
@@ -432,11 +448,18 @@ else
 			.addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
 			.build());
 
+		// for mouse picking object index ubo buffers;
+		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS).
+			build());
+
 		// for uniform buffer
 		for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
+			auto pickingBufferInfo = uboPickingIndexBuffer[i]->descriptorInfo();
 			DescriptorWriter(*descSetLayouts[0], *globalPools[0]).writeBuffer(0, &bufferInfo).build(globalDescriptorSets[i]);
+			DescriptorWriter(*descSetLayouts[4], *globalPools[4]).writeBuffer(0, &pickingBufferInfo).build(pickingObjUboDescriptorSets[i]);
 		}
 
 		VkDescriptorImageInfo skyBoximageInfo{};
@@ -489,6 +512,110 @@ else
 					.build(material.descriptorSets[i]);
 			}
 		}
+	}
+
+	void JHBApplication::pickingPhaseInit(const std::vector<VkPushConstantRange>& pushConstantRanges, const std::vector<VkDescriptorSetLayout>& desclayouts)
+	{
+		std::vector<VkSubpassDependency> tmpdependencies(2);
+		tmpdependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+		tmpdependencies[0].dstSubpass = 0;
+		tmpdependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		tmpdependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		tmpdependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		tmpdependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		tmpdependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+		tmpdependencies[1].srcSubpass = 0;
+		tmpdependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+		tmpdependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		tmpdependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		tmpdependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		tmpdependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		tmpdependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		VkAttachmentDescription attDesc = {};
+		// Color attachment
+		attDesc.format = VK_FORMAT_R16G16_SFLOAT;
+		attDesc.samples = VK_SAMPLE_COUNT_1_BIT;
+		attDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attDesc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attDesc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		VkAttachmentReference colorReference = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+
+		VkSubpassDescription subpassDescription = {};
+		subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpassDescription.colorAttachmentCount = 1;
+		subpassDescription.pColorAttachments = &colorReference;
+
+		// Renderpass
+		VkRenderPassCreateInfo renderPassCI{};
+		renderPassCI.attachmentCount = 1;
+		renderPassCI.pAttachments = &attDesc;
+		renderPassCI.subpassCount = 1;
+		renderPassCI.pSubpasses = &subpassDescription;
+		renderPassCI.dependencyCount = 2;
+		renderPassCI.pDependencies = tmpdependencies.data();
+		renderPassCI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+
+		if (vkCreateRenderPass(device.getLogicalDevice(), &renderPassCI, nullptr, &pickingRenderpass))
+		{
+			throw std::runtime_error("failed to create renderpass!");
+		}
+
+
+		for(int i =0;i<SwapChain::MAX_FRAMES_IN_FLIGHT;i++)
+		{
+			// Pre-filtered cube map
+			// Image
+			VkImageCreateInfo imageCI{};
+			imageCI.imageType = VK_IMAGE_TYPE_2D;
+			imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+			imageCI.format = VK_FORMAT_R16G16_SFLOAT;
+			imageCI.extent.width = window.getExtent().width;
+			imageCI.extent.height = window.getExtent().height;
+			imageCI.extent.depth = 1;
+			imageCI.mipLevels = 1;
+			imageCI.arrayLayers = 6;
+			imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+			imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+			imageCI.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+			imageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+			device.createImageWithInfo(imageCI, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offscreenImage[i], offscreenMemory[i]);
+			// Image view
+			VkImageViewCreateInfo viewCI{};
+			viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			viewCI.format = VK_FORMAT_R16G16_SFLOAT;
+			viewCI.subresourceRange = {};
+			viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			viewCI.subresourceRange.levelCount = 1;
+			viewCI.subresourceRange.layerCount = 1;
+			viewCI.image = offscreenImage[i];
+			if (vkCreateImageView(device.getLogicalDevice(), &viewCI, nullptr, &offscreenImageView[i]))
+			{
+				throw std::runtime_error("failed to create ImageView!");
+			}
+
+			std::vector<VkImageView> attachments = { offscreenImageView[i]};
+
+			VkFramebufferCreateInfo fbufCreateInfo{};
+			fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			fbufCreateInfo.renderPass = pickingRenderpass;
+			fbufCreateInfo.attachmentCount = attachments.size();
+			fbufCreateInfo.pAttachments = attachments.data();
+			fbufCreateInfo.width = window.getExtent().width;
+			fbufCreateInfo.height = window.getExtent().height;
+			fbufCreateInfo.layers = 1;
+
+			if (vkCreateFramebuffer(device.getLogicalDevice(), &fbufCreateInfo, nullptr, &offscreenFrameBuffer[i]))
+			{
+				throw std::runtime_error("failed to create frameBuffer!");
+			}
+		}
+
+		mousePickingRenderSystem = std::make_unique<MousePickingRenderSystem>(device, pickingRenderpass, desclayouts, "shaders/pbr.vert.spv", "shaders/picking.frag.spv", pushConstantRanges);
 	}
 
 	void JHBApplication::generateBRDFLUT()

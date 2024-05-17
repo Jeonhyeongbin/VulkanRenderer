@@ -50,6 +50,8 @@ namespace jhb {
 
 		void initDescriptorSets();
 
+
+		void pickingPhaseInit(const std::vector<VkPushConstantRange>& pushConstantRanges, const std::vector<VkDescriptorSetLayout>& desclayouts);
 		void generateBRDFLUT();
 		void generateIrradianceCube(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets);
 		void generatePrefilteredCube(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets);
@@ -66,8 +68,9 @@ namespace jhb {
 		} };
 		Renderer renderer{ window, device, subdependencies, true, VK_FORMAT_R16G16B16A16_SFLOAT, 2 };
 
-		std::array<std::unique_ptr<DescriptorPool>, 4> globalPools{};
+		std::array<std::unique_ptr<DescriptorPool>, 5> globalPools{};
 		std::vector<std::unique_ptr<Buffer>> uboBuffers{};
+		std::vector<std::unique_ptr<Buffer>> uboPickingIndexBuffer{SwapChain::MAX_FRAMES_IN_FLIGHT};
 	private:
 		std::vector<std::unique_ptr<jhb::DescriptorSetLayout>> descSetLayouts;
 		std::vector<VkDescriptorSet> vkDescSets;
@@ -75,6 +78,7 @@ namespace jhb {
 		std::vector<VkDescriptorSet> CubeBoxDescriptorSets{}; // skybox
 		std::vector<VkDescriptorSet> globalDescriptorSets{}; // global uniform buffer
 		std::vector<VkDescriptorSet> pbrResourceDescriptorSets{}; // pbr resource
+		std::vector<VkDescriptorSet> pickingObjUboDescriptorSets{}; // global uniform buffer
 
 		Buffer instanceBuffer;
 
@@ -98,6 +102,14 @@ namespace jhb {
 		VkSampler Sampler;
 		VkDeviceMemory fontMemory;
 
+		// offscreen with object index info pixels;
+		std::vector<VkImage> offscreenImage{SwapChain::MAX_FRAMES_IN_FLIGHT};
+		std::vector<VkDeviceMemory> offscreenMemory{SwapChain::MAX_FRAMES_IN_FLIGHT};
+		std::vector<VkImageView> offscreenImageView{SwapChain::MAX_FRAMES_IN_FLIGHT};
+		std::vector<VkFramebuffer> offscreenFrameBuffer{SwapChain::MAX_FRAMES_IN_FLIGHT};
+		VkRenderPass pickingRenderpass;
+
 		std::unique_ptr<class ImguiRenderSystem> imguiRenderSystem;
+		std::unique_ptr<class MousePickingRenderSystem> mousePickingRenderSystem;
 	};
 }

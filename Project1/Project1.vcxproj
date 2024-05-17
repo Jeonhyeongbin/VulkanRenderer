@@ -161,6 +161,7 @@
     <ClCompile Include="JHBApplication.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Model.cpp" />
+    <ClCompile Include="MousePickingRenderSystem.cpp" />
     <ClCompile Include="PBRRenderSystem.cpp" />
     <ClCompile Include="PBRResourceGenerator.cpp" />
     <ClCompile Include="Pipeline.cpp" />
@@ -191,6 +192,7 @@
     <ClInclude Include="InputController.h" />
     <ClInclude Include="JHBApplication.h" />
     <ClInclude Include="Model.h" />
+    <ClInclude Include="MousePickingRenderSystem.h" />
     <ClInclude Include="PBRRenderSystem.h" />
     <ClInclude Include="PBRResourceGenerator.h" />
     <ClInclude Include="Pipeline.h" />
