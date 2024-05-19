@@ -67,6 +67,25 @@ void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLa
 	}
 }
 
+void jhb::Model::drawInPickPhase(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline pipeline, int frameIndex, uint32_t instanceCount)
+{
+	if (!nodes.empty())
+	{
+		for (auto& node : nodes) {
+			PickingPhasedrawNode(commandBuffer, pipelineLayout, node, frameIndex, pipeline);
+		}
+	}
+	else {
+		if (hasIndexBuffer)
+		{
+			vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, 0);
+		}
+		else {
+			vkCmdDraw(commandBuffer, vertexCount, instanceCount, 0, 0);
+		}
+	}
+}
+
 void jhb::Model::bind(VkCommandBuffer commandBuffer, VkBuffer* instancing)
 {
 	VkBuffer buffers[] = { vertexBuffer->getBuffer()};
@@ -832,6 +851,36 @@ void jhb::Image::loadKTXTexture(Device& device, const std::string& filepath, VkI
 	}
 
 	updateDescriptor();
+}
+
+void jhb::Model::PickingPhasedrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex, VkPipeline pipeline)
+{
+	if (!node->visible) {
+		return;
+	}
+	if (node->mesh.primitives.size() > 0) {
+		// Pass the node's matrix via push constants
+		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
+		glm::mat4 nodeMatrix = modelMatrix * node->matrix;
+		Node* currentParent = node->parent;
+		while (currentParent) {
+			nodeMatrix = currentParent->matrix * nodeMatrix;
+			currentParent = currentParent->parent;
+		}
+		// Pass the final matrix to the vertex shader using push constants
+		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeMatrix);
+		for (Primitive& primitive : node->mesh.primitives) {
+			if (primitive.indexCount > 0) {
+				Material& material = materials[primitive.materialIndex];
+				// POI: Bind the pipeline for the node's material
+				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
+			}
+		}
+	}
+	for (auto& child : node->children) {
+		drawNode(commandBuffer, pipelineLayout, child, frameIndex);
+	}
 }
 
 void jhb::Model::calculateTangent(glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3, glm::vec3 pos1, glm::vec3 pos2, glm::vec3 pos3, glm::vec4& tangent)

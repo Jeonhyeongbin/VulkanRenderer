@@ -168,7 +168,7 @@ else
 			*/
 			if (window.GetMousePressed())
 			{
-				renderer.beginSwapChainRenderPass(commandBuffer, pickingRenderpass, offscreenFrameBuffer[frameIndex], window.getExtent());
+				renderer.beginSwapChainRenderPass(commandBuffer, pickingRenderpass, offscreenFrameBuffer[frameIndex], { 32, 32});
 				mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, gameObjects, {globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex]}, frameIndex, &instanceBuffer, uboPickingIndexBuffer[frameIndex].get());
 				renderer.endSwapChainRenderPass(commandBuffer);
 			}
@@ -387,7 +387,7 @@ else
 		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 5).build();
 
 		// for picking object index storage
-		globalPools[4] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
+		globalPools[4] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
 
 		for (int i = 0; i < uboBuffers.size(); i++)
 		{
@@ -573,15 +573,14 @@ else
 			imageCI.imageType = VK_IMAGE_TYPE_2D;
 			imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 			imageCI.format = VK_FORMAT_R16G16_SFLOAT;
-			imageCI.extent.width = window.getExtent().width;
-			imageCI.extent.height = window.getExtent().height;
+			imageCI.extent.width = 32;
+			imageCI.extent.height = 32;
 			imageCI.extent.depth = 1;
 			imageCI.mipLevels = 1;
-			imageCI.arrayLayers = 6;
+			imageCI.arrayLayers = 1;
 			imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
 			imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
 			imageCI.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-			imageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 			device.createImageWithInfo(imageCI, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offscreenImage[i], offscreenMemory[i]);
 			// Image view
 			VkImageViewCreateInfo viewCI{};
@@ -605,8 +604,8 @@ else
 			fbufCreateInfo.renderPass = pickingRenderpass;
 			fbufCreateInfo.attachmentCount = attachments.size();
 			fbufCreateInfo.pAttachments = attachments.data();
-			fbufCreateInfo.width = window.getExtent().width;
-			fbufCreateInfo.height = window.getExtent().height;
+			fbufCreateInfo.width = 32;
+			fbufCreateInfo.height = 32;
 			fbufCreateInfo.layers = 1;
 
 			if (vkCreateFramebuffer(device.getLogicalDevice(), &fbufCreateInfo, nullptr, &offscreenFrameBuffer[i]))
