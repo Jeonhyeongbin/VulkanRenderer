@@ -91,6 +91,7 @@ namespace jhb {
 		void transitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageAspectFlags aspectMask, VkImageLayout oldLayout, VkImageLayout newLayout);
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, int count);
 		void copyBufferToImage(VkCommandBuffer cmd, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, int count);
+		void copyImageToBuffer(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
 		VkCommandBuffer beginSingleTimeCommands();
 		void endSingleTimeCommands(VkCommandBuffer commandBuffer);

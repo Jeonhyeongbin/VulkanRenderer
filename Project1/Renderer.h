@@ -37,6 +37,7 @@ namespace jhb {
 		void endFrame();
 		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent);
 		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer);
+		void beginSwapChainRenderPassWithMouseCoordinate(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, float x, float y);
 		void endSwapChainRenderPass(VkCommandBuffer commandBuffer);
 
 		bool isFrameInProgress() const { return isFrameStarted; }

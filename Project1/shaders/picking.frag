@@ -11,13 +11,12 @@ layout (location = 7) in float fr;
 layout (location = 8) in float fg;
 layout (location = 9) in float fb;
 
-layout (set = 1, binding = 0) uniform PickingUbo{
-	int objId;
-} pickingUbo;
+layout (location = 0) out uvec3 outColor;
 
-layout (location = 0) out ivec3 outColor;
-
+layout(push_constant) uniform fragmentPushConstants {
+    layout(offset = 64) uint objId;
+} u_pushConstants;
 
 void main() {
-	outColor = ivec3(pickingUbo.objId, 0, 0);
+	outColor = uvec3(u_pushConstants.objId);
 }

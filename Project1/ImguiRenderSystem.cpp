@@ -28,7 +28,6 @@ namespace jhb {
 		vulkanStyle.Colors[ImGuiCol_Header] = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
 		vulkanStyle.Colors[ImGuiCol_CheckMark] = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
 
-
 		ImGui::StyleColorsDark();
 		VkExtent2D extent = device.getWindow().getExtent();
 		// Dimensions

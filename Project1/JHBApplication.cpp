@@ -45,13 +45,12 @@ namespace jhb {
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		pushConstantRange.offset = 0;
 		pushConstantRanges.push_back(pushConstantRange);
+		pushConstantRanges[0].size = sizeof(gltfPushConstantData);
+
 
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
 
-		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-		pushConstantRanges[0].size = sizeof(gltfPushConstantData);
-
-		pickingPhaseInit(pushConstantRanges, { descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout()}); // todo : should add descriptorsetlayout for object index
+		pickingPhaseInit({ pushConstantRanges[0], VkPushConstantRange{VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(uint32_t)}}, {descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout()}); // todo : should add descriptorsetlayout for object index
 
 		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), {descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout(),
 		descSetLayouts[3]->getDescriptorSetLayout()
@@ -166,11 +165,31 @@ else
 
 }
 			*/
-			if (window.GetMousePressed())
+			void* data;
+		    uint32_t objectId;
+			float tmp;
+			if(window.GetMousePressed())
 			{
-				renderer.beginSwapChainRenderPass(commandBuffer, pickingRenderpass, offscreenFrameBuffer[frameIndex], { 32, 32});
+				renderer.beginSwapChainRenderPass(commandBuffer, pickingRenderpass, offscreenFrameBuffer[frameIndex], window.getExtent());
 				mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, gameObjects, {globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex]}, frameIndex, &instanceBuffer, uboPickingIndexBuffer[frameIndex].get());
 				renderer.endSwapChainRenderPass(commandBuffer);
+
+				// check object id from a pixel whicch located in mouse pointer coordinate
+				VkBuffer stagingBuffer;
+				VkDeviceMemory stagingBufferMemory;
+				VkDeviceSize imageSize = window.getExtent().width * window.getExtent().height * 16; // 4byte per pixel
+				device.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer, stagingBufferMemory);
+
+				auto offscreenCmd = device.beginSingleTimeCommands();
+				device.transitionImageLayout(offscreenCmd,offscreenImage[frameIndex], VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+				device.endSingleTimeCommands(offscreenCmd);
+				device.copyImageToBuffer(stagingBuffer, offscreenImage[frameIndex], window.getExtent().width, window.getExtent().height);
+
+				vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
+				int offset = (window.getExtent().width * ((int)y - 1) + (int)x)*4;
+				objectId = *((uint32_t*)data + offset);
+
+				//마우스 포인터 좌표를 objectId의 object 공간으로의 역변환을 해준 후 그 오브젝트 공간의 sphere로 투영시킨다.
 			}
 
 			renderer.beginSwapChainRenderPass(commandBuffer);
@@ -534,7 +553,7 @@ else
 
 		VkAttachmentDescription attDesc = {};
 		// Color attachment
-		attDesc.format = VK_FORMAT_R16G16_SFLOAT;
+		attDesc.format = VK_FORMAT_R32G32B32A32_UINT;
 		attDesc.samples = VK_SAMPLE_COUNT_1_BIT;
 		attDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		attDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -572,9 +591,9 @@ else
 			VkImageCreateInfo imageCI{};
 			imageCI.imageType = VK_IMAGE_TYPE_2D;
 			imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-			imageCI.format = VK_FORMAT_R16G16_SFLOAT;
-			imageCI.extent.width = 32;
-			imageCI.extent.height = 32;
+			imageCI.format = VK_FORMAT_R32G32B32A32_UINT;
+			imageCI.extent.width = window.getExtent().width;
+			imageCI.extent.height = window.getExtent().height;
 			imageCI.extent.depth = 1;
 			imageCI.mipLevels = 1;
 			imageCI.arrayLayers = 1;
@@ -586,7 +605,7 @@ else
 			VkImageViewCreateInfo viewCI{};
 			viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
 			viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			viewCI.format = VK_FORMAT_R16G16_SFLOAT;
+			viewCI.format = VK_FORMAT_R32G32B32A32_UINT;
 			viewCI.subresourceRange = {};
 			viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			viewCI.subresourceRange.levelCount = 1;
@@ -604,8 +623,8 @@ else
 			fbufCreateInfo.renderPass = pickingRenderpass;
 			fbufCreateInfo.attachmentCount = attachments.size();
 			fbufCreateInfo.pAttachments = attachments.data();
-			fbufCreateInfo.width = 32;
-			fbufCreateInfo.height = 32;
+			fbufCreateInfo.width = window.getExtent().width;
+			fbufCreateInfo.height = window.getExtent().height;
 			fbufCreateInfo.layers = 1;
 
 			if (vkCreateFramebuffer(device.getLogicalDevice(), &fbufCreateInfo, nullptr, &offscreenFrameBuffer[i]))

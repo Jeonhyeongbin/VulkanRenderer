@@ -34,22 +34,6 @@ void jhb::MousePickingRenderSystem::renderMousePickedObjToOffscreen(VkCommandBuf
 			continue;
 		}
 
-		PickingUbo ubo{
-			obj.getId()+1
-		};
-
-		pickingUbo->writeToBuffer(&ubo);
-		pickingUbo->flush();
-
-		vkCmdBindDescriptorSets(
-			cmd,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			1, 1
-			, &descriptorsets[1],
-			0, nullptr
-		);
-
 		if (kv.first == 1)
 		{
 			if (kv.first == 1)
@@ -63,6 +47,8 @@ void jhb::MousePickingRenderSystem::renderMousePickedObjToOffscreen(VkCommandBuf
 			}
 			if (pickingUbo)
 			{
+				uint32_t objId = obj.getId()+1;
+				vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(uint32_t), &objId);
 				obj.model->drawInPickPhase(cmd, pipelineLayout, pipeline->getPipeline(), frameIndex, 64);
 			}
 			else {

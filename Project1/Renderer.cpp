@@ -131,6 +131,49 @@ namespace jhb {
 		beginSwapChainRenderPass(commandBuffer, swapChain->getRenderPass(), swapChain->getFrameBuffer(currentFrameIndex), swapChain->getSwapChainExtent());
 	}
 
+	void Renderer::beginSwapChainRenderPassWithMouseCoordinate(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, float x, float y)
+	{
+		assert(isFrameStarted && "Can't call beginSwapChainRenderPass while frame is not in progress!!");
+		assert(commandBuffer == getCurrentCommandBuffer() && "Can't begining render pass on command buffer from a different frame!");
+
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.framebuffer = frameBuffer;
+
+		float halfWidth = extent.width / 2;
+		float halfHeight = extent.height / 2;
+		if (x - halfWidth < 0)
+		{
+			x = halfWidth;
+		}
+		if (y - halfHeight < 0)
+		{
+			y = halfHeight;
+		}
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = { extent.width, extent.height };
+
+		std::array<VkClearValue, 2> clearValues{};
+		clearValues[0].color = { 0.2f, 0.2f, 0.2f, 1.f };
+		clearValues[1].depthStencil = { 1.0f, 0 };
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
+
+		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		VkViewport viewport{};
+		viewport.x = x - halfWidth;
+		viewport.y = y - halfHeight;
+		viewport.width = static_cast<float>(extent.width);
+		viewport.height = static_cast<float>(extent.height);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		VkRect2D scissor{ {0, 0}, {extent.width, extent.height} };
+		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+	}
+
 	void Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent)
 	{
 		assert(isFrameStarted && "Can't call beginSwapChainRenderPass while frame is not in progress!!");
@@ -145,7 +188,7 @@ namespace jhb {
 		renderPassInfo.renderArea.extent = { extent.width, extent.height };
 
 		std::array<VkClearValue, 2> clearValues{};
-		clearValues[0].color = { 0.2f, 0.2f, 0.2f, 1.f };
+		clearValues[0].color = { 0, 0, 0, 1 };
 		clearValues[1].depthStencil = { 1.0f, 0 };
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
