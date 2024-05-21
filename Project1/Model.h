@@ -35,6 +35,14 @@ namespace jhb {
 		glm::vec2 xy;
 	};
 
+	struct Sphere {
+		glm::vec4 center;
+		float radius;
+
+		glm::vec4 mincoordinate{glm::vec3{(std::numeric_limits<float>::max)()}, 1};
+		glm::vec4 maxcoordinate{glm::vec3{(std::numeric_limits<float>::min)()}, 1};
+	};
+
 	// A primitive contains the data for a single draw call
 	struct Primitive {
 		uint32_t firstIndex;
@@ -136,6 +144,7 @@ namespace jhb {
 		void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
 		void PickingPhasedrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex, VkPipeline pipeline);
 		void calculateTangent(glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3, glm::vec3 pos1, glm::vec3 pos2, glm::vec3 pos3, glm::vec4& tangent);
+		void createObjectSphere(const std::vector<Vertex> vertices);
 	private:
 		Device& device;
 		glm::mat4 modelMatrix;
@@ -155,6 +164,12 @@ namespace jhb {
 		std::vector<Image> images{ Image{} };
 		std::vector<Texture> textures;
 		std::string path;
+
+	public:
+		Sphere sphere;
+		glm::mat4 rootModelMatrix{1.f};
+		glm::mat4 inverseRootModelMatrix{1.f};
+		glm::mat4 pickedObjectRotationMatrix{1.f};
 
 	public:
 		bool hasTangent = false;

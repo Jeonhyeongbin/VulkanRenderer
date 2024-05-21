@@ -29,7 +29,6 @@ namespace jhb {
 		glm::mat4 inverseViewMatrix{ 1.f };
 		glm::mat4 projectionMatrix{ 1.f }; // camera space to canonical view volume;
 		glm::mat4 viewMatrix{1.f}; // objects in world space move to camera space;
-		glm::mat4 inverseViewMatrix{1.f};
 		float fovy; // radianse
 	};
 }

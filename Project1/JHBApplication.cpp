@@ -78,12 +78,6 @@ namespace jhb {
 			auto newTime = std::chrono::high_resolution_clock::now();
 			float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
 			currentTime = newTime;
-			window.mouseMove(x, y, frameTime, viewerObject);
-			
-			auto forwardDir = cameraController.move(&window.GetGLFWwindow(), frameTime, viewerObject);
-			window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
-			float aspect = renderer.getAspectRatio();
-			window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
 
 			auto commandBuffer = renderer.beginFrame();
 			if (commandBuffer == nullptr) // begine frame return null pointer if swap chain need recreated
@@ -123,74 +117,19 @@ namespace jhb {
 			// and now we need tell to pipeline object where this buffer is and how data within it's structure
 			// so using descriptor
 
+			if (!pickingPhase(commandBuffer, ubo, frameIndex, x, y))
+			{
+				window.mouseMove(x, y, frameTime, viewerObject);
+
+				auto forwardDir = cameraController.move(&window.GetGLFWwindow(), frameTime, viewerObject);
+				window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
+				float aspect = renderer.getAspectRatio();
+				window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
+			}
 			// render part : vkcmd
 			// this is why beginFram and beginswapchian renderpass are not combined;
 			// because main application control over this multiple render pass like reflections, shadows, post-processing effects
 			//renderer.beginSwapChainRenderPass(commandBuffer);
-			
-			/*
-			
-create offscreen framebuffer and images,
-
-if(mouse clicked event)
-{
-    first renderPass
-
-    record object id to offscreen image to color attachment;
-
-    end render pass
-
-======================================================================
-    
-    second renderPass
-
-    create staging buffer
-
-    copy offscreen image to staging buffer
-    
-    data map to staging buffer
-
-    get mouse click coordinate mx, my;
-
-    compare mx, my to data's coordinate
-
-    check the data's obejct id
-
-    if object exist, then rotate only that object;
-}
-
-else
-{
-    평소 처럼 렌더링
-
-}
-			*/
-			void* data;
-		    uint32_t objectId;
-			float tmp;
-			if(window.GetMousePressed())
-			{
-				renderer.beginSwapChainRenderPass(commandBuffer, pickingRenderpass, offscreenFrameBuffer[frameIndex], window.getExtent());
-				mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, gameObjects, {globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex]}, frameIndex, &instanceBuffer, uboPickingIndexBuffer[frameIndex].get());
-				renderer.endSwapChainRenderPass(commandBuffer);
-
-				// check object id from a pixel whicch located in mouse pointer coordinate
-				VkBuffer stagingBuffer;
-				VkDeviceMemory stagingBufferMemory;
-				VkDeviceSize imageSize = window.getExtent().width * window.getExtent().height * 16; // 4byte per pixel
-				device.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer, stagingBufferMemory);
-
-				auto offscreenCmd = device.beginSingleTimeCommands();
-				device.transitionImageLayout(offscreenCmd,offscreenImage[frameIndex], VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-				device.endSingleTimeCommands(offscreenCmd);
-				device.copyImageToBuffer(stagingBuffer, offscreenImage[frameIndex], window.getExtent().width, window.getExtent().height);
-
-				vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
-				int offset = (window.getExtent().width * ((int)y - 1) + (int)x)*4;
-				objectId = *((uint32_t*)data + offset);
-
-				//마우스 포인터 좌표를 objectId의 object 공간으로의 역변환을 해준 후 그 오브젝트 공간의 sphere로 투영시킨다.
-			}
 
 			renderer.beginSwapChainRenderPass(commandBuffer);
 
@@ -390,6 +329,7 @@ else
 
 		model->createVertexBuffer(vertexBuffer);
 		model->createIndexBuffer(indexBuffer);
+		model->createObjectSphere(vertexBuffer);
 
 		gameObjects.emplace(gameModel.getId(), std::move(gameModel));
 	}
@@ -634,6 +574,73 @@ else
 		}
 
 		mousePickingRenderSystem = std::make_unique<MousePickingRenderSystem>(device, pickingRenderpass, desclayouts, "shaders/pbr.vert.spv", "shaders/picking.frag.spv", pushConstantRanges);
+	}
+
+	bool JHBApplication::pickingPhase(VkCommandBuffer commandBuffer, GlobalUbo& ubo, int frameIndex ,int x, int y)
+	{
+		void* data;
+		uint32_t objectId;
+		float tmp;
+		if (window.GetMousePressed())
+		{
+			renderer.beginSwapChainRenderPass(commandBuffer, pickingRenderpass, offscreenFrameBuffer[frameIndex], window.getExtent());
+			mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, gameObjects, { globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex] }, frameIndex, &instanceBuffer, uboPickingIndexBuffer[frameIndex].get());
+			renderer.endSwapChainRenderPass(commandBuffer);
+
+			// check object id from a pixel whicch located in mouse pointer coordinate
+			VkBuffer stagingBuffer;
+			VkDeviceMemory stagingBufferMemory;
+			VkDeviceSize imageSize = window.getExtent().width * window.getExtent().height * 16; // 4byte per pixel
+			device.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer, stagingBufferMemory);
+
+			auto offscreenCmd = device.beginSingleTimeCommands();
+			device.transitionImageLayout(offscreenCmd, offscreenImage[frameIndex], VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+			device.endSingleTimeCommands(offscreenCmd);
+			device.copyImageToBuffer(stagingBuffer, offscreenImage[frameIndex], window.getExtent().width, window.getExtent().height);
+
+			vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
+			int offset = (window.getExtent().width * ((int)y - 1) + (int)x) * 4;
+			objectId = *((uint32_t*)data + offset);
+			if (objectId <= 0)
+			{
+				return false;
+			}
+
+			// 오브젝트의 sphere역시 변환을 거쳐 뷰 포트까지 변환해주자.
+			auto& pickedObject = gameObjects[objectId - 1];
+			{
+				if (pickedObject.model)
+				{
+					double sx = (x / (double)window.getExtent().width) * 2 - 1;
+					double sy = (y / (double)window.getExtent().height) * 2 - 1;
+					auto maxcoordinate = ubo.projection * ubo.view * pickedObject.model->rootModelMatrix * pickedObject.model->sphere.maxcoordinate;
+					auto mincoordinate = ubo.projection * ubo.view * pickedObject.model->rootModelMatrix * pickedObject.model->sphere.mincoordinate;
+
+					auto radius = std::sqrt(pow(maxcoordinate.x - mincoordinate.x, 2) + pow(maxcoordinate.y - mincoordinate.y, 2) + pow(maxcoordinate.z - mincoordinate.z, 2));
+					auto center = glm::vec4{ (maxcoordinate.x + mincoordinate.x) / 2, (maxcoordinate.y + mincoordinate.y) / 2 , (maxcoordinate.z + mincoordinate.z) / 2, 1 };
+
+					auto sz = sqrt(pow(radius, 2) - pow(sx - center.x, 2) - pow(sy - center.y, 2)) + center.z;
+
+
+					// mouse pointer coordinate on picked screen space object sphere x,y,z
+					// calculate rotation axis and angle
+					// c1* c2 = |c1|*|c2| *cos @;
+					glm::vec3 q1{(sx - center.x), (sy - center.y), (sz - center.z)};
+					glm::vec3 q2{(px - center.x), (py - center.y), (pz - center.z)};
+					float rotationAngle = glm::acos(glm::dot(q1, q2) / pow(radius, 2));
+					glm::vec3 rotationAxis = glm::cross(q1, q2);
+
+					// should transfer rotation axis to object space;
+					auto finalRotationAxis = glm::vec3{ pickedObject.model->inverseRootModelMatrix * window.getCamera()->getInverseView() * glm::vec4{rotationAxis, 0} };
+					pickedObject.model->pickedObjectRotationMatrix = glm::rotate(glm::mat4{1.f}, rotationAngle, finalRotationAxis);
+					px = sx, py = sy, pz = sz;
+				}
+
+			}
+			return true;
+		}
+
+		return false;
 	}
 
 	void JHBApplication::generateBRDFLUT()
