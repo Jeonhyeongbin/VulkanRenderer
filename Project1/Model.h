@@ -170,6 +170,7 @@ namespace jhb {
 		glm::mat4 rootModelMatrix{1.f};
 		glm::mat4 inverseRootModelMatrix{1.f};
 		glm::mat4 pickedObjectRotationMatrix{1.f};
+		glm::mat4 prevPickedObjectRotationMatrix{ 1.f };
 
 	public:
 		bool hasTangent = false;
