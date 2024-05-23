@@ -16,7 +16,8 @@ glm::vec3  jhb::InputController::move(GLFWwindow* window, float dt, GameObject& 
 	}
 
 	// for not upside down
-	gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -15.f, 15.f);
+	auto limitAngle = 1.f;
+	gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -limitAngle, limitAngle);
 	gameObject.transform.rotation.y = glm::mod(gameObject.transform.rotation.y, glm::two_pi<float>());
 
 	float yaw = gameObject.transform.rotation.y;

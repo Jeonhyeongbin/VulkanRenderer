@@ -166,6 +166,9 @@ namespace jhb {
 
 		std::vector<glm::vec3> lightColors{
 			{1.f, 1.f, 1.f},
+			{ 1.f, 0.2f, 1.f },
+			{ 1.f, 0.5f, 1.f },
+			{ 1.f, 0.7, 1.f },
 		};
 
 		for (int i = 0; i < lightColors.size(); i++)
@@ -296,7 +299,7 @@ namespace jhb {
 		auto gameModel = GameObject::createGameObject();
 		gameModel.transform.translation = { -.5f, 1.5f, 0.f };
 		gameModel.transform.scale = { 1.f, 1.f, 1.f };
-		gameModel.transform.rotation = glm::vec3{ 5.f, 2.f, 6.f };
+		gameModel.transform.rotation = { 4.5f, 0.f, 0.f };
 
 		std::shared_ptr<Model> model = std::make_shared<Model>(device, gameModel.transform.mat4());
 		gameModel.model = model;
@@ -620,33 +623,17 @@ namespace jhb {
 				{
 					double sx = (x / (double)window.getExtent().width) * 2 - 1;
 					double sy = (y / (double)window.getExtent().height) * 2 - 1;
-					auto maxcoordinate = glm::normalize(ubo.projection * ubo.view * pickedObject.model->rootModelMatrix  * pickedObject.model->sphere.maxcoordinate);
-					auto mincoordinate = glm::normalize(ubo.projection * ubo.view * pickedObject.model->rootModelMatrix * pickedObject.model->sphere.mincoordinate);
-
-					auto radius = std::sqrt(pow(maxcoordinate.x - mincoordinate.x, 2) + pow(maxcoordinate.y - mincoordinate.y, 2) + pow(maxcoordinate.z - mincoordinate.z, 2));
-					auto center = glm::vec4{ (maxcoordinate.x + mincoordinate.x) / 2, (maxcoordinate.y + mincoordinate.y) / 2 , (maxcoordinate.z + mincoordinate.z) / 2, 1 };
-
-					auto sz = sqrt(pow(radius, 2) - pow(sx - center.x, 2) - pow(sy - center.y, 2)) + center.z;
-
-
-					// mouse pointer coordinate on picked screen space object sphere x,y,z
-					// calculate rotation axis and angle
-					// c1* c2 = |c1|*|c2| *cos @;
-					glm::vec3 q1{(sx - center.x), (sy - center.y), (sz - center.z)};
-					glm::vec3 q2{(px - center.x), (py - center.y), (pz - center.z)};
-					float rotationAngle = glm::radians(glm::acos(glm::dot(q1, q2) / pow(radius, 2)) * 0.05);
-					glm::vec3 rotationAxis = glm::cross(q1, q2);
 
 					// should transfer rotation axis to object space;
-					auto finalRotationAxis = glm::vec4{ rotationAxis, 0 } *pickedObject.model->inverseRootModelMatrix * window.getCamera()->getInverseView();
-					pickedObject.model->pickedObjectRotationMatrix *= glm::rotate(glm::mat4{1.f}, rotationAngle, glm::vec3{finalRotationAxis});
-					px = sx, py = sy, pz = sz;
+					pickedObject.model->pickedObjectRotationMatrix *= glm::rotate(glm::mat4{1.f}, (float)((px - sx) * 0.5), glm::vec3{0,0,1});
+					px = sx, py = sy;
 				}
-
 			}
 			return true;
 		}
 
+		px = (x / (double)window.getExtent().width) * 2 - 1;
+		py = (y / (double)window.getExtent().height) * 2 - 1;
 		return false;
 	}
 
@@ -810,7 +797,7 @@ namespace jhb {
 		vkCmdSetViewport(cmd, 0, 1, &viewport);
 		vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-		BRDFLUTGenerator.generateBRDFLUT(cmd, gameObjects[3]);
+		BRDFLUTGenerator.generateBRDFLUT(cmd, gameObjects[6]);
 		vkCmdEndRenderPass(cmd);
 		device.endSingleTimeCommands(cmd);
 

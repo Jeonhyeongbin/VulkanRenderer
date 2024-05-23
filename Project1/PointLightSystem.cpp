@@ -44,7 +44,7 @@ namespace jhb {
 			if (obj.pointLight == nullptr) continue;
 
 			// update position
-			obj.transform.translation = glm::vec3(rotateLight * glm::vec4(obj.transform.translation, 1.f));
+			//obj.transform.translation = glm::vec3(rotateLight * glm::vec4(obj.transform.translation, 1.f));
 
 			// copy light to ubo
 			ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.translation, 1.f);
@@ -63,7 +63,6 @@ namespace jhb {
 		{
 			auto& obj = kv.second;
 			if (obj.pointLight == nullptr) continue;
-			if (kv.first == 2)
 			{
 				PointLightPushConstants push{};
 				push.position = glm::vec4(obj.transform.translation, 1.f);

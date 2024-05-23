@@ -113,6 +113,7 @@ namespace jhb {
 		std::unique_ptr<class ImguiRenderSystem> imguiRenderSystem;
 		std::unique_ptr<class MousePickingRenderSystem> mousePickingRenderSystem;
 		uint32_t objectId;
+		bool isPickedState = false;
 
 	private:
 		double px, py, pz;
