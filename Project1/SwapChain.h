@@ -50,6 +50,7 @@ namespace jhb {
 		void createDepthResources();
 		void createImageViews();
 		void createSyncObjects();
+		void createColorResources();
 
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
@@ -72,6 +73,10 @@ namespace jhb {
 		std::vector<VkImage> depthImages;
 		std::vector<VkDeviceMemory> depthImageMemorys;
 		std::vector<VkImageView> depthImageViews;
+		std::vector<VkImage> colorImage; 
+		std::vector<VkDeviceMemory> colorImageMemory;
+		std::vector<VkImageView> colorImageView;
+
 	public:
 		std::vector<VkSemaphore> imageAvailableSemaphores;
 		std::vector<VkSemaphore> renderFinishedSemaphores;

@@ -50,7 +50,7 @@ namespace jhb {
 
 		void initDescriptorSets();
 
-
+		void createOffscreenFrameBuffer();
 		void pickingPhaseInit(const std::vector<VkPushConstantRange>& pushConstantRanges, const std::vector<VkDescriptorSetLayout>& desclayouts);
 		bool pickingPhase(VkCommandBuffer commandBuffer, GlobalUbo& ubo, int frameIndex, int x, int y);
 		void generateBRDFLUT();
@@ -112,8 +112,6 @@ namespace jhb {
 
 		std::unique_ptr<class ImguiRenderSystem> imguiRenderSystem;
 		std::unique_ptr<class MousePickingRenderSystem> mousePickingRenderSystem;
-		uint32_t objectId;
-		bool isPickedState = false;
 
 	private:
 		double px, py, pz;

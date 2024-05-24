@@ -71,6 +71,7 @@ namespace jhb {
 			VkImage& image,
 			VkDeviceMemory& imageMemory);
 
+		VkSampleCountFlagBits getMaxUsableSampleCount();
 		bool checkValidationLayerSupport();
 		void initVulkan();
 		void setupDebugMessenger();
@@ -137,5 +138,7 @@ namespace jhb {
 #else
 		const bool enableValidationLayers = true;
 #endif
+		public:
+			VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 	};
 }

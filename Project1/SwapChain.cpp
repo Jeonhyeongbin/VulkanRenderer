@@ -41,6 +41,12 @@ namespace jhb {
 			vkDestroyImageView(device.getLogicalDevice(), imageView, nullptr);
 		}
 
+		for (int i = 0; i < colorImage.size(); i++) {
+			vkDestroyImageView(device.getLogicalDevice(), colorImageView[i], nullptr);
+			vkDestroyImage(device.getLogicalDevice(), colorImage[i], nullptr);
+			vkFreeMemory(device.getLogicalDevice(), colorImageMemory[i], nullptr);
+		}
+
 		for (int i = 0; i < depthImages.size(); i++) {
 			vkDestroyImageView(device.getLogicalDevice(), depthImageViews[i], nullptr);
 			vkDestroyImage(device.getLogicalDevice(), depthImages[i], nullptr);
@@ -63,6 +69,7 @@ namespace jhb {
 	void SwapChain::init()
 	{
 		createImageViews();
+		createColorResources();
 		createDepthResources();
 		createFrameBuffers();
 		createSyncObjects();
@@ -206,7 +213,7 @@ namespace jhb {
 	{
 		VkAttachmentDescription depthAttachment{};
 		depthAttachment.format = findDepthFormat();
-		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachment.samples = device.msaaSamples;
 		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -220,7 +227,7 @@ namespace jhb {
 
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = format;
-		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachment.samples = device.msaaSamples;
 
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -228,16 +235,31 @@ namespace jhb {
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;;
 
 		VkAttachmentReference colorAttachmentRef{};
 		colorAttachmentRef.attachment = 0;
 		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+		VkAttachmentDescription colorAttachmentResolve{};
+		colorAttachmentResolve.format = swapChainImageFormat;
+		colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+		VkAttachmentReference colorAttachmentResolveRef{};
+		colorAttachmentResolveRef.attachment = 2;
+		colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
 		VkSubpassDescription subpass{};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
 		subpass.colorAttachmentCount = 1;
+		subpass.pResolveAttachments = &colorAttachmentResolveRef;
 		subpass.pColorAttachments = &colorAttachmentRef;
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
@@ -249,6 +271,7 @@ namespace jhb {
 		else {
 			attachments.push_back(colorAttachment);
 			attachments.push_back(depthAttachment);
+			attachments.push_back(colorAttachmentResolve);
 		}
 
 		VkRenderPassCreateInfo renderPassInfo{};
@@ -270,7 +293,7 @@ namespace jhb {
 		swapChainFramebuffers.resize(swapChainImages.size());
 
 		for (size_t i = 0; i < swapChainImageviews.size(); i++) {
-			std::array<VkImageView, 2> attachments = { swapChainImageviews[i], depthImageViews[i] };
+			std::array<VkImageView, 3> attachments = { colorImageView[i], depthImageViews[i], swapChainImageviews[i]};
 
 			VkFramebufferCreateInfo framebufferInfo{};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -311,7 +334,7 @@ namespace jhb {
 			imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 			imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 			imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-			imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+			imageInfo.samples = device.msaaSamples;
 			imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 			imageInfo.flags = 0;
 
@@ -381,6 +404,44 @@ namespace jhb {
 				VK_SUCCESS ||
 				vkCreateFence(device.getLogicalDevice(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
 				throw std::runtime_error("failed to create synchronization objects for a frame!");
+			}
+		}
+	}
+
+	void SwapChain::createColorResources()
+	{
+		colorImage.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		colorImageView.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		colorImageMemory.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		VkFormat colorFormat = swapChainImageFormat;
+		for (int i = 0; i < colorImage.size(); i++)
+		{
+			VkImageCreateInfo imageCI{};
+			imageCI.imageType = VK_IMAGE_TYPE_2D;
+			imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+			imageCI.format = colorFormat;
+			imageCI.extent.width = swapChainExtent.width;
+			imageCI.extent.height = swapChainExtent.height;
+			imageCI.extent.depth = 1;
+			imageCI.mipLevels = 1;
+			imageCI.arrayLayers = 1;
+			imageCI.samples = device.msaaSamples;
+			imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+			imageCI.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+			device.createImageWithInfo(imageCI, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage[i], colorImageMemory[i]);
+			// Image view
+			VkImageViewCreateInfo viewCI{};
+			viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			viewCI.format = colorFormat;
+			viewCI.subresourceRange = {};
+			viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			viewCI.subresourceRange.levelCount = 1;
+			viewCI.subresourceRange.layerCount = 1;
+			viewCI.image = colorImage[i];
+			if (vkCreateImageView(device.getLogicalDevice(), &viewCI, nullptr, &colorImageView[i]))
+			{
+				throw std::runtime_error("failed to create ImageView!");
 			}
 		}
 	}

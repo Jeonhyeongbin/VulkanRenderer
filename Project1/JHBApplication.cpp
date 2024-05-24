@@ -47,7 +47,6 @@ namespace jhb {
 		pushConstantRanges.push_back(pushConstantRange);
 		pushConstantRanges[0].size = sizeof(gltfPushConstantData);
 
-
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
 
 		pickingPhaseInit({ pushConstantRanges[0], VkPushConstantRange{VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(uint32_t)}}, {descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout()}); // todo : should add descriptorsetlayout for object index
@@ -71,6 +70,10 @@ namespace jhb {
 		double x, y;
 		auto currentTime = std::chrono::high_resolution_clock::now();
 
+		auto forwardDir = cameraController.move(&window.GetGLFWwindow(), 0, viewerObject);
+		window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
+		float aspect = renderer.getAspectRatio();
+		window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
 			glfwPollEvents(); //may block
@@ -83,10 +86,6 @@ namespace jhb {
 			if (commandBuffer == nullptr) // begine frame return null pointer if swap chain need recreated
 			{
 				continue;
-			}
-			if (window.GetMousePressed() && objectId>0)
-			{
-				objectId = 0;
 			}
 
 			int frameIndex = renderer.getFrameIndex();
@@ -123,13 +122,16 @@ namespace jhb {
 
 			if (!pickingPhase(commandBuffer, ubo, frameIndex, x, y))
 			{
-				window.mouseMove(x, y, frameTime, viewerObject);
-
-				auto forwardDir = cameraController.move(&window.GetGLFWwindow(), frameTime, viewerObject);
-				window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
-				float aspect = renderer.getAspectRatio();
-				window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
+				// camera controll phase
+				if (window.objectId ==0 && window.GetMousePressed())
+				{
+					window.mouseMove(x, y, frameTime, viewerObject);
+				}
 			}
+			auto forwardDir = cameraController.move(&window.GetGLFWwindow(), frameTime, viewerObject);
+			window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
+			float aspect = renderer.getAspectRatio();
+			window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
 			// render part : vkcmd
 			// this is why beginFram and beginswapchian renderpass are not combined;
 			// because main application control over this multiple render pass like reflections, shadows, post-processing effects
@@ -150,6 +152,13 @@ namespace jhb {
 			renderer.endFrame();
 			if (window.wasWindowResized())
 			{
+				for (auto& frameBuffer : offscreenFrameBuffer)
+				{
+					vkDestroyFramebuffer(device.getLogicalDevice(), frameBuffer, nullptr);
+				}
+				
+				createOffscreenFrameBuffer();
+
 				renderer.setWindowExtent(window.getExtent());
 				imguiRenderSystem->recreateFrameBuffer(device, renderer.GetSwapChain(), window.getExtent());
 				window.resetWindowResizedFlag();
@@ -166,9 +175,9 @@ namespace jhb {
 
 		std::vector<glm::vec3> lightColors{
 			{1.f, 1.f, 1.f},
-			{ 1.f, 0.2f, 1.f },
-			{ 1.f, 0.5f, 1.f },
-			{ 1.f, 0.7, 1.f },
+			{ 1.f, 1.f, 1.f },
+			{ 1.f, 1.f, 1.f },
+			{ 1.f, 1.f, 1.f },
 		};
 
 		for (int i = 0; i < lightColors.size(); i++)
@@ -480,6 +489,58 @@ namespace jhb {
 		}
 	}
 
+	void JHBApplication::createOffscreenFrameBuffer()
+	{
+		for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			// Pre-filtered cube map
+			// Image
+			VkImageCreateInfo imageCI{};
+			imageCI.imageType = VK_IMAGE_TYPE_2D;
+			imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+			imageCI.format = VK_FORMAT_R32G32B32A32_UINT;
+			imageCI.extent.width = window.getExtent().width;
+			imageCI.extent.height = window.getExtent().height;
+			imageCI.extent.depth = 1;
+			imageCI.mipLevels = 1;
+			imageCI.arrayLayers = 1;
+			imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+			imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+			imageCI.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+			device.createImageWithInfo(imageCI, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offscreenImage[i], offscreenMemory[i]);
+			// Image view
+			VkImageViewCreateInfo viewCI{};
+			viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			viewCI.format = VK_FORMAT_R32G32B32A32_UINT;
+			viewCI.subresourceRange = {};
+			viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			viewCI.subresourceRange.levelCount = 1;
+			viewCI.subresourceRange.layerCount = 1;
+			viewCI.image = offscreenImage[i];
+			if (vkCreateImageView(device.getLogicalDevice(), &viewCI, nullptr, &offscreenImageView[i]))
+			{
+				throw std::runtime_error("failed to create ImageView!");
+			}
+
+			std::vector<VkImageView> attachments = { offscreenImageView[i] };
+
+			VkFramebufferCreateInfo fbufCreateInfo{};
+			fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			fbufCreateInfo.renderPass = pickingRenderpass;
+			fbufCreateInfo.attachmentCount = attachments.size();
+			fbufCreateInfo.pAttachments = attachments.data();
+			fbufCreateInfo.width = window.getExtent().width;
+			fbufCreateInfo.height = window.getExtent().height;
+			fbufCreateInfo.layers = 1;
+
+			if (vkCreateFramebuffer(device.getLogicalDevice(), &fbufCreateInfo, nullptr, &offscreenFrameBuffer[i]))
+			{
+				throw std::runtime_error("failed to create frameBuffer!");
+			}
+		}
+	}
+
 	void JHBApplication::pickingPhaseInit(const std::vector<VkPushConstantRange>& pushConstantRanges, const std::vector<VkDescriptorSetLayout>& desclayouts)
 	{
 		std::vector<VkSubpassDependency> tmpdependencies(2);
@@ -530,112 +591,65 @@ namespace jhb {
 			throw std::runtime_error("failed to create renderpass!");
 		}
 
-
-		for(int i =0;i<SwapChain::MAX_FRAMES_IN_FLIGHT;i++)
-		{
-			// Pre-filtered cube map
-			// Image
-			VkImageCreateInfo imageCI{};
-			imageCI.imageType = VK_IMAGE_TYPE_2D;
-			imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-			imageCI.format = VK_FORMAT_R32G32B32A32_UINT;
-			imageCI.extent.width = window.getExtent().width;
-			imageCI.extent.height = window.getExtent().height;
-			imageCI.extent.depth = 1;
-			imageCI.mipLevels = 1;
-			imageCI.arrayLayers = 1;
-			imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
-			imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
-			imageCI.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-			device.createImageWithInfo(imageCI, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offscreenImage[i], offscreenMemory[i]);
-			// Image view
-			VkImageViewCreateInfo viewCI{};
-			viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			viewCI.format = VK_FORMAT_R32G32B32A32_UINT;
-			viewCI.subresourceRange = {};
-			viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			viewCI.subresourceRange.levelCount = 1;
-			viewCI.subresourceRange.layerCount = 1;
-			viewCI.image = offscreenImage[i];
-			if (vkCreateImageView(device.getLogicalDevice(), &viewCI, nullptr, &offscreenImageView[i]))
-			{
-				throw std::runtime_error("failed to create ImageView!");
-			}
-
-			std::vector<VkImageView> attachments = { offscreenImageView[i]};
-
-			VkFramebufferCreateInfo fbufCreateInfo{};
-			fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			fbufCreateInfo.renderPass = pickingRenderpass;
-			fbufCreateInfo.attachmentCount = attachments.size();
-			fbufCreateInfo.pAttachments = attachments.data();
-			fbufCreateInfo.width = window.getExtent().width;
-			fbufCreateInfo.height = window.getExtent().height;
-			fbufCreateInfo.layers = 1;
-
-			if (vkCreateFramebuffer(device.getLogicalDevice(), &fbufCreateInfo, nullptr, &offscreenFrameBuffer[i]))
-			{
-				throw std::runtime_error("failed to create frameBuffer!");
-			}
-		}
+		createOffscreenFrameBuffer();
 
 		mousePickingRenderSystem = std::make_unique<MousePickingRenderSystem>(device, pickingRenderpass, desclayouts, "shaders/pbr.vert.spv", "shaders/picking.frag.spv", pushConstantRanges);
 	}
 
-	bool JHBApplication::pickingPhase(VkCommandBuffer commandBuffer, GlobalUbo& ubo, int frameIndex ,int x, int y)
+	bool JHBApplication::pickingPhase(VkCommandBuffer commandBuffer, GlobalUbo& ubo, int frameIndex, int x, int y)
 	{
 		void* data;
 		float tmp;
-		if (window.GetMousePressed())
+		if (window.GetMousePressed() == true && window.objectId <0)
 		{
-			if (objectId <= 0)
+			renderer.beginSwapChainRenderPass(commandBuffer, pickingRenderpass, offscreenFrameBuffer[frameIndex], window.getExtent());
+			mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, gameObjects, { globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex] }, frameIndex, &instanceBuffer, uboPickingIndexBuffer[frameIndex].get());
+			renderer.endSwapChainRenderPass(commandBuffer);
+
+			// check object id from a pixel whicch located in mouse pointer coordinate
+			VkBuffer stagingBuffer;
+			VkDeviceMemory stagingBufferMemory;
+			VkDeviceSize imageSize = window.getExtent().width * window.getExtent().height * 16; // 4byte per pixel
+			device.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer, stagingBufferMemory);
+
+			auto offscreenCmd = device.beginSingleTimeCommands();
+			device.transitionImageLayout(offscreenCmd, offscreenImage[frameIndex], VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+			device.endSingleTimeCommands(offscreenCmd);
+			device.copyImageToBuffer(stagingBuffer, offscreenImage[frameIndex], window.getExtent().width, window.getExtent().height);
+
+			vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
+			int offset = (window.getExtent().width * ((int)y - 1) + (int)x) * 4;
+			window.objectId = *((uint32_t*)data + offset);
+			vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
+			if (window.objectId <= 0)
 			{
-				renderer.beginSwapChainRenderPass(commandBuffer, pickingRenderpass, offscreenFrameBuffer[frameIndex], window.getExtent());
-				mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, gameObjects, { globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex] }, frameIndex, &instanceBuffer, uboPickingIndexBuffer[frameIndex].get());
-				renderer.endSwapChainRenderPass(commandBuffer);
-
-				// check object id from a pixel whicch located in mouse pointer coordinate
-				VkBuffer stagingBuffer;
-				VkDeviceMemory stagingBufferMemory;
-				VkDeviceSize imageSize = window.getExtent().width * window.getExtent().height * 16; // 4byte per pixel
-				device.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer, stagingBufferMemory);
-
-				auto offscreenCmd = device.beginSingleTimeCommands();
-				device.transitionImageLayout(offscreenCmd, offscreenImage[frameIndex], VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-				device.endSingleTimeCommands(offscreenCmd);
-				device.copyImageToBuffer(stagingBuffer, offscreenImage[frameIndex], window.getExtent().width, window.getExtent().height);
-
-				vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
-				int offset = (window.getExtent().width * ((int)y - 1) + (int)x) * 4;
-				objectId = *((uint32_t*)data + offset);
-				vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
-				if (objectId <= 0)
-				{
-					return false;
-				}
+				return false;
 			}
+		}
 
+		if (window.objectId > 0)
+		{
 			// 오브젝트의 sphere역시 변환을 거쳐 뷰 포트까지 변환해주자.
-			auto& pickedObject = gameObjects[objectId - 1];
+			auto& pickedObject = gameObjects[window.objectId - 1];
 			{
 				if (pickedObject.model)
 				{
-					double sx = (x / (double)window.getExtent().width) * 2 - 1;
-					double sy = (y / (double)window.getExtent().height) * 2 - 1;
-
 					// should transfer rotation axis to object space;
-					pickedObject.model->pickedObjectRotationMatrix *= glm::rotate(glm::mat4{1.f}, (float)((px - sx) * 0.5), glm::vec3{0,0,1});
-					px = sx, py = sy;
+					pickedObject.model->pickedObjectRotationMatrix *= glm::rotate(glm::mat4{1.f}, (float)((px - x)*(0.001)), glm::vec3{0, 0, 1});
+					px = x, py = y;
 				}
 			}
 			return true;
 		}
 
+		// if not objectpicking state then store currnet mouse coordinate for next pickingphase
 		px = (x / (double)window.getExtent().width) * 2 - 1;
 		py = (y / (double)window.getExtent().height) * 2 - 1;
+
+		// and return false boolean for processing camera phase
 		return false;
 	}
+
 
 	void JHBApplication::generateBRDFLUT()
 	{

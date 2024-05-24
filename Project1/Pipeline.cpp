@@ -5,7 +5,7 @@
 #include <iostream>
 
 namespace jhb {
-	Pipeline::Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo)
+	Pipeline::Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo)
 		: device { device }
 	{
 		createGraphicsPipeline(vertFilepath, fragFilepath, configInfo);
@@ -120,7 +120,7 @@ namespace jhb {
 		return buffer;
 	}
 
-	void jhb::Pipeline::createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo)
+	void jhb::Pipeline::createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo)
 	{
 		assert(
 			configInfo.pipelineLayout != VK_NULL_HANDLE &&
@@ -246,7 +246,8 @@ namespace jhb {
 		pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;
 		pipelineInfo.pViewportState = &configInfo.viewportInfo;
 		pipelineInfo.pRasterizationState = &configInfo.rasterizationInfo;
-		pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;
+		configInfo.multisampleInfo.rasterizationSamples = device.msaaSamples;
+;		pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;
 		pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;
 		pipelineInfo.pDynamicState = nullptr;  // Optional
 		pipelineInfo.pDepthStencilState = &configInfo.depthStencilInfo;

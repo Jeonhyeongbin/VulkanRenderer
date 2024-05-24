@@ -26,6 +26,7 @@ namespace jhb {
 		pipelineConfig.bindingDescriptions.clear();
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
+		pipelineConfig.multisampleInfo.rasterizationSamples = device.msaaSamples;
 		pipeline = std::make_unique<Pipeline>(
 			device,
 			vert,

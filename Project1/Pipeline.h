@@ -31,7 +31,7 @@ namespace jhb {
 	class Pipeline
 	{
 	public:
-		Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo);
+		Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo);
 		Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo
 			,std::vector<Material>& materials);
 		~Pipeline();
@@ -45,7 +45,7 @@ namespace jhb {
 	private:
 		static std::vector<char> readFile(const std::string& filepath);
 
-		void createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo);
+		void createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo);
 		void createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo,
 			std::vector<Material>& materials);
 

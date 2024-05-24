@@ -12,6 +12,14 @@ namespace jhb {
 	class Window
 	{
 	public:
+		enum WindowState {
+			Idle,
+			ObjectPicking,
+			CameraControl,
+		};
+
+
+	public:
 		Window(int w, int h, const std::string name);
 		~Window();
 
@@ -58,5 +66,7 @@ namespace jhb {
 		std::string windowName;
 		GLFWwindow* window;
 		std::unique_ptr<jhb::Camera> camera;
+	public:
+		int objectId = 0;
 	};
 }

@@ -1,5 +1,6 @@
 #include "InputController.h"
 #include "External/Imgui/imgui_impl_glfw.h"
+#include "Window.h"
 
 glm::vec3  jhb::InputController::move(GLFWwindow* window, float dt, GameObject& gameObject)
 {
@@ -28,7 +29,6 @@ glm::vec3  jhb::InputController::move(GLFWwindow* window, float dt, GameObject& 
 	forwardDir.z = glm::sin(yaw) * glm::cos(pitch);
 	const glm::vec3 upDir = { 0, -1, 0 };
 	const glm::vec3 rightDir =glm::normalize(glm::cross(forwardDir, upDir));
-
 
 	glm::vec3 moveDir{0.f};
 	if (glfwGetKey(window, keys.moveForward) == GLFW_PRESS) moveDir += forwardDir * cameraSpeed;
@@ -67,6 +67,7 @@ void jhb::InputController::OnButtonPressed(GLFWwindow* window, int button, int a
 		else if (action == GLFW_RELEASE)
 		{
 			tmpwindow->SetMouseButtonPress(false);
+			tmpwindow->objectId = -1;
 		}
 	}
 }
