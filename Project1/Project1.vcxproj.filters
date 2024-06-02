@@ -108,6 +108,9 @@
     <ClCompile Include="MousePickingRenderSystem.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
+    <ClCompile Include="ShadowRenderSystem.cpp">
+      <Filter>Systems</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Pipeline.h">
@@ -198,6 +201,9 @@
       <Filter>Systems</Filter>
     </ClInclude>
     <ClInclude Include="MousePickingRenderSystem.h">
+      <Filter>Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="ShadowRenderSystem.h">
       <Filter>Systems</Filter>
     </ClInclude>
   </ItemGroup>

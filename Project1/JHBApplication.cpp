@@ -10,6 +10,7 @@
 #include "External/Imgui/imgui.h"
 #include "PBRResourceGenerator.h"
 #include "MousePickingRenderSystem.h"
+#include "ShadowRenderSystem.h"
 
 #define _USE_MATH_DEFINESimgui
 #include <math.h>
@@ -55,6 +56,7 @@ namespace jhb {
 		descSetLayouts[3]->getDescriptorSetLayout()
 		},"shaders/pbr.vert.spv",
 			"shaders/pbr.frag.spv" , pushConstantRanges, gameObjects[1].model->materials};
+
 		pushConstantRanges[0].size = sizeof(PointLightPushConstants);
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
