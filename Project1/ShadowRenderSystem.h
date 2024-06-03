@@ -22,6 +22,7 @@ namespace jhb {
 			VkImage image;
 			VkDeviceMemory memory;
 			VkImageView view;
+			VkSampler sampler;
 		};
 
 	public:
@@ -41,12 +42,15 @@ namespace jhb {
 		void createOffscreenFrameBuffer();
 		void createOffscreenRenderPass();
 		void createShadowCubeMap();
+		void updateCubeFace(VkCommandBuffer cmd, uint32_t faceIndex, GameObject& gameobj, VkDescriptorSet discriptorSet);
 
 	private:
 		Texture shadowMap;
 		Texture offScreen;
+
 		std::array<VkImageView, 6> shadowmapCubeFaces;
+		std::vector<VkFramebuffer> FramebuffersPerCubeFaces;
+
 		VkRenderPass offScreenRenderPass;
-		VkRenderPass renderPass;
 	};
 }
