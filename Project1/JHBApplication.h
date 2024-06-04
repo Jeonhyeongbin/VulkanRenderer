@@ -44,6 +44,7 @@ namespace jhb {
 		void loadGameObjects();
 		void createCube();
 		void create2DModelForBRDFLUT();
+		void createFloor();
 		void updateInstance();
 
 		void loadGLTFFile(const std::string& filename);
@@ -69,7 +70,7 @@ namespace jhb {
 		} };
 		Renderer renderer{ window, device, subdependencies, true, VK_FORMAT_R16G16B16A16_SFLOAT, 2 };
 
-		std::array<std::unique_ptr<DescriptorPool>, 5> globalPools{};
+		std::array<std::unique_ptr<DescriptorPool>, 6> globalPools{};
 		std::vector<std::unique_ptr<Buffer>> uboBuffers{};
 		std::vector<std::unique_ptr<Buffer>> uboPickingIndexBuffer{SwapChain::MAX_FRAMES_IN_FLIGHT};
 	private:
@@ -80,6 +81,7 @@ namespace jhb {
 		std::vector<VkDescriptorSet> globalDescriptorSets{}; // global uniform buffer
 		std::vector<VkDescriptorSet> pbrResourceDescriptorSets{}; // pbr resource
 		std::vector<VkDescriptorSet> pickingObjUboDescriptorSets{}; // global uniform buffer
+		VkDescriptorSet shadowMapDescriptorSet;
 
 		Buffer instanceBuffer;
 
@@ -112,6 +114,7 @@ namespace jhb {
 
 		std::unique_ptr<class ImguiRenderSystem> imguiRenderSystem;
 		std::unique_ptr<class MousePickingRenderSystem> mousePickingRenderSystem;
+		std::unique_ptr<class ShadowRenderSystem> shadowMapRenderSystem;
 
 	private:
 		double px, py, pz;

@@ -49,6 +49,7 @@ namespace jhb {
 		pushConstantRanges[0].size = sizeof(gltfPushConstantData);
 
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
+		shadowMapRenderSystem = std::make_unique<ShadowRenderSystem>(device, "shaders/shadowOffscreen.vert.spv", "shaders/shadowOffscreen.frag.spv");
 
 		pickingPhaseInit({ pushConstantRanges[0], VkPushConstantRange{VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(uint32_t)}}, {descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout()}); // todo : should add descriptorsetlayout for object index
 
@@ -264,6 +265,17 @@ namespace jhb {
 		gameObjects.emplace(skyBox.getId(), std::move(skyBox));
 	}
 
+	void JHBApplication::createFloor()
+	{
+		std::shared_ptr<Model> floorModel = std::make_unique<Model>(device);
+		floorModel->loadModel("Models/quad.obj");
+		auto floor = GameObject::createGameObject();
+		floor.model = floorModel;
+		floor.transform.translation = { 0.f, 0.f, 0.f };
+		floor.transform.scale = { 10.f, 1.f ,10.f };
+		gameObjects.emplace(floor.getId(), std::move(floor));
+	}
+
 	void JHBApplication::updateInstance()
 	{
 		std::vector<InstanceData> instanceData;
@@ -366,6 +378,8 @@ namespace jhb {
 		// for picking object index storage
 		globalPools[4] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
 
+		globalPools[5] = DescriptorPool::Builder(device).setMaxSets(1).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1).build();
+
 		for (int i = 0; i < uboBuffers.size(); i++)
 		{
 			uboBuffers[i] = std::make_unique<Buffer>(
@@ -430,6 +444,11 @@ namespace jhb {
 			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS).
 			build());
 
+		// for using shadow map
+		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS).
+			build());
+
 		// for uniform buffer
 		for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
 		{
@@ -489,6 +508,11 @@ namespace jhb {
 					.build(material.descriptorSets[i]);
 			}
 		}
+
+		VkDescriptorImageInfo shadowMapImageInfo{};
+		shadowMapImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		shadowMapImageInfo.imageView = preFilterCubeImgView;
+		shadowMapImageInfo.sampler = preFilterCubeSampler;
 	}
 
 	void JHBApplication::createOffscreenFrameBuffer()

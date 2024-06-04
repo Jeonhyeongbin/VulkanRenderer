@@ -3,14 +3,17 @@
 #include <array>
 
 namespace jhb {
-	ShadowRenderSystem::ShadowRenderSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange) :
-		BaseRenderSystem(device, renderPass, globalSetLayOut, pushConstanRange) {
-		createPipeline(renderPass, vert, frag);
+	ShadowRenderSystem::ShadowRenderSystem(Device& device, const std::string& vert, const std::string& frag)
+		: BaseRenderSystem(device, createOffscreenRenderPass(), initializeOffScreenDescriptor(), { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)}})
+	{
+		createPipeline(offScreenRenderPass, vert, frag);
 		createShadowCubeMap();
+		createOffscreenFrameBuffer();
 	}
 
 	ShadowRenderSystem::~ShadowRenderSystem()
 	{
+
 	}
 
 	void ShadowRenderSystem::createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag)
@@ -20,14 +23,25 @@ namespace jhb {
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_TRUE;
 		pipelineConfig.depthStencilInfo.depthTestEnable = VK_TRUE;
-		pipelineConfig.attributeDescriptions = jhb::Vertex::getAttrivuteDescriptions();
-		pipelineConfig.bindingDescriptions = jhb::Vertex::getBindingDescriptions();
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(1);
+		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].location = 0;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[0].offset = offsetof(Vertex, position);
+
+		pipelineConfig.attributeDescriptions = attributeDescriptions;
+		std::vector<VkVertexInputBindingDescription> bindingDescriptions(1);
+		bindingDescriptions[0].binding = 0;
+		bindingDescriptions[0].stride = sizeof(Vertex::position);
+		bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		pipelineConfig.bindingDescriptions = bindingDescriptions;
+
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.attributeDescriptions.clear();
 		pipelineConfig.bindingDescriptions.clear();
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
-		pipelineConfig.multisampleInfo.rasterizationSamples = device.msaaSamples;
+
 		pipeline = std::make_unique<Pipeline>(
 			device,
 			vert,
@@ -37,8 +51,6 @@ namespace jhb {
 
 	void ShadowRenderSystem::createOffscreenFrameBuffer()
 	{
-		const VkExtent3D offscreenImageSize{ 1024, 1024 , 1 };
-
 		VkFormat validDepthFormat = device.findSupportedFormat({ VK_FORMAT_D32_SFLOAT_S8_UINT,
 	VK_FORMAT_D32_SFLOAT,
 	VK_FORMAT_D24_UNORM_S8_UINT,
@@ -51,7 +63,7 @@ namespace jhb {
 		imageCIa.imageType = VK_IMAGE_TYPE_2D;
 		imageCIa.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		imageCIa.format = validDepthFormat;
-		imageCIa.extent = offscreenImageSize;
+		imageCIa.extent = { offscreenImageSize.width, offscreenImageSize.height, 1 };
 		imageCIa.mipLevels = 1;
 		imageCIa.arrayLayers = 1;
 		imageCIa.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -104,7 +116,7 @@ namespace jhb {
 		}
 	}
 
-	void ShadowRenderSystem::createOffscreenRenderPass()
+	VkRenderPass ShadowRenderSystem::createOffscreenRenderPass()
 	{
 		const VkFormat offscreenImageFormat{ VK_FORMAT_R32_SFLOAT };
 
@@ -151,6 +163,28 @@ namespace jhb {
 		subpass.pColorAttachments = &colorReference;
 		subpass.pDepthStencilAttachment = &depthReference;
 
+		// Use subpass dependencies for layout transitions
+		std::array<VkSubpassDependency, 2> dependencies;
+
+		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[0].dstSubpass = 0;
+		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		dependencies[1].srcSubpass = 0;
+		dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[1].srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		dependencies[1].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		//cause of this subpass dependencies, don't need to synchronization between offscreen renderpass and pbr render pass
+		// or dont need to create multiple shadowmap framebuffer!
+
 		VkRenderPassCreateInfo renderPassCreateInfo{};
 		renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassCreateInfo.attachmentCount = 2;
@@ -162,12 +196,13 @@ namespace jhb {
 		{
 			throw std::runtime_error("failed to create offscreen RenderPass!");
 		}
+
+		return offScreenRenderPass;
 	}
 
 	void ShadowRenderSystem::createShadowCubeMap()
 	{
 		const VkFormat offscreenImageFormat{ VK_FORMAT_R32_SFLOAT };
-		const VkExtent2D offscreenImageSize{ 1024, 1024 };
 
 		VkImageCreateInfo imageCIa{};
 		imageCIa.imageType = VK_IMAGE_TYPE_2D;
@@ -238,89 +273,123 @@ namespace jhb {
 		}
 	}
 
-	void ShadowRenderSystem::updateCubeFace(VkCommandBuffer cmd, uint32_t faceIndex, GameObject& gameobj, VkDescriptorSet discriptorSet)
+	std::vector<VkDescriptorSetLayout> ShadowRenderSystem::initializeOffScreenDescriptor()
 	{
-		VkClearValue clearValues[2];
-		clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-		clearValues[1].depthStencil = { 1.0f, 0 };
+		descriptorPool = DescriptorPool::Builder(device).setMaxSets(1).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1).build();
 
-		const VkExtent2D offscreenImageSize{ 1024, 1024 };
+		uboBuffer = std::make_unique<Buffer>(device, sizeof(UniformData), 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		uboBuffer->map();
 
-		VkRenderPassBeginInfo renderPassBeginInfo{};
-		renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		// Reuse render pass from example pass
-		renderPassBeginInfo.renderPass = offScreenRenderPass;
-		renderPassBeginInfo.framebuffer = FramebuffersPerCubeFaces[faceIndex];
-		renderPassBeginInfo.renderArea.extent = offscreenImageSize;
-		renderPassBeginInfo.clearValueCount = 2;
-		renderPassBeginInfo.pClearValues = clearValues;
+		descriptorSetLayout = DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS).
+			build();
 
-		// Update view matrix via push constant
+		auto ubo = uboBuffer->descriptorInfo();
+		DescriptorWriter(*descriptorSetLayout, *descriptorPool).writeBuffer(0, &ubo).build(descriptorSet);
+		return { descriptorSetLayout->getDescriptorSetLayout() };
+	}
 
-		glm::mat4 viewMatrix = glm::mat4(1.0f);
-		switch (faceIndex)
+	void ShadowRenderSystem::updateShadowMap(VkCommandBuffer cmd, GameObject& gameobj, VkDescriptorSet discriptorSet)
+	{
+		VkViewport viewport{};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = (uint32_t)offscreenImageSize.width;
+		viewport.height = (uint32_t)offscreenImageSize.height;
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		VkRect2D scissor{ {0, 0}, {(uint32_t)offscreenImageSize.width, (uint32_t)offscreenImageSize.height} };
+		vkCmdSetViewport(cmd, 0, 1, &viewport);
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+		for (int faceIndex = 0; faceIndex < 6; faceIndex++)
 		{
-		case 0: // POSITIVE_X
-			viewMatrix = glm::rotate(viewMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			viewMatrix = glm::rotate(viewMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-			break;
-		case 1:	// NEGATIVE_X
-			viewMatrix = glm::rotate(viewMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			viewMatrix = glm::rotate(viewMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-			break;
-		case 2:	// POSITIVE_Y
-			viewMatrix = glm::rotate(viewMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-			break;
-		case 3:	// NEGATIVE_Y
-			viewMatrix = glm::rotate(viewMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-			break;
-		case 4:	// POSITIVE_Z
-			viewMatrix = glm::rotate(viewMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-			break;
-		case 5:	// NEGATIVE_Z
-			viewMatrix = glm::rotate(viewMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-			break;
+			VkClearValue clearValues[2];
+			clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+			clearValues[1].depthStencil = { 1.0f, 0 };
+
+			const VkExtent2D offscreenImageSize{ 1024, 1024 };
+
+			VkRenderPassBeginInfo renderPassBeginInfo{};
+			renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+			// Reuse render pass from example pass
+			renderPassBeginInfo.renderPass = offScreenRenderPass;
+			renderPassBeginInfo.framebuffer = FramebuffersPerCubeFaces[faceIndex];
+			renderPassBeginInfo.renderArea.extent = offscreenImageSize;
+			renderPassBeginInfo.clearValueCount = 2;
+			renderPassBeginInfo.pClearValues = clearValues;
+
+			// Update view matrix via push constant
+
+			glm::mat4 viewMatrix = glm::mat4(1.0f);
+			switch (faceIndex)
+			{
+			case 0: // POSITIVE_X
+				viewMatrix = glm::rotate(viewMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+				viewMatrix = glm::rotate(viewMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+				break;
+			case 1:	// NEGATIVE_X
+				viewMatrix = glm::rotate(viewMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+				viewMatrix = glm::rotate(viewMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+				break;
+			case 2:	// POSITIVE_Y
+				viewMatrix = glm::rotate(viewMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+				break;
+			case 3:	// NEGATIVE_Y
+				viewMatrix = glm::rotate(viewMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+				break;
+			case 4:	// POSITIVE_Z
+				viewMatrix = glm::rotate(viewMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+				break;
+			case 5:	// NEGATIVE_Z
+				viewMatrix = glm::rotate(viewMatrix, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+				break;
+			}
+
+			// Render scene from cube face's point of view
+			vkCmdBeginRenderPass(cmd, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+			// Update shader push constant block
+			// Contains current face view matrix
+			vkCmdPushConstants(
+				cmd,
+				pipelineLayout,
+				VK_SHADER_STAGE_VERTEX_BIT,
+				0,
+				sizeof(glm::mat4),
+				&viewMatrix);
+
+			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &discriptorSet, 0, NULL);
+			//gameobj.model->draw(cmd, pipelineLayout, );
+
+			vkCmdEndRenderPass(cmd);
 		}
-
-		// Render scene from cube face's point of view
-		vkCmdBeginRenderPass(cmd, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		// Update shader push constant block
-		// Contains current face view matrix
-		vkCmdPushConstants(
-			cmd,
-			pipelineLayout,
-			VK_SHADER_STAGE_VERTEX_BIT,
-			0,
-			sizeof(glm::mat4),
-			&viewMatrix);
-
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &discriptorSet, 0, NULL);
-		models.scene.draw(cmd);
-
-		vkCmdEndRenderPass(cmd);
 	}
 
 
 	void ShadowRenderSystem::update(FrameInfo& frameInfo, GlobalUbo& ubo)
 	{
-		auto rotateLight = glm::rotate(glm::mat4(1.f), frameInfo.frameTime, { 0.f, -1.f, 0.f });
-		int lightIndex = 0;
-		for (auto& kv : frameInfo.gameObjects)
-		{
-			auto& obj = kv.second;
-			if (obj.pointLight == nullptr) continue;
+		//auto rotateLight = glm::rotate(glm::mat4(1.f), frameInfo.frameTime, { 0.f, -1.f, 0.f });
+		//int lightIndex = 0;
+		//for (auto& kv : frameInfo.gameObjects)
+		//{
+		//	auto& obj = kv.second;
+		//	if (obj.pointLight == nullptr) continue;
 
-			// update position
-			//obj.transform.translation = glm::vec3(rotateLight * glm::vec4(obj.transform.translation, 1.f));
+		//	// update position
+		//	//obj.transform.translation = glm::vec3(rotateLight * glm::vec4(obj.transform.translation, 1.f));
 
-			// copy light to ubo
-			ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.translation, 1.f);
-			ubo.pointLights[lightIndex].color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
+		//	// copy light to ubo
+		//	ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.translation, 1.f);
+		//	ubo.pointLights[lightIndex].color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
 
-			lightIndex += 1;
-		}
-		ubo.numLights = lightIndex;
+		//	lightIndex += 1;
+		//}
+		//ubo.numLights = lightIndex;
+	}
+	void ShadowRenderSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
+	{
 	}
 }

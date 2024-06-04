@@ -941,3 +941,8 @@ void jhb::Model::createObjectSphere(const std::vector<Vertex> vertices)
 			sphere.maxcoordinate.z = vertex.position.z;
 	}
 }
+
+void jhb::Model::createFloor()
+{
+
+}
