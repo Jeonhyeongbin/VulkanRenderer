@@ -44,7 +44,7 @@ namespace jhb {
 		void loadGameObjects();
 		void createCube();
 		void create2DModelForBRDFLUT();
-		void createFloor();
+		void createFloor(VkRenderPass, VkPipelineLayout);
 		void updateInstance();
 
 		void loadGLTFFile(const std::string& filename);

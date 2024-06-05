@@ -9,12 +9,12 @@ namespace jhb {
 
 	PBRRendererSystem::PBRRendererSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange,
 		std::vector<Material>& materials) :
-		BaseRenderSystem(device, renderPass, globalSetLayOut, pushConstanRange) {
+		BaseRenderSystem(device, globalSetLayOut, pushConstanRange) {
 		createPipelinePerMaterial(renderPass, vert, frag, materials);
 	}
 
 	PBRRendererSystem::PBRRendererSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange) :
-		BaseRenderSystem(device, renderPass, globalSetLayOut, pushConstanRange) {
+		BaseRenderSystem(device, globalSetLayOut, pushConstanRange) {
 		createPipeline(renderPass, vert, frag);
 	}
 
@@ -180,7 +180,7 @@ namespace jhb {
 				continue;
 			}
 
-			if (kv.first == 1)
+			
 			{
 				if (kv.first == 1)
 				{

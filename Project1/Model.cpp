@@ -20,6 +20,7 @@
 #include <ktx.h>
 #include <ktxvulkan.h>
 #include "BaseRenderSystem.h"
+#include "Pipeline.h"
 
 namespace std{
 	template <>
@@ -57,6 +58,11 @@ void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLa
 		}
 	}
 	else {
+		if (perModelPipeline)
+		{
+			perModelPipeline->bind(commandBuffer);
+			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMatrix);
+		}
 		if (hasIndexBuffer)
 		{
 			vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, 0);
@@ -76,6 +82,10 @@ void jhb::Model::drawInPickPhase(VkCommandBuffer commandBuffer, VkPipelineLayout
 		}
 	}
 	else {
+		if (perModelPipeline)
+		{
+			perModelPipeline->bind(commandBuffer);
+		}
 		if (hasIndexBuffer)
 		{
 			vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, 0);
@@ -170,6 +180,14 @@ void jhb::Model::createIndexBuffer(const std::vector<uint32_t>& indices)
 	// copy to staging buffer to vertexbuffer
 	// staging buffer used to only static data. ex) loading application stage. if data are frequently updated from host, then stop using this
 	device.copyBuffer(stagingBuffer.getBuffer(), indexBuffer->getBuffer(), bufferSize);
+}
+
+void jhb::Model::createPipelineForModel(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo)
+{
+	if (perModelPipeline == nullptr)
+	{
+		perModelPipeline = std::make_unique<Pipeline>(device, vertFilepath, fragFilepath, configInfo);
+	}
 }
 
 std::vector<VkVertexInputBindingDescription> jhb::Vertex::getBindingDescriptions()
@@ -279,6 +297,8 @@ void jhb::Model::loadModel(const std::string& filepath)
 		}
 
 	}
+	createVertexBuffer(vertices);
+	createIndexBuffer(indices);
 }
 
 void jhb::Model::loadImages(tinygltf::Model& input)

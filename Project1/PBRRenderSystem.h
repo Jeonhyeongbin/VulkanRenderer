@@ -30,6 +30,8 @@ namespace jhb {
 		PBRRendererSystem& operator=(const PBRRendererSystem&) = delete;
 
 		void renderGameObjects(FrameInfo& frameInfo,Buffer* instanceBuffer = nullptr) override;
+
+		VkPipelineLayout getPipelineLayout() { return pipelineLayout; }
 	private:
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass

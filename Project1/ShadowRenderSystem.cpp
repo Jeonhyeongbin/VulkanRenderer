@@ -4,8 +4,10 @@
 
 namespace jhb {
 	ShadowRenderSystem::ShadowRenderSystem(Device& device, const std::string& vert, const std::string& frag)
-		: BaseRenderSystem(device, createOffscreenRenderPass(), initializeOffScreenDescriptor(), { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)}})
+		:  BaseRenderSystem(device)
 	{
+		BaseRenderSystem::createPipeLineLayout({ initializeOffScreenDescriptor() }, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)} });
+		createOffscreenRenderPass();
 		createPipeline(offScreenRenderPass, vert, frag);
 		createShadowCubeMap();
 		createOffscreenFrameBuffer();
@@ -21,6 +23,7 @@ namespace jhb {
 		assert(pipelineLayout != nullptr && "Cannot Create pipeline before pipeline layout!!");
 
 		PipelineConfigInfo pipelineConfig{};
+		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_TRUE;
 		pipelineConfig.depthStencilInfo.depthTestEnable = VK_TRUE;
 		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(1);
@@ -36,9 +39,6 @@ namespace jhb {
 		bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		pipelineConfig.bindingDescriptions = bindingDescriptions;
 
-		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
-		pipelineConfig.attributeDescriptions.clear();
-		pipelineConfig.bindingDescriptions.clear();
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
 
@@ -67,7 +67,7 @@ namespace jhb {
 		imageCIa.mipLevels = 1;
 		imageCIa.arrayLayers = 1;
 		imageCIa.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageCIa.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageCIa.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		imageCIa.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
 		device.createImageWithInfo(imageCIa, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offScreen.image, offScreen.memory);
@@ -90,7 +90,7 @@ namespace jhb {
 
 		VkCommandBuffer cmd = device.beginSingleTimeCommands();
 
-		device.transitionImageLayout(cmd, shadowMap.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+		device.transitionImageLayout(cmd, offScreen.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 		device.endSingleTimeCommands(cmd);
 
@@ -214,8 +214,9 @@ namespace jhb {
 		imageCIa.mipLevels = 1;
 		imageCIa.arrayLayers = 6;
 		imageCIa.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageCIa.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageCIa.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		imageCIa.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageCIa.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
 		device.createImageWithInfo(imageCIa, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shadowMap.image, shadowMap.memory);
 		// Image view
@@ -235,9 +236,11 @@ namespace jhb {
 			throw std::runtime_error("failed to create ImageView!");
 		}
 
+		viewCIa.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewCIa.subresourceRange.layerCount = 1;
 		for (uint32_t i = 0; i < 6; i++)
 		{
-			viewCIa.subresourceRange.layerCount = i;
+			viewCIa.subresourceRange.baseArrayLayer = i;
 			if (vkCreateImageView(device.getLogicalDevice(), &viewCIa, nullptr, &shadowmapCubeFaces[i]))
 			{
 				throw std::runtime_error("failed to create ImageView!");
@@ -368,27 +371,15 @@ namespace jhb {
 		}
 	}
 
-
-	void ShadowRenderSystem::update(FrameInfo& frameInfo, GlobalUbo& ubo)
+	void ShadowRenderSystem::updateUniformBuffer(glm::vec3 lightPos)
 	{
-		//auto rotateLight = glm::rotate(glm::mat4(1.f), frameInfo.frameTime, { 0.f, -1.f, 0.f });
-		//int lightIndex = 0;
-		//for (auto& kv : frameInfo.gameObjects)
-		//{
-		//	auto& obj = kv.second;
-		//	if (obj.pointLight == nullptr) continue;
-
-		//	// update position
-		//	//obj.transform.translation = glm::vec3(rotateLight * glm::vec4(obj.transform.translation, 1.f));
-
-		//	// copy light to ubo
-		//	ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.translation, 1.f);
-		//	ubo.pointLights[lightIndex].color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
-
-		//	lightIndex += 1;
-		//}
-		//ubo.numLights = lightIndex;
+		uniformData.projection = glm::perspective((float)(M_PI / 2.0), 1.0f, 0.1f , 1024.f);
+		uniformData.view = glm::mat4(1.0f);
+		uniformData.model = glm::translate(glm::mat4(1.0f), glm::vec3(-lightPos.x, -lightPos.y, -lightPos.z));
+		uniformData.lightPos = { lightPos, 1 };
+		memcpy(uboBuffer->getMappedMemory(), &uniformData, sizeof(UniformData));
 	}
+
 	void ShadowRenderSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
 	{
 	}

@@ -1,7 +1,7 @@
 #include "PBRResourceGenerator.h"
 
 jhb::PBRResourceGenerator::PBRResourceGenerator(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange)
-: BaseRenderSystem(device, renderPass, globalSetLayOut, pushConstanRange) {
+: BaseRenderSystem(device, globalSetLayOut, pushConstanRange) {
 	createPipeline(renderPass, vert, frag);
 }
 

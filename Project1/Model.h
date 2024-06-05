@@ -134,6 +134,7 @@ namespace jhb {
 
 		void createVertexBuffer(const std::vector<Vertex>& vertices);
 		void createIndexBuffer(const std::vector<uint32_t>& indices);
+		void createPipelineForModel(const std::string& vertFilepath, const std::string& fragFilepath, class PipelineConfigInfo& configInfo);
 
 	public:
 		void loadModel(const std::string& filepath);
@@ -146,6 +147,11 @@ namespace jhb {
 		void calculateTangent(glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3, glm::vec3 pos1, glm::vec3 pos2, glm::vec3 pos3, glm::vec4& tangent);
 		void createObjectSphere(const std::vector<Vertex> vertices);
 		static void createFloor();
+
+	public:
+		// only for no gftl model
+		std::unique_ptr<class Pipeline> perModelPipeline = nullptr;
+
 	private:
 		Device& device;
 		glm::mat4 modelMatrix;

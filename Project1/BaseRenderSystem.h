@@ -47,7 +47,8 @@ namespace jhb {
 
 	class BaseRenderSystem {
 	public:
-		BaseRenderSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& descSetLayOuts, const std::vector<VkPushConstantRange>& pushConstanRange);
+		BaseRenderSystem(Device& device, const std::vector<VkDescriptorSetLayout>& descSetLayOuts, const std::vector<VkPushConstantRange>& pushConstanRange);
+		BaseRenderSystem(Device& device);
 		virtual ~BaseRenderSystem();
 
 		BaseRenderSystem(const BaseRenderSystem&) = delete;
@@ -55,9 +56,10 @@ namespace jhb {
 		BaseRenderSystem& operator=(const BaseRenderSystem&) = delete;
 
 		virtual void renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer = nullptr);
-	private:
+	public:
 		void createPipeLineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayOuts, const std::vector<VkPushConstantRange>& pushConstanRange);
-
+	
+	private:
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass
 		virtual void createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag) abstract;

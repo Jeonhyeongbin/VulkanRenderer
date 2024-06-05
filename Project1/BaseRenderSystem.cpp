@@ -6,8 +6,12 @@
 
 namespace jhb {
 
-	BaseRenderSystem::BaseRenderSystem(Device& device, VkRenderPass renderPass,const std::vector<VkDescriptorSetLayout>& descSetLayOuts, const std::vector<VkPushConstantRange>& pushConstanRange) : device{ device } {
+	BaseRenderSystem::BaseRenderSystem(Device& device, const std::vector<VkDescriptorSetLayout>& descSetLayOuts, const std::vector<VkPushConstantRange>& pushConstanRange) : device{ device } {
 		createPipeLineLayout(descSetLayOuts, pushConstanRange);
+	}
+
+	BaseRenderSystem::BaseRenderSystem(Device& device) : device{ device } {
+	// deferred
 	}
 
 	BaseRenderSystem::~BaseRenderSystem()

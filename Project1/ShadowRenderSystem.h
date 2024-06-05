@@ -30,7 +30,7 @@ namespace jhb {
 			glm::mat4 view;
 			glm::mat4 model;
 			glm::vec4 lightPos;
-		};
+		} uniformData;
 
 	public:
 		ShadowRenderSystem(Device& device, const std::string& vert, const std::string& frag);
@@ -40,8 +40,11 @@ namespace jhb {
 		ShadowRenderSystem(ShadowRenderSystem&&) = delete;
 		ShadowRenderSystem& operator=(const ShadowRenderSystem&) = delete;
 
-		void update(FrameInfo& frameInfo, GlobalUbo& ubo);
 		virtual void renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer = nullptr) override;
+
+		void updateShadowMap(VkCommandBuffer cmd, GameObject& gameobj, VkDescriptorSet discriptorSet);
+		void updateUniformBuffer(glm::vec3 pos);
+
 	private:
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass
@@ -50,7 +53,7 @@ namespace jhb {
 		VkRenderPass createOffscreenRenderPass();
 		void createShadowCubeMap();
 		std::vector<VkDescriptorSetLayout> initializeOffScreenDescriptor();
-		void updateShadowMap(VkCommandBuffer cmd, GameObject& gameobj, VkDescriptorSet discriptorSet);
+
 		Texture& GetShadowMap() { return shadowMap; }
 
 	private:
@@ -58,7 +61,7 @@ namespace jhb {
 		Texture offScreen;
 
 		std::array<VkImageView, 6> shadowmapCubeFaces;
-		std::vector<VkFramebuffer> FramebuffersPerCubeFaces;
+		std::vector<VkFramebuffer> FramebuffersPerCubeFaces{6};
 
 		VkRenderPass offScreenRenderPass;
 		const VkExtent2D offscreenImageSize{ 1024, 1024 };

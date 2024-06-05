@@ -50,6 +50,7 @@ namespace jhb {
 
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
 		shadowMapRenderSystem = std::make_unique<ShadowRenderSystem>(device, "shaders/shadowOffscreen.vert.spv", "shaders/shadowOffscreen.frag.spv");
+		shadowMapRenderSystem->updateUniformBuffer(gameObjects[1].transform.translation);
 
 		pickingPhaseInit({ pushConstantRanges[0], VkPushConstantRange{VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(uint32_t)}}, {descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout()}); // todo : should add descriptorsetlayout for object index
 
@@ -57,6 +58,8 @@ namespace jhb {
 		descSetLayouts[3]->getDescriptorSetLayout()
 		},"shaders/pbr.vert.spv",
 			"shaders/pbr.frag.spv" , pushConstantRanges, gameObjects[1].model->materials};
+
+		createFloor(renderer.getSwapChainRenderPass(), pbrRenderSystem.getPipelineLayout());
 
 		pushConstantRanges[0].size = sizeof(PointLightPushConstants);
 		pushConstantRanges[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -265,7 +268,7 @@ namespace jhb {
 		gameObjects.emplace(skyBox.getId(), std::move(skyBox));
 	}
 
-	void JHBApplication::createFloor()
+	void JHBApplication::createFloor(VkRenderPass renderPass, VkPipelineLayout pipelinelayout)
 	{
 		std::shared_ptr<Model> floorModel = std::make_unique<Model>(device);
 		floorModel->loadModel("Models/quad.obj");
@@ -273,7 +276,21 @@ namespace jhb {
 		floor.model = floorModel;
 		floor.transform.translation = { 0.f, 0.f, 0.f };
 		floor.transform.scale = { 10.f, 1.f ,10.f };
+
+		PipelineConfigInfo pipelineconfigInfo{};
+		Pipeline::defaultPipelineConfigInfo(pipelineconfigInfo);
+		pipelineconfigInfo.depthStencilInfo.depthTestEnable = true;
+		pipelineconfigInfo.depthStencilInfo.depthWriteEnable = true;
+		pipelineconfigInfo.attributeDescriptions = jhb::Vertex::getAttrivuteDescriptions();
+		pipelineconfigInfo.bindingDescriptions = jhb::Vertex::getBindingDescriptions();
+		pipelineconfigInfo.renderPass = renderPass;
+		pipelineconfigInfo.pipelineLayout = pipelinelayout;
+		floor.model->createPipelineForModel("shaders/pbr.vert.spv",
+			"shaders/pbrnotexture.frag.spv", pipelineconfigInfo);
 		gameObjects.emplace(floor.getId(), std::move(floor));
+		
+		//this is no gltf model, so using different pipeline 
+	
 	}
 
 	void JHBApplication::updateInstance()
@@ -513,6 +530,9 @@ namespace jhb {
 		shadowMapImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		shadowMapImageInfo.imageView = preFilterCubeImgView;
 		shadowMapImageInfo.sampler = preFilterCubeSampler;
+
+		DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, &shadowMapImageInfo)
+			.build(shadowMapDescriptorSet);
 	}
 
 	void JHBApplication::createOffscreenFrameBuffer()
