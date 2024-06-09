@@ -32,6 +32,11 @@ namespace jhb {
 			glm::vec4 lightPos;
 		} uniformData;
 
+		struct OffscreenConstant {
+			glm::mat4 modelMat;
+			glm::mat4 lightView;
+		} offscreenBuffer;
+
 	public:
 		ShadowRenderSystem(Device& device, const std::string& vert, const std::string& frag);
 		~ShadowRenderSystem();
@@ -42,7 +47,7 @@ namespace jhb {
 
 		virtual void renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer = nullptr) override;
 
-		void updateShadowMap(VkCommandBuffer cmd, GameObject& gameobj, VkDescriptorSet discriptorSet);
+		void updateShadowMap(VkCommandBuffer cmd, GameObject::Map& gameObjs, uint32_t frameIndex);
 		void updateUniformBuffer(glm::vec3 pos);
 
 	private:
@@ -53,7 +58,7 @@ namespace jhb {
 		VkRenderPass createOffscreenRenderPass();
 		void createShadowCubeMap();
 		std::vector<VkDescriptorSetLayout> initializeOffScreenDescriptor();
-
+	public:
 		Texture& GetShadowMap() { return shadowMap; }
 
 	private:
@@ -71,5 +76,6 @@ namespace jhb {
 
 		std::unique_ptr<DescriptorPool> descriptorPool;
 		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout;
+		glm::vec3 _lightpos;
 	};
 }

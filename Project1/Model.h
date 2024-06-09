@@ -129,6 +129,8 @@ namespace jhb {
 
 		//static std::unique_ptr<Model> createModelFromFile(Device& device, const std::string& Modelfilepath, const std::string& texturefilepath);
 		void draw(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, int frameIndex, uint32_t instancCount = 1);
+		void drawNoTexture(VkCommandBuffer buffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, int frameIndex, uint32_t instancCount = 1);
+
 		void drawInPickPhase(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, VkPipeline pipeline, int frameIndex, uint32_t instancCount = 1);
 		void bind(VkCommandBuffer buffer, VkBuffer* instancing = nullptr);
 
@@ -143,6 +145,8 @@ namespace jhb {
 		void loadMaterials(tinygltf::Model& input);
 		void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
 		void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
+		void drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, Node* node);
+
 		void PickingPhasedrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex, VkPipeline pipeline);
 		void calculateTangent(glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3, glm::vec3 pos1, glm::vec3 pos2, glm::vec3 pos3, glm::vec4& tangent);
 		void createObjectSphere(const std::vector<Vertex> vertices);
@@ -157,6 +161,7 @@ namespace jhb {
 		glm::mat4 modelMatrix;
 
 		std::vector<Vertex> vertices;
+		std::vector<glm::vec3> vertices_p;
 		std::unique_ptr<jhb::Buffer> vertexBuffer;
 		uint32_t vertexCount;
 

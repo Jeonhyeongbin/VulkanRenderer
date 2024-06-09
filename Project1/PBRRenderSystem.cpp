@@ -180,18 +180,24 @@ namespace jhb {
 				continue;
 			}
 
-			
+			if(kv.first==1 || kv.first == 7)
 			{
-				if (kv.first == 1)
 				{
 					VkBuffer buffer[1] = { instanceBuffer->getBuffer() };
 					obj.model->bind(frameInfo.commandBuffer, buffer);
 				}
-				else
+				uint32_t instanceCount = 0;
+				if (kv.first == 7)
 				{
-					obj.model->bind(frameInfo.commandBuffer);
+					instanceCount = 1;
+					auto modelmat = kv.second.transform.mat4();
+					vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelmat);
 				}
-				obj.model->draw(frameInfo.commandBuffer, pipelineLayout, frameInfo.frameIndex, 64);
+				if (kv.first == 1)
+				{
+					instanceCount = 8;
+				}
+				obj.model->draw(frameInfo. commandBuffer, pipelineLayout, frameInfo.frameIndex, instanceCount);
 			}
 		}
 	}

@@ -61,7 +61,6 @@ void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLa
 		if (perModelPipeline)
 		{
 			perModelPipeline->bind(commandBuffer);
-			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMatrix);
 		}
 		if (hasIndexBuffer)
 		{
@@ -69,6 +68,28 @@ void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLa
 		}
 		else {
 			vkCmdDraw(commandBuffer, vertexCount, instanceCount, 0, 0);
+		}
+	}
+}
+
+void jhb::Model::drawNoTexture(VkCommandBuffer buffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, int frameIndex, uint32_t instancCount)
+{
+	if (!nodes.empty())
+	{
+		for (auto& node : nodes) {
+			drawNodeNotexture(buffer, pipeline, pipelineLayout, node);
+		}
+	}
+	else {
+		auto matrix = glm::mat4{ 1.f };
+		vkCmdPushConstants(buffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 128, sizeof(glm::mat4), &matrix);
+		vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+		if (hasIndexBuffer)
+		{
+			vkCmdDrawIndexed(buffer, indexCount, instancCount, 0, 0, 0);
+		}
+		else {
+			vkCmdDraw(buffer, vertexCount, instancCount, 0, 0);
 		}
 	}
 }
@@ -652,6 +673,36 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 		drawNode(commandBuffer, pipelineLayout, child, frameIndex);
 	}
 	
+}
+
+void jhb::Model::drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, Node* node)
+{
+	if (!node->visible) {
+		return;
+	}
+	if (node->mesh.primitives.size() > 0) {
+		// Pass the node's matrix via push constants
+		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
+		glm::mat4 nodeMatrix = modelMatrix * pickedObjectRotationMatrix * node->matrix;
+		Node* currentParent = node->parent;
+		while (currentParent) {
+			nodeMatrix = currentParent->matrix * nodeMatrix;
+			currentParent = currentParent->parent;
+		}
+		// Pass the final matrix to the vertex shader using push constants
+		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 128, sizeof(glm::mat4), &nodeMatrix);
+		for (Primitive& primitive : node->mesh.primitives) {
+			if (primitive.indexCount > 0) {
+				Material& material = materials[primitive.materialIndex];
+				// POI: Bind the pipeline for the node's material
+				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
+			}
+		}
+	}
+	for (auto& child : node->children) {
+		drawNodeNotexture(commandBuffer, pipeline, pipelineLayout, child);
+	}
 }
 
 void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)

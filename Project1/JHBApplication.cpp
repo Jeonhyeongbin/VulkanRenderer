@@ -29,6 +29,9 @@ namespace jhb {
 		createCube();
 		loadGameObjects();
 		create2DModelForBRDFLUT();
+			shadowMapRenderSystem = std::make_unique<ShadowRenderSystem>(device, "shaders/shadowOffscreen.vert.spv", "shaders/shadowOffscreen.frag.spv");
+		shadowMapRenderSystem->updateUniformBuffer(gameObjects[2].transform.translation);
+
 		initDescriptorSets();
 	}
 
@@ -49,8 +52,6 @@ namespace jhb {
 		pushConstantRanges[0].size = sizeof(gltfPushConstantData);
 
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
-		shadowMapRenderSystem = std::make_unique<ShadowRenderSystem>(device, "shaders/shadowOffscreen.vert.spv", "shaders/shadowOffscreen.frag.spv");
-		shadowMapRenderSystem->updateUniformBuffer(gameObjects[1].transform.translation);
 
 		pickingPhaseInit({ pushConstantRanges[0], VkPushConstantRange{VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(uint32_t)}}, {descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout()}); // todo : should add descriptorsetlayout for object index
 
@@ -142,6 +143,9 @@ namespace jhb {
 			// this is why beginFram and beginswapchian renderpass are not combined;
 			// because main application control over this multiple render pass like reflections, shadows, post-processing effects
 			//renderer.beginSwapChainRenderPass(commandBuffer);
+
+
+			shadowMapRenderSystem->updateShadowMap(commandBuffer, gameObjects, frameIndex);
 
 			renderer.beginSwapChainRenderPass(commandBuffer);
 
@@ -274,7 +278,7 @@ namespace jhb {
 		floorModel->loadModel("Models/quad.obj");
 		auto floor = GameObject::createGameObject();
 		floor.model = floorModel;
-		floor.transform.translation = { 0.f, 0.f, 0.f };
+		floor.transform.translation = { 0.f, 3.f, 0.f };
 		floor.transform.scale = { 10.f, 1.f ,10.f };
 
 		PipelineConfigInfo pipelineconfigInfo{};
@@ -283,8 +287,58 @@ namespace jhb {
 		pipelineconfigInfo.depthStencilInfo.depthWriteEnable = true;
 		pipelineconfigInfo.attributeDescriptions = jhb::Vertex::getAttrivuteDescriptions();
 		pipelineconfigInfo.bindingDescriptions = jhb::Vertex::getBindingDescriptions();
+
+		VkVertexInputBindingDescription bindingdesc{};
+
+		bindingdesc.binding = 1;
+		bindingdesc.stride = sizeof(jhb::JHBApplication::InstanceData);
+		bindingdesc.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+
+		pipelineconfigInfo.bindingDescriptions.push_back(bindingdesc);
+
+		std::vector<VkVertexInputAttributeDescription> attrdesc(8);
+
+		attrdesc[0].binding = 1;
+		attrdesc[0].location = 5;
+		attrdesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attrdesc[0].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::pos);
+
+		attrdesc[1].binding = 1;
+		attrdesc[1].location = 6;
+		attrdesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attrdesc[1].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::rot);
+
+		attrdesc[2].binding = 1;
+		attrdesc[2].location = 7;
+		attrdesc[2].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[2].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::scale);
+
+		attrdesc[3].binding = 1;
+		attrdesc[3].location = 8;
+		attrdesc[3].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[3].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::roughness);
+		attrdesc[4].binding = 1;
+		attrdesc[4].location = 9;
+		attrdesc[4].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[4].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::metallic);
+		attrdesc[5].binding = 1;
+		attrdesc[5].location = 10;
+		attrdesc[5].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[5].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::r);
+		attrdesc[6].binding = 1;
+		attrdesc[6].location = 11;
+		attrdesc[6].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[6].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::g);
+		attrdesc[7].binding = 1;
+		attrdesc[7].location = 12;
+		attrdesc[7].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[7].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::b);
+
+		pipelineconfigInfo.attributeDescriptions.insert(pipelineconfigInfo.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
+
 		pipelineconfigInfo.renderPass = renderPass;
 		pipelineconfigInfo.pipelineLayout = pipelinelayout;
+		pipelineconfigInfo.multisampleInfo.rasterizationSamples = device.msaaSamples;
 		floor.model->createPipelineForModel("shaders/pbr.vert.spv",
 			"shaders/pbrnotexture.frag.spv", pipelineconfigInfo);
 		gameObjects.emplace(floor.getId(), std::move(floor));
@@ -309,9 +363,9 @@ namespace jhb {
 				instanceData[i + j].pos.y = y;
 				instanceData[i + j].metallic = imguiRenderSystem->metalic;
 				instanceData[i + j].roughness = imguiRenderSystem->roughness;
-				instanceData[i + j].r = (i / 64.f );
-				instanceData[i + j].g = 0.0f;
-				instanceData[i + j].b = 0.0f;
+				instanceData[i + j].r = (1.f );
+				instanceData[i + j].g = 1.0f;
+				instanceData[i + j].b = 1.0f;
 			}
 		}
 
@@ -528,8 +582,8 @@ namespace jhb {
 
 		VkDescriptorImageInfo shadowMapImageInfo{};
 		shadowMapImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		shadowMapImageInfo.imageView = preFilterCubeImgView;
-		shadowMapImageInfo.sampler = preFilterCubeSampler;
+		shadowMapImageInfo.imageView = shadowMapRenderSystem->GetShadowMap().view;
+		shadowMapImageInfo.sampler = shadowMapRenderSystem->GetShadowMap().sampler;
 
 		DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, &shadowMapImageInfo)
 			.build(shadowMapDescriptorSet);

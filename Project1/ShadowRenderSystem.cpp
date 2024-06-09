@@ -6,7 +6,7 @@ namespace jhb {
 	ShadowRenderSystem::ShadowRenderSystem(Device& device, const std::string& vert, const std::string& frag)
 		:  BaseRenderSystem(device)
 	{
-		BaseRenderSystem::createPipeLineLayout({ initializeOffScreenDescriptor() }, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)} });
+		BaseRenderSystem::createPipeLineLayout({ initializeOffScreenDescriptor() }, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(OffscreenConstant) },  VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, sizeof(OffscreenConstant), sizeof(glm::mat4) } });
 		createOffscreenRenderPass();
 		createPipeline(offScreenRenderPass, vert, frag);
 		createShadowCubeMap();
@@ -26,18 +26,8 @@ namespace jhb {
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_TRUE;
 		pipelineConfig.depthStencilInfo.depthTestEnable = VK_TRUE;
-		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(1);
-		attributeDescriptions[0].binding = 0;
-		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, position);
-
-		pipelineConfig.attributeDescriptions = attributeDescriptions;
-		std::vector<VkVertexInputBindingDescription> bindingDescriptions(1);
-		bindingDescriptions[0].binding = 0;
-		bindingDescriptions[0].stride = sizeof(Vertex::position);
-		bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		pipelineConfig.bindingDescriptions = bindingDescriptions;
+		pipelineConfig.attributeDescriptions = jhb::Vertex::getAttrivuteDescriptions();
+		pipelineConfig.bindingDescriptions = jhb::Vertex::getBindingDescriptions();
 
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
@@ -264,9 +254,9 @@ namespace jhb {
 		samplerCI.magFilter = VK_FILTER_LINEAR;
 		samplerCI.minFilter = VK_FILTER_LINEAR;
 		samplerCI.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerCI.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		samplerCI.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		samplerCI.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerCI.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+		samplerCI.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+		samplerCI.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 		samplerCI.minLod = 0.0f;
 		samplerCI.maxLod = 1.f;
 		samplerCI.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
@@ -290,10 +280,10 @@ namespace jhb {
 
 		auto ubo = uboBuffer->descriptorInfo();
 		DescriptorWriter(*descriptorSetLayout, *descriptorPool).writeBuffer(0, &ubo).build(descriptorSet);
-		return { descriptorSetLayout->getDescriptorSetLayout() };
+		return { descriptorSetLayout->getDescriptorSetLayout()};
 	}
 
-	void ShadowRenderSystem::updateShadowMap(VkCommandBuffer cmd, GameObject& gameobj, VkDescriptorSet discriptorSet)
+	void ShadowRenderSystem::updateShadowMap(VkCommandBuffer cmd, GameObject::Map& gameObjs,  uint32_t frameIndex)
 	{
 		VkViewport viewport{};
 		viewport.x = 0.0f;
@@ -325,7 +315,7 @@ namespace jhb {
 
 			// Update view matrix via push constant
 
-			glm::mat4 viewMatrix = glm::mat4(1.0f);
+			glm::mat4 viewMatrix = glm::translate(glm::mat4(1.0f), -_lightpos);
 			switch (faceIndex)
 			{
 			case 0: // POSITIVE_X
@@ -353,19 +343,32 @@ namespace jhb {
 			// Render scene from cube face's point of view
 			vkCmdBeginRenderPass(cmd, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-			// Update shader push constant block
-			// Contains current face view matrix
-			vkCmdPushConstants(
-				cmd,
-				pipelineLayout,
-				VK_SHADER_STAGE_VERTEX_BIT,
-				0,
-				sizeof(glm::mat4),
-				&viewMatrix);
 
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &discriptorSet, 0, NULL);
-			//gameobj.model->draw(cmd, pipelineLayout, );
+			//vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
+			offscreenBuffer.lightView = viewMatrix;
+			for (auto& obj : gameObjs)
+			{
+				// Update shader push constant block
+				// Contains current face view matrix
+				if (obj.first == 1 || obj.first == 7)
+				{
+					offscreenBuffer.modelMat = obj.second.transform.mat4();
+					if (obj.first == 1)
+					{
+						offscreenBuffer.modelMat = glm::mat4{ 1.f };
+					}
+					vkCmdPushConstants(
+						cmd,
+						pipelineLayout,
+						VK_SHADER_STAGE_VERTEX_BIT,
+						0,
+						sizeof(OffscreenConstant),
+						&offscreenBuffer);
+					obj.second.model->bind(cmd, nullptr);
+					obj.second.model->drawNoTexture(cmd, pipeline->getPipeline(), pipelineLayout, 0, frameIndex);
+				}
+			}
 
 			vkCmdEndRenderPass(cmd);
 		}
@@ -373,6 +376,7 @@ namespace jhb {
 
 	void ShadowRenderSystem::updateUniformBuffer(glm::vec3 lightPos)
 	{
+		_lightpos = lightPos;
 		uniformData.projection = glm::perspective((float)(M_PI / 2.0), 1.0f, 0.1f , 1024.f);
 		uniformData.view = glm::mat4(1.0f);
 		uniformData.model = glm::translate(glm::mat4(1.0f), glm::vec3(-lightPos.x, -lightPos.y, -lightPos.z));
@@ -382,5 +386,6 @@ namespace jhb {
 
 	void ShadowRenderSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
 	{
+
 	}
-}
+};
