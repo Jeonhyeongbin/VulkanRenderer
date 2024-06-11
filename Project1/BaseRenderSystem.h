@@ -55,7 +55,7 @@ namespace jhb {
 		BaseRenderSystem(BaseRenderSystem&&) = delete;
 		BaseRenderSystem& operator=(const BaseRenderSystem&) = delete;
 
-		virtual void renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer = nullptr);
+		virtual void renderGameObjects(FrameInfo& frameInfo);
 	public:
 		void createPipeLineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayOuts, const std::vector<VkPushConstantRange>& pushConstanRange);
 	

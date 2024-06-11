@@ -53,6 +53,9 @@ namespace jhb {
         std::shared_ptr<Model> model{};
         glm::vec3 color{};
         TransformComponent transform{};
+    public:
+        uint32_t instanceCount = 1;
+        std::unique_ptr<Buffer> instanceBuffer = nullptr;
 
     private:
         GameObject(id_t objId) : id{ objId } {}

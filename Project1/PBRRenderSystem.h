@@ -29,7 +29,7 @@ namespace jhb {
 		PBRRendererSystem(PBRRendererSystem&&) = delete;
 		PBRRendererSystem& operator=(const PBRRendererSystem&) = delete;
 
-		void renderGameObjects(FrameInfo& frameInfo,Buffer* instanceBuffer = nullptr) override;
+		void renderGameObjects(FrameInfo& frameInfo) override;
 
 		VkPipelineLayout getPipelineLayout() { return pipelineLayout; }
 	private:

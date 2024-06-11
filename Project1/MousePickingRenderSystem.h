@@ -14,7 +14,7 @@ namespace jhb {
 
 	public:
 		void renderMousePickedObjToOffscreen(VkCommandBuffer cmd, jhb::GameObject::Map& gameObjects, const std::vector<VkDescriptorSet>& descriptorsets,
-			int frameIndex, Buffer* instanceBuffer, Buffer* pickingUbo
+			int frameIndex, Buffer* pickingUbo
 		);
 
 	private:

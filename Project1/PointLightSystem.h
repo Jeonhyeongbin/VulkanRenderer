@@ -33,7 +33,7 @@ namespace jhb {
 		PointLightSystem& operator=(const PointLightSystem&) = delete;
 
 		void update(FrameInfo& frameInfo, GlobalUbo& ubo);
-		virtual void renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer = nullptr) override;
+		virtual void renderGameObjects(FrameInfo& frameInfo) override;
 	private:
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass

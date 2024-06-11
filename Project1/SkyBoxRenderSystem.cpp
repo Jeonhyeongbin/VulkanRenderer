@@ -15,7 +15,7 @@ namespace jhb {
 	void SkyBoxRenderSystem::renderSkyBox(FrameInfo& frameInfo)
 	{
 		pipeline->bind(frameInfo.commandBuffer);
-		BaseRenderSystem::renderGameObjects(frameInfo, nullptr);
+		BaseRenderSystem::renderGameObjects(frameInfo);
 		vkCmdBindDescriptorSets(
 			frameInfo.commandBuffer,
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -33,7 +33,7 @@ namespace jhb {
 		vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
 
 		obj.model->bind(frameInfo.commandBuffer);
-		obj.model->draw(frameInfo.commandBuffer, pipelineLayout, 0, 1);
+		obj.model->draw(frameInfo.commandBuffer, pipelineLayout, 0);
 	}
 
 	void SkyBoxRenderSystem::createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag)

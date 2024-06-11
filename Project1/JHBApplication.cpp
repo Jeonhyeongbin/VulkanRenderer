@@ -18,7 +18,7 @@
 #include <numeric>
 
 namespace jhb {
-	JHBApplication::JHBApplication() : instanceBuffer(Buffer(device, sizeof(InstanceData), 64, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
+	JHBApplication::JHBApplication()
 	{
 		uboBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		CubeBoxDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -56,7 +56,7 @@ namespace jhb {
 		pickingPhaseInit({ pushConstantRanges[0], VkPushConstantRange{VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(uint32_t)}}, {descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout()}); // todo : should add descriptorsetlayout for object index
 
 		PBRRendererSystem pbrRenderSystem{ device, renderer.getSwapChainRenderPass(), {descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout(),
-		descSetLayouts[3]->getDescriptorSetLayout()
+		descSetLayouts[3]->getDescriptorSetLayout(), descSetLayouts[5]->getDescriptorSetLayout()
 		},"shaders/pbr.vert.spv",
 			"shaders/pbr.frag.spv" , pushConstantRanges, gameObjects[1].model->materials};
 
@@ -104,6 +104,7 @@ namespace jhb {
 				globalDescriptorSets[frameIndex],
 				pbrResourceDescriptorSets[frameIndex],
 				CubeBoxDescriptorSets[frameIndex],
+				shadowMapDescriptorSet,
 				gameObjects
 			};
 
@@ -135,6 +136,7 @@ namespace jhb {
 					window.mouseMove(x, y, frameTime, viewerObject);
 				}
 			}
+
 			auto forwardDir = cameraController.move(&window.GetGLFWwindow(), frameTime, viewerObject);
 			window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
 			float aspect = renderer.getAspectRatio();
@@ -144,13 +146,12 @@ namespace jhb {
 			// because main application control over this multiple render pass like reflections, shadows, post-processing effects
 			//renderer.beginSwapChainRenderPass(commandBuffer);
 
-
 			shadowMapRenderSystem->updateShadowMap(commandBuffer, gameObjects, frameIndex);
 
 			renderer.beginSwapChainRenderPass(commandBuffer);
 
 			skyboxRenderSystem.renderSkyBox(frameInfo);
-			pbrRenderSystem.renderGameObjects(frameInfo, &instanceBuffer);
+			pbrRenderSystem.renderGameObjects(frameInfo);
 			pointLightSystem.renderGameObjects(frameInfo);
 			renderer.endSwapChainRenderPass(commandBuffer);
 			
@@ -185,9 +186,6 @@ namespace jhb {
 
 		std::vector<glm::vec3> lightColors{
 			{1.f, 1.f, 1.f},
-			{ 1.f, 1.f, 1.f },
-			{ 1.f, 1.f, 1.f },
-			{ 1.f, 1.f, 1.f },
 		};
 
 		for (int i = 0; i < lightColors.size(); i++)
@@ -196,7 +194,7 @@ namespace jhb {
 			pointLight.color = lightColors[i];
 			pointLight.pointLight->lightIntensity = 10.f;
 			auto rotateLight = glm::rotate(glm::mat4(1.f),(i * glm::two_pi<float>()/lightColors.size()), {0.f, -1.f, 0.f});
-			pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(2.f, 1.f, 1.f, 1.f));
+			pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(-2.f, -2.f, 1.f, 1.f));
 			gameObjects.emplace(pointLight.getId(), std::move(pointLight));
 		}
 	}
@@ -291,7 +289,7 @@ namespace jhb {
 		VkVertexInputBindingDescription bindingdesc{};
 
 		bindingdesc.binding = 1;
-		bindingdesc.stride = sizeof(jhb::JHBApplication::InstanceData);
+		bindingdesc.stride = sizeof(jhb::Model::InstanceData);
 		bindingdesc.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 
 		pipelineconfigInfo.bindingDescriptions.push_back(bindingdesc);
@@ -301,38 +299,38 @@ namespace jhb {
 		attrdesc[0].binding = 1;
 		attrdesc[0].location = 5;
 		attrdesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrdesc[0].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::pos);
+		attrdesc[0].offset = offsetof(Model::InstanceData, Model::InstanceData::pos);
 
 		attrdesc[1].binding = 1;
 		attrdesc[1].location = 6;
 		attrdesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrdesc[1].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::rot);
+		attrdesc[1].offset = offsetof(Model::InstanceData, Model::InstanceData::rot);
 
 		attrdesc[2].binding = 1;
 		attrdesc[2].location = 7;
 		attrdesc[2].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[2].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::scale);
+		attrdesc[2].offset = offsetof(Model::InstanceData, Model::InstanceData::scale);
 
 		attrdesc[3].binding = 1;
 		attrdesc[3].location = 8;
 		attrdesc[3].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[3].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::roughness);
+		attrdesc[3].offset = offsetof(Model::InstanceData, Model::InstanceData::roughness);
 		attrdesc[4].binding = 1;
 		attrdesc[4].location = 9;
 		attrdesc[4].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[4].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::metallic);
+		attrdesc[4].offset = offsetof(Model::InstanceData, Model::InstanceData::metallic);
 		attrdesc[5].binding = 1;
 		attrdesc[5].location = 10;
 		attrdesc[5].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[5].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::r);
+		attrdesc[5].offset = offsetof(Model::InstanceData, Model::InstanceData::r);
 		attrdesc[6].binding = 1;
 		attrdesc[6].location = 11;
 		attrdesc[6].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[6].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::g);
+		attrdesc[6].offset = offsetof(Model::InstanceData, Model::InstanceData::g);
 		attrdesc[7].binding = 1;
 		attrdesc[7].location = 12;
 		attrdesc[7].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[7].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::b);
+		attrdesc[7].offset = offsetof(Model::InstanceData, Model::InstanceData::b);
 
 		pipelineconfigInfo.attributeDescriptions.insert(pipelineconfigInfo.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
 
@@ -349,32 +347,7 @@ namespace jhb {
 
 	void JHBApplication::updateInstance()
 	{
-		std::vector<InstanceData> instanceData;
-		instanceData.resize(64);
-		
-		float offsetx = 0.5f;
-		float offsety = 0;
-		for (float i = 0; i < 64; i+=8)
-		{
-			float y = offsety + (i/8) * 0.5f;
-			for (float j = 0; j < 8; j++)
-			{
-				instanceData[i + j].pos.x += offsetx*j;
-				instanceData[i + j].pos.y = y;
-				instanceData[i + j].metallic = imguiRenderSystem->metalic;
-				instanceData[i + j].roughness = imguiRenderSystem->roughness;
-				instanceData[i + j].r = (1.f );
-				instanceData[i + j].g = 1.0f;
-				instanceData[i + j].b = 1.0f;
-			}
-		}
 
-		Buffer stagingBuffer(device, sizeof(InstanceData), 64, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		stagingBuffer.map();
-		stagingBuffer.writeToBuffer(instanceData.data(), instanceBuffer.getBufferSize(), 0);
-		
-		device.copyBuffer(stagingBuffer.getBuffer(), instanceBuffer.getBuffer(), instanceBuffer.getBufferSize());
-		stagingBuffer.unmap();
 	}
 
 	void JHBApplication::loadGLTFFile(const std::string& filename)
@@ -391,7 +364,7 @@ namespace jhb {
 		std::vector<Vertex> vertexBuffer;
 
 		auto gameModel = GameObject::createGameObject();
-		gameModel.transform.translation = { -.5f, 1.5f, 0.f };
+		gameModel.transform.translation = { 0.5f, 1.f, 0.f };
 		gameModel.transform.scale = { 1.f, 1.f, 1.f };
 		gameModel.transform.rotation = { 4.5f, 0.f, 0.f };
 
@@ -431,6 +404,7 @@ namespace jhb {
 		model->createVertexBuffer(vertexBuffer);
 		model->createIndexBuffer(indexBuffer);
 		model->createObjectSphere(vertexBuffer);
+		model->updateInstanceBuffer(6, 2.5f, 0.f);
 
 		gameObjects.emplace(gameModel.getId(), std::move(gameModel));
 	}
@@ -703,7 +677,7 @@ namespace jhb {
 		if (window.GetMousePressed() == true && window.objectId <0)
 		{
 			renderer.beginSwapChainRenderPass(commandBuffer, pickingRenderpass, offscreenFrameBuffer[frameIndex], window.getExtent());
-			mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, gameObjects, { globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex] }, frameIndex, &instanceBuffer, uboPickingIndexBuffer[frameIndex].get());
+			mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, gameObjects, { globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex] }, frameIndex, uboPickingIndexBuffer[frameIndex].get());
 			renderer.endSwapChainRenderPass(commandBuffer);
 
 			// check object id from a pixel whicch located in mouse pointer coordinate
@@ -911,10 +885,9 @@ namespace jhb {
 		vkCmdSetViewport(cmd, 0, 1, &viewport);
 		vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-		BRDFLUTGenerator.generateBRDFLUT(cmd, gameObjects[6]);
+		BRDFLUTGenerator.generateBRDFLUT(cmd, gameObjects[3]);
 		vkCmdEndRenderPass(cmd);
 		device.endSingleTimeCommands(cmd);
-
 	}
 
 	void JHBApplication::generateIrradianceCube(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets)
@@ -1370,8 +1343,6 @@ namespace jhb {
 		PBRResourceGenerator prefilteredCubeGenerator{ device, renderpass, desclayouts ,"shaders/filtercube.vert.spv",
 		"shaders/prefilterenvmap.frag.spv" , pushConstantRanges };
 		
-
-
 		std::vector<VkImageView> attachments = { offscreenImageView };
 
 		VkFramebufferCreateInfo fbufCreateInfo{};
@@ -1422,7 +1393,6 @@ namespace jhb {
 			glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
 		};
 
-		
 		VkImageSubresourceRange subresourceRange = {};
 		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		subresourceRange.baseMipLevel = 0;

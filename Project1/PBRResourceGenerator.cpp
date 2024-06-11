@@ -15,7 +15,7 @@ void jhb::PBRResourceGenerator::generateBRDFLUT(VkCommandBuffer cmd, GameObject&
 	pipeline->bind(cmd);
 
 	gameObject.model->bind(cmd);
-	gameObject.model->draw(cmd, pipelineLayout, 0, 1);
+	gameObject.model->draw(cmd, pipelineLayout, 0);
 }
 
 void jhb::PBRResourceGenerator::generateIrradianceCube(VkCommandBuffer cmd, GameObject& gameObject, std::vector<VkDescriptorSet> descSets, const jhb::IrradiencePushBlock& push)
@@ -42,7 +42,7 @@ void jhb::PBRResourceGenerator::generateIrradianceCube(VkCommandBuffer cmd, Game
 
 	vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(IrradiencePushBlock), &push);
 	gameObject.model->bind(cmd);
-	gameObject.model->draw(cmd, pipelineLayout, 0, 1);
+	gameObject.model->draw(cmd, pipelineLayout, 0);
 }
 
 void jhb::PBRResourceGenerator::generatePrefilteredCube(VkCommandBuffer cmd, GameObject& gameObject, std::vector<VkDescriptorSet> descSets, const jhb::PrefileterPushBlock& push)
@@ -68,7 +68,7 @@ void jhb::PBRResourceGenerator::generatePrefilteredCube(VkCommandBuffer cmd, Gam
 	);
 	vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PrefileterPushBlock), &push);
 	gameObject.model->bind(cmd);
-	gameObject.model->draw(cmd, pipelineLayout, 0, 1);
+	gameObject.model->draw(cmd, pipelineLayout, 0);
 }
 
 void jhb::PBRResourceGenerator::createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag)

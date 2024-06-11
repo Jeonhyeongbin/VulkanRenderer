@@ -14,6 +14,7 @@ layout (location = 9) in float fb;
 layout (set = 1, binding = 0) uniform sampler2D samplerBRDFLUT;
 layout (set = 1, binding = 1) uniform samplerCube samplerIrradiance;
 layout (set = 1, binding = 2) uniform samplerCube prefilteredMap;
+layout (set = 3, binding = 0) uniform samplerCube shadowMap;
 
 struct PointLight{
 	vec4 position; // w is  just for allign
@@ -37,6 +38,8 @@ layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
 layout (location = 0) out vec4 outColor;
 
 #define PI 3.1415926535897932384626433832795
+#define EPSILON 0.15
+#define SHADOW_OPACITY 0.5
 
 vec4 SRGBtoLINEAR(vec4 srgbIn)
 {
@@ -178,5 +181,13 @@ void main() {
 	// Gamma correction
 	color = pow(color, vec3(1.0f / ubo.gamma));
 
-	outColor = vec4(color, 1.0);
+	// Shadow
+	vec3 lightVec = fragPosWorld - ubo.pointLights[0].position.xyz;
+    float sampledDist = texture(shadowMap, lightVec).r;
+    float dist = length(lightVec);
+
+	// Check if fragment is in shadow
+    float shadow = (dist <= sampledDist + EPSILON) ? 1.0 : SHADOW_OPACITY;
+
+	outColor = vec4(color, 1.0) * shadow;
 }

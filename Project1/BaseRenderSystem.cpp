@@ -36,7 +36,7 @@ namespace jhb {
 		}
 	}
 
-	void BaseRenderSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
+	void BaseRenderSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
 		vkCmdBindDescriptorSets(
 			frameInfo.commandBuffer,

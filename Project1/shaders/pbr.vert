@@ -23,6 +23,7 @@ layout (location = 6) out float fragmetallic;
 layout (location = 7) out float fr;
 layout (location = 8) out float fg;
 layout (location = 9) out float fb;
+layout (location = 10) out vec3 outlightpos;
 
 struct PointLight{
 	vec4 position; // w is  just for allign
@@ -56,4 +57,5 @@ void main(){
 	fragTangent = vec4(normalize(mat3(push.model)* tangent.xyz), tangent.w);
 	fragPosWorld = positionWorld.xyz;
 	fragColor = color;
+	outlightpos = ubo.pointLights[0].position.xyz;
 }

@@ -315,7 +315,7 @@ namespace jhb {
 
 			// Update view matrix via push constant
 
-			glm::mat4 viewMatrix = glm::translate(glm::mat4(1.0f), -_lightpos);
+			glm::mat4 viewMatrix = glm::mat4{ 1.f };
 			switch (faceIndex)
 			{
 			case 0: // POSITIVE_X
@@ -351,13 +351,16 @@ namespace jhb {
 			{
 				// Update shader push constant block
 				// Contains current face view matrix
-				if (obj.first == 1 || obj.first == 7)
+				if (obj.first == 1 || obj.first == 4)
 				{
+					uint32_t instanceCount = 1;
 					offscreenBuffer.modelMat = obj.second.transform.mat4();
+					VkBuffer instance = nullptr;
 					if (obj.first == 1)
 					{
 						offscreenBuffer.modelMat = glm::mat4{ 1.f };
 					}
+
 					vkCmdPushConstants(
 						cmd,
 						pipelineLayout,
@@ -365,8 +368,8 @@ namespace jhb {
 						0,
 						sizeof(OffscreenConstant),
 						&offscreenBuffer);
-					obj.second.model->bind(cmd, nullptr);
-					obj.second.model->drawNoTexture(cmd, pipeline->getPipeline(), pipelineLayout, 0, frameIndex);
+					obj.second.model->bind(cmd);
+					obj.second.model->drawNoTexture(cmd, pipeline->getPipeline(), pipelineLayout, frameIndex);
 				}
 			}
 
@@ -384,7 +387,7 @@ namespace jhb {
 		memcpy(uboBuffer->getMappedMemory(), &uniformData, sizeof(UniformData));
 	}
 
-	void ShadowRenderSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
+	void ShadowRenderSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
 
 	}

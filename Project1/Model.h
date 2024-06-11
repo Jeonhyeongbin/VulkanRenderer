@@ -116,6 +116,15 @@ namespace jhb {
 
 	class Model{
 	public:
+		struct InstanceData {
+			glm::vec3 pos;
+			glm::vec3 rot;
+			float scale{ 0.0f };
+			float roughness = 0.0f;
+			float metallic = 0.0f;
+			float r, g, b;
+		};
+
 		Model(Device& device);
 		Model(Device& device, glm::mat4 modelMatrix);
 		~Model();
@@ -128,11 +137,11 @@ namespace jhb {
 		}
 
 		//static std::unique_ptr<Model> createModelFromFile(Device& device, const std::string& Modelfilepath, const std::string& texturefilepath);
-		void draw(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, int frameIndex, uint32_t instancCount = 1);
-		void drawNoTexture(VkCommandBuffer buffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, int frameIndex, uint32_t instancCount = 1);
+		void draw(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, int frameIndex);
+		void drawNoTexture(VkCommandBuffer buffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, int frameIndex);
 
-		void drawInPickPhase(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, VkPipeline pipeline, int frameIndex, uint32_t instancCount = 1);
-		void bind(VkCommandBuffer buffer, VkBuffer* instancing = nullptr);
+		void drawInPickPhase(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, VkPipeline pipeline, int frameIndex);
+		void bind(VkCommandBuffer buffer);
 
 		void createVertexBuffer(const std::vector<Vertex>& vertices);
 		void createIndexBuffer(const std::vector<uint32_t>& indices);
@@ -152,6 +161,8 @@ namespace jhb {
 		void createObjectSphere(const std::vector<Vertex> vertices);
 		static void createFloor();
 
+		void updateInstanceBuffer(uint32_t instanceCount, float offsetX, float offsetY);
+
 	public:
 		// only for no gftl model
 		std::unique_ptr<class Pipeline> perModelPipeline = nullptr;
@@ -170,6 +181,11 @@ namespace jhb {
 		std::vector<uint32_t> indices;
 		std::unique_ptr<jhb::Buffer> indexBuffer;
 		uint32_t indexCount;
+
+	public:
+		uint32_t instanceCount = 1;
+		std::unique_ptr<Buffer> instanceBuffer = nullptr;
+
 	public:
 		std::vector<Material> materials;
 		std::vector<Node*> nodes;

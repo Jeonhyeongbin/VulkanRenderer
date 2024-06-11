@@ -10,6 +10,10 @@ layout (location = 6) in float fragmetallic;
 layout (location = 7) in float fr;
 layout (location = 8) in float fg;
 layout (location = 9) in float fb;
+layout (location = 10) in vec3 lightPos;
+
+#define EPSILON 0.15
+#define SHADOW_OPACITY 0.5
 
 layout (set = 1, binding = 0) uniform sampler2D samplerBRDFLUT;
 layout (set = 1, binding = 1) uniform samplerCube samplerIrradiance;
@@ -19,6 +23,7 @@ layout (set = 2, binding = 1) uniform sampler2D samplerNormalMap;
 layout (set = 2, binding = 2) uniform sampler2D samplerOcclusionMap;
 layout (set = 2, binding = 3) uniform sampler2D samplerEmissiveMap;
 layout (set = 2, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
+layout (set = 3, binding = 0) uniform samplerCube shadowMap;
 struct PointLight{
 	vec4 position; // w is  just for allign
 	vec4 color; // w is intensity
@@ -196,6 +201,15 @@ void main() {
 	// Gamma correction
 	color = pow(color, vec3(1.0f / ubo.gamma));
 
+	// Shadow
+	vec3 lightVec = fragPosWorld - vec3(lightPos);
+    float sampledDist = texture(shadowMap, lightVec).r;
+    float dist = length(lightVec);
+
+	// Check if fragment is in shadow
+    float shadow = (dist <= sampledDist + EPSILON) ? 1.0 : SHADOW_OPACITY;
+
 	vec4 emission = vec4(SRGBtoLINEAR(texture(samplerEmissiveMap, fraguv)).rgb,1) * vec4(fragColor,1);
 	outColor = vec4(color, 1.0) + emission;
+	outColor *= shadow;
 }

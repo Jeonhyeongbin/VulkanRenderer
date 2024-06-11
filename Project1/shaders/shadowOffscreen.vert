@@ -27,8 +27,8 @@ layout(push_constant) uniform PushConsts
  
 void main()
 {
-	gl_Position = ubo.projection * pushConsts.view *  pushConsts.model * pushConsts.gltfmodel  * vec4(inPos, 1.0);
+	gl_Position = ubo.projection * pushConsts.view * ubo.model*  pushConsts.model * pushConsts.gltfmodel  * vec4(inPos, 1.0);
 
-	outPos = vec4(inPos, 1.0);	
+	outPos = pushConsts.model * pushConsts.gltfmodel* vec4(inPos, 1.0);	
 	outLightPos = ubo.lightPos.xyz; 
 }

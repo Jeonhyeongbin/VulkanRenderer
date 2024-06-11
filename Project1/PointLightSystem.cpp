@@ -48,37 +48,43 @@ namespace jhb {
 			//obj.transform.translation = glm::vec3(rotateLight * glm::vec4(obj.transform.translation, 1.f));
 
 			// copy light to ubo
-			ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.translation, 1.f);
-			ubo.pointLights[lightIndex].color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
+			if (kv.first == 2)
+			{
+				ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.translation, 1.f);
+				ubo.pointLights[lightIndex].color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
 
-			lightIndex += 1;
+				lightIndex += 1;
+			}
 		}
 		ubo.numLights = lightIndex;
 	}
 
-	void PointLightSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
+	void PointLightSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
 		pipeline->bind(frameInfo.commandBuffer);
-		BaseRenderSystem::renderGameObjects(frameInfo, instanceBuffer);
+		BaseRenderSystem::renderGameObjects(frameInfo);
 		for (auto& kv : frameInfo.gameObjects)
 		{
 			auto& obj = kv.second;
 			if (obj.pointLight == nullptr) continue;
 			{
-				PointLightPushConstants push{};
-				push.position = glm::vec4(obj.transform.translation, 1.f);
-				push.color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
-				push.radius = obj.transform.scale.x;
+				if (kv.first == 2)
+				{
+					PointLightPushConstants push{};
+					push.position = glm::vec4(obj.transform.translation, 1.f);
+					push.color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
+					push.radius = obj.transform.scale.x;
 
-				vkCmdPushConstants(
-					frameInfo.commandBuffer,
-					pipelineLayout,
-					VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-					0,
-					sizeof(PointLightPushConstants),
-					&push
-				);
-				vkCmdDraw(frameInfo.commandBuffer, 6, 1, 0, 0);
+					vkCmdPushConstants(
+						frameInfo.commandBuffer,
+						pipelineLayout,
+						VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+						0,
+						sizeof(PointLightPushConstants),
+						&push
+					);
+					vkCmdDraw(frameInfo.commandBuffer, 6, 1, 0, 0);
+				}
 			}
 		}
 	}

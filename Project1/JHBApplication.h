@@ -22,15 +22,6 @@
 namespace jhb {
 	class JHBApplication {
 	public:
-		struct InstanceData {
-			glm::vec3 pos;
-			glm::vec3 rot;
-			float scale{ 0.0f };
-			float roughness = 0.0f;
-			float metallic = 0.0f;
-			float r, g, b;
-		};
-	public:
 		JHBApplication();
 		~JHBApplication();
 
@@ -82,8 +73,6 @@ namespace jhb {
 		std::vector<VkDescriptorSet> pbrResourceDescriptorSets{}; // pbr resource
 		std::vector<VkDescriptorSet> pickingObjUboDescriptorSets{}; // global uniform buffer
 		VkDescriptorSet shadowMapDescriptorSet;
-
-		Buffer instanceBuffer;
 
 		GameObject::Map gameObjects;
 

@@ -49,7 +49,7 @@ jhb::Model::~Model()
 {
 }
 
-void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, int frameIndex, uint32_t instanceCount)
+void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, int frameIndex)
 {
 	if (!nodes.empty())
 	{
@@ -72,7 +72,7 @@ void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLa
 	}
 }
 
-void jhb::Model::drawNoTexture(VkCommandBuffer buffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, int frameIndex, uint32_t instancCount)
+void jhb::Model::drawNoTexture(VkCommandBuffer buffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, int frameIndex)
 {
 	if (!nodes.empty())
 	{
@@ -86,15 +86,15 @@ void jhb::Model::drawNoTexture(VkCommandBuffer buffer, VkPipeline pipeline, VkPi
 		vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 		if (hasIndexBuffer)
 		{
-			vkCmdDrawIndexed(buffer, indexCount, instancCount, 0, 0, 0);
+			vkCmdDrawIndexed(buffer, indexCount, instanceCount, 0, 0, 0);
 		}
 		else {
-			vkCmdDraw(buffer, vertexCount, instancCount, 0, 0);
+			vkCmdDraw(buffer, vertexCount, instanceCount, 0, 0);
 		}
 	}
 }
 
-void jhb::Model::drawInPickPhase(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline pipeline, int frameIndex, uint32_t instanceCount)
+void jhb::Model::drawInPickPhase(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline pipeline, int frameIndex)
 {
 	if (!nodes.empty())
 	{
@@ -117,15 +117,16 @@ void jhb::Model::drawInPickPhase(VkCommandBuffer commandBuffer, VkPipelineLayout
 	}
 }
 
-void jhb::Model::bind(VkCommandBuffer commandBuffer, VkBuffer* instancing)
+void jhb::Model::bind(VkCommandBuffer commandBuffer)
 {
 	VkBuffer buffers[] = { vertexBuffer->getBuffer()};
 	VkDeviceSize offsets[] = { 0 };
 	// combine command buffer and vertex Buffer
 	vkCmdBindVertexBuffers(commandBuffer, 0,  1, buffers, offsets);
-	if (instancing)
+	if (instanceBuffer)
 	{
-		vkCmdBindVertexBuffers(commandBuffer, 1, 1, instancing, offsets);
+		VkBuffer instance[] = {instanceBuffer->getBuffer()};
+		vkCmdBindVertexBuffers(commandBuffer, 1, 1, instance, offsets);
 	}
 
 	if (hasIndexBuffer)
@@ -665,7 +666,7 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 				// POI: Bind the pipeline for the node's material
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.pipeline);
 				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &material.descriptorSets[frameIndex], 0, nullptr);
-				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
+				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount, primitive.firstIndex, 0, 0);
 			}
 		}
 	}
@@ -962,7 +963,7 @@ void jhb::Model::PickingPhasedrawNode(VkCommandBuffer commandBuffer, VkPipelineL
 				Material& material = materials[primitive.materialIndex];
 				// POI: Bind the pipeline for the node's material
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
+				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount, primitive.firstIndex, 0, 0);
 			}
 		}
 	}
@@ -1016,4 +1017,33 @@ void jhb::Model::createObjectSphere(const std::vector<Vertex> vertices)
 void jhb::Model::createFloor()
 {
 
+}
+
+void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, float offsetY)
+{
+	instanceCount = _instanceCount;
+	if (instanceBuffer == nullptr)
+	{
+		instanceBuffer = std::make_unique<Buffer>(device, sizeof(InstanceData), instanceCount, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	}
+
+	std::vector<InstanceData> instanceData;
+	instanceData.resize(instanceCount);
+
+	float offsetx = offsetX;
+	float offsety = offsetY;
+	for (float i = 0; i < instanceCount; i++)
+	{
+		instanceData[i].pos.x += offsetx * i;
+		instanceData[i].r = (1.f);
+		instanceData[i].g = 1.0f;
+		instanceData[i].b = 1.0f;
+	}
+
+	Buffer stagingBuffer(device, sizeof(InstanceData), 64, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	stagingBuffer.map();
+	stagingBuffer.writeToBuffer(instanceData.data(), instanceBuffer->getBufferSize(), 0);
+
+	device.copyBuffer(stagingBuffer.getBuffer(), instanceBuffer->getBuffer(), instanceBuffer->getBufferSize());
+	stagingBuffer.unmap();
 }

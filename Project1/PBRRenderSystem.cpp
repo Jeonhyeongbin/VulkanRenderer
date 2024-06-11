@@ -34,7 +34,7 @@ namespace jhb {
 		VkVertexInputBindingDescription bindingdesc{};
 
 		bindingdesc.binding = 1;
-		bindingdesc.stride = sizeof(jhb::JHBApplication::InstanceData);
+		bindingdesc.stride = sizeof(jhb::Model::InstanceData);
 		bindingdesc.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 		
 		pipelineConfig.bindingDescriptions.push_back(bindingdesc);
@@ -44,38 +44,38 @@ namespace jhb {
 		attrdesc[0].binding = 1;
 		attrdesc[0].location = 5;
 		attrdesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrdesc[0].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::pos);
+		attrdesc[0].offset = offsetof(Model::InstanceData, Model::InstanceData::pos);
 
 		attrdesc[1].binding = 1;
 		attrdesc[1].location = 6;
 		attrdesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrdesc[1].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::rot);
+		attrdesc[1].offset = offsetof(Model::InstanceData, Model::InstanceData::rot);
 
 		attrdesc[2].binding = 1;
 		attrdesc[2].location = 7;
 		attrdesc[2].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[2].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::scale);
+		attrdesc[2].offset = offsetof(Model::InstanceData, Model::InstanceData::scale);
 
 		attrdesc[3].binding = 1;
 		attrdesc[3].location = 8;
 		attrdesc[3].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[3].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::roughness);
+		attrdesc[3].offset = offsetof(Model::InstanceData, Model::InstanceData::roughness);
 		attrdesc[4].binding = 1;
 		attrdesc[4].location = 9;
 		attrdesc[4].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[4].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::metallic);
+		attrdesc[4].offset = offsetof(Model::InstanceData, Model::InstanceData::metallic);
 		attrdesc[5].binding = 1;
 		attrdesc[5].location = 10;
 		attrdesc[5].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[5].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::r);
+		attrdesc[5].offset = offsetof(Model::InstanceData, Model::InstanceData::r);
 		attrdesc[6].binding = 1;
 		attrdesc[6].location = 11;
 		attrdesc[6].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[6].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::g);
+		attrdesc[6].offset = offsetof(Model::InstanceData, Model::InstanceData::g);
 		attrdesc[7].binding = 1;
 		attrdesc[7].location = 12;
 		attrdesc[7].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[7].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::b);
+		attrdesc[7].offset = offsetof(Model::InstanceData, Model::InstanceData::b);
 
 		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
 
@@ -101,7 +101,7 @@ namespace jhb {
 		VkVertexInputBindingDescription bindingdesc{};
 
 		bindingdesc.binding = 1;
-		bindingdesc.stride = sizeof(jhb::JHBApplication::InstanceData);
+		bindingdesc.stride = sizeof(jhb::Model::InstanceData);
 		bindingdesc.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 
 		pipelineConfig.bindingDescriptions.push_back(bindingdesc);
@@ -111,38 +111,38 @@ namespace jhb {
 		attrdesc[0].binding = 1;
 		attrdesc[0].location = 5;
 		attrdesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrdesc[0].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::pos);
+		attrdesc[0].offset = offsetof(Model::InstanceData, Model::InstanceData::pos);
 
 		attrdesc[1].binding = 1;
 		attrdesc[1].location = 6;
 		attrdesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrdesc[1].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::rot);
+		attrdesc[1].offset = offsetof(Model::InstanceData, Model::InstanceData::rot);
 
 		attrdesc[2].binding = 1;
 		attrdesc[2].location = 7;
 		attrdesc[2].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[2].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::scale);
+		attrdesc[2].offset = offsetof(Model::InstanceData, Model::InstanceData::scale);
 
 		attrdesc[3].binding = 1;
 		attrdesc[3].location = 8;
 		attrdesc[3].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[3].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::roughness);
+		attrdesc[3].offset = offsetof(Model::InstanceData, Model::InstanceData::roughness);
 		attrdesc[4].binding = 1;
 		attrdesc[4].location = 9;
 		attrdesc[4].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[4].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::metallic);
+		attrdesc[4].offset = offsetof(Model::InstanceData, Model::InstanceData::metallic);
 		attrdesc[5].binding = 1;
 		attrdesc[5].location = 10;
 		attrdesc[5].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[5].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::r);
+		attrdesc[5].offset = offsetof(Model::InstanceData, Model::InstanceData::r);
 		attrdesc[6].binding = 1;
 		attrdesc[6].location = 11;
 		attrdesc[6].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[6].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::g);
+		attrdesc[6].offset = offsetof(Model::InstanceData, Model::InstanceData::g);
 		attrdesc[7].binding = 1;
 		attrdesc[7].location = 12;
 		attrdesc[7].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[7].offset = offsetof(JHBApplication::InstanceData, JHBApplication::InstanceData::b);
+		attrdesc[7].offset = offsetof(Model::InstanceData, Model::InstanceData::b);
 
 		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
 
@@ -158,7 +158,7 @@ namespace jhb {
 	}
 
 
-	void PBRRendererSystem::renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer)
+	void PBRRendererSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
 		BaseRenderSystem::renderGameObjects(frameInfo);
 		vkCmdBindDescriptorSets(
@@ -167,6 +167,14 @@ namespace jhb {
 			pipelineLayout,
 			1, 1
 			, &frameInfo.pbrImageSamplerDescriptorSet,
+			0, nullptr
+		);
+		vkCmdBindDescriptorSets(
+			frameInfo.commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			pipelineLayout,
+			3, 1
+			, &frameInfo.shadowMapDescriptorSet,
 			0, nullptr
 		);
 
@@ -180,24 +188,18 @@ namespace jhb {
 				continue;
 			}
 
-			if(kv.first==1 || kv.first == 7)
+			if(kv.first==1 || kv.first == 4)
 			{
 				{
-					VkBuffer buffer[1] = { instanceBuffer->getBuffer() };
-					obj.model->bind(frameInfo.commandBuffer, buffer);
+					obj.model->bind(frameInfo.commandBuffer);
 				}
-				uint32_t instanceCount = 0;
-				if (kv.first == 7)
+
+				if (kv.first == 4)
 				{
-					instanceCount = 1;
 					auto modelmat = kv.second.transform.mat4();
 					vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelmat);
 				}
-				if (kv.first == 1)
-				{
-					instanceCount = 8;
-				}
-				obj.model->draw(frameInfo. commandBuffer, pipelineLayout, frameInfo.frameIndex, instanceCount);
+				obj.model->draw(frameInfo. commandBuffer, pipelineLayout, frameInfo.frameIndex);
 			}
 		}
 	}

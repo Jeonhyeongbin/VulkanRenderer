@@ -45,7 +45,7 @@ namespace jhb {
 		ShadowRenderSystem(ShadowRenderSystem&&) = delete;
 		ShadowRenderSystem& operator=(const ShadowRenderSystem&) = delete;
 
-		virtual void renderGameObjects(FrameInfo& frameInfo, Buffer* instanceBuffer = nullptr) override;
+		virtual void renderGameObjects(FrameInfo& frameInfo) override;
 
 		void updateShadowMap(VkCommandBuffer cmd, GameObject::Map& gameObjs, uint32_t frameIndex);
 		void updateUniformBuffer(glm::vec3 pos);
