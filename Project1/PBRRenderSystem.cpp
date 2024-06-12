@@ -260,7 +260,7 @@ namespace jhb {
 	void PBRRendererSystem::createDamagedHelmet()
 	{
 		auto helmet = GameObject::createGameObject();
-		helmet.transform.translation = { 0.5f, 1.f, 0.f };
+		helmet.transform.translation = { 0.f, 0.f, 0.f };
 		helmet.transform.scale = { 1.f, 1.f, 1.f };
 		helmet.transform.rotation = { 4.5f, 0.f, 0.f };
 		helmet.model = loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf");
@@ -275,7 +275,7 @@ namespace jhb {
 		floorModel->loadModel("Models/quad.obj");
 		auto floor = GameObject::createGameObject();
 		floor.model = floorModel;
-		floor.transform.translation = { 0.f, 3.f, 0.f };
+		floor.transform.translation = { 0.f, 2.f, 0.f };
 		floor.transform.scale = { 10.f, 1.f ,10.f };
 
 		PipelineConfigInfo pipelineconfigInfo{};

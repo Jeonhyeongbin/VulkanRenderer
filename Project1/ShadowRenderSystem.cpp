@@ -27,7 +27,24 @@ namespace jhb {
 		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_TRUE;
 		pipelineConfig.depthStencilInfo.depthTestEnable = VK_TRUE;
 		pipelineConfig.attributeDescriptions = jhb::Vertex::getAttrivuteDescriptions();
+
 		pipelineConfig.bindingDescriptions = jhb::Vertex::getBindingDescriptions();
+		VkVertexInputBindingDescription bindingdesc{};
+
+		bindingdesc.binding = 1;
+		bindingdesc.stride = sizeof(jhb::Model::InstanceData);
+		bindingdesc.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+
+		pipelineConfig.bindingDescriptions.push_back(bindingdesc);
+
+		std::vector<VkVertexInputAttributeDescription> attrdesc(1);
+
+		attrdesc[0].binding = 1;
+		attrdesc[0].location = 5;
+		attrdesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attrdesc[0].offset = offsetof(Model::InstanceData, Model::InstanceData::pos);
+
+		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
 
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;

@@ -697,7 +697,7 @@ void jhb::Model::drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pip
 				Material& material = materials[primitive.materialIndex];
 				// POI: Bind the pipeline for the node's material
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
+				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount, primitive.firstIndex, 0, 0);
 			}
 		}
 	}
@@ -1019,7 +1019,7 @@ void jhb::Model::createFloor()
 
 }
 
-void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, float offsetY)
+void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, float offsetZ)
 {
 	instanceCount = _instanceCount;
 	if (instanceBuffer == nullptr)
@@ -1031,10 +1031,12 @@ void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, fl
 	instanceData.resize(instanceCount);
 
 	float offsetx = offsetX;
-	float offsety = offsetY;
+	float offsetz = offsetZ;
 	for (float i = 0; i < instanceCount; i++)
 	{
-		instanceData[i].pos.x += offsetx * i;
+		auto rotateLight = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>() / instanceCount), { 0.f, 0.f, 1.f });
+		glm::vec4 tmp{ -3.f, -3.f, 0.f , 1};
+		instanceData[i].pos = glm::vec3(rotateLight * tmp);
 		instanceData[i].r = (1.f);
 		instanceData[i].g = 1.0f;
 		instanceData[i].b = 1.0f;

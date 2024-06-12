@@ -357,8 +357,8 @@ namespace jhb {
 		}
 
 		// if not objectpicking state then store currnet mouse coordinate for next pickingphase
-		px = (x / (double)window.getExtent().width) * 2 - 1;
-		py = (y / (double)window.getExtent().height) * 2 - 1;
+		px = x;
+		py = y;
 
 		// and return false boolean for processing camera phase
 		return false;
