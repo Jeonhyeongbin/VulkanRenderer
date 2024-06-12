@@ -2,25 +2,54 @@
 #include "BaseRenderSystem.h"
 
 namespace jhb {
-	class PBRResourceGenerator : public BaseRenderSystem
+	class PBRResourceGenerator
 	{
 	public:
-		PBRResourceGenerator(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag, const std::vector<VkPushConstantRange>& pushConstanRange);
+		PBRResourceGenerator(Device& device, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::vector<VkDescriptorSet>& descSets);
 		~PBRResourceGenerator();
 
 		PBRResourceGenerator(const PBRResourceGenerator&) = delete;
 		PBRResourceGenerator(PBRResourceGenerator&&) = delete;
 		PBRResourceGenerator& operator=(const PBRResourceGenerator&) = delete;
 
-		void bindPipeline(VkCommandBuffer cmd)
-		{
-			pipeline->bind(cmd);
-		}
+		void createCube();
+		void createPBRResource();
+		void generateBRDFLUT();
+		void generateIrradianceCube();
+		void generatePrefilteredCube();
 
-		void generateBRDFLUT(VkCommandBuffer cmd, GameObject& gameObject);
-		void generateIrradianceCube(VkCommandBuffer cmd, GameObject& gameObject, std::vector<VkDescriptorSet> descSets, const jhb::IrradiencePushBlock& push);
-		void generatePrefilteredCube(VkCommandBuffer cmd, GameObject& gameObject, std::vector<VkDescriptorSet> descSets, const jhb::PrefileterPushBlock& push);
 	private:
-		void createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag) override;
+		Device& device;
+
+		VkImage preFilterCubeImg;
+		VkImage IrradianceCubeImg;
+		VkImage lutBrdfImg;
+
+		VkDeviceMemory preFilterCubeMemory;
+		VkDeviceMemory IrradianceCubeMemory;
+		VkDeviceMemory lutBrdfMemory;
+	public:
+		VkImageView lutBrdfView;
+		VkImageView preFilterCubeImgView;
+		VkImageView IrradianceCubeImgView;
+
+		VkSampler preFilterCubeSampler;
+		VkSampler IrradianceCubeSampler;
+		VkSampler lutBrdfSampler;
+
+		std::unique_ptr<GameObject> cube;
+		
+	private:
+		VkPipelineLayout brdfPipelinelayout;
+		VkPipelineLayout irradiancePipelinelayout;
+		VkPipelineLayout prefilterPipelinelayout;
+
+		std::unique_ptr<Pipeline> brdfPipeline;
+		std::unique_ptr<Pipeline> irradiancePipeline;
+		std::unique_ptr<Pipeline> prefilterPipeline;
+
+	private:
+		std::vector<VkDescriptorSetLayout> descSetlayouts;
+		std::vector<VkDescriptorSet> descSets;
 	};
 }

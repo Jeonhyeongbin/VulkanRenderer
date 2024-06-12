@@ -35,7 +35,6 @@ namespace jhb {
 		VkDescriptorSet pbrImageSamplerDescriptorSet;
 		VkDescriptorSet skyBoxImageSamplerDecriptorSet;
 		VkDescriptorSet shadowMapDescriptorSet;
-		jhb::GameObject::Map& gameObjects; // this make any render system access to all game object;
 	};
 }
 

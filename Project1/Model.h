@@ -166,10 +166,10 @@ namespace jhb {
 	public:
 		// only for no gftl model
 		std::unique_ptr<class Pipeline> perModelPipeline = nullptr;
+		glm::mat4 modelMatrix;
 
 	private:
 		Device& device;
-		glm::mat4 modelMatrix;
 
 		std::vector<Vertex> vertices;
 		std::vector<glm::vec3> vertices_p;

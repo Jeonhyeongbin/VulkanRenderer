@@ -48,6 +48,7 @@ namespace jhb {
         GameObject& operator=(GameObject&&) = default;
 
         id_t getId() { return id; }
+        void setId(uint32_t _id) { id = _id; }
 
         std::unique_ptr<PointLightComponent> pointLight = nullptr;
         std::shared_ptr<Model> model{};

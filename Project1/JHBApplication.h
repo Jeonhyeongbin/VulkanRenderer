@@ -32,22 +32,8 @@ namespace jhb {
 		void Run();
 
 	private:
-		void loadGameObjects();
-		void createCube();
-		void create2DModelForBRDFLUT();
-		void createFloor(VkRenderPass, VkPipelineLayout);
-		void updateInstance();
-
-		void loadGLTFFile(const std::string& filename);
-
-		void initDescriptorSets();
-
-		void createOffscreenFrameBuffer();
-		void pickingPhaseInit(const std::vector<VkPushConstantRange>& pushConstantRanges, const std::vector<VkDescriptorSetLayout>& desclayouts);
+		void init();
 		bool pickingPhase(VkCommandBuffer commandBuffer, GlobalUbo& ubo, int frameIndex, int x, int y);
-		void generateBRDFLUT();
-		void generateIrradianceCube(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets);
-		void generatePrefilteredCube(std::vector<VkDescriptorSetLayout> desclayouts, std::vector<VkDescriptorSet> descSets);
 
 	private:
 		// init top to bottom
@@ -74,36 +60,18 @@ namespace jhb {
 		std::vector<VkDescriptorSet> pickingObjUboDescriptorSets{}; // global uniform buffer
 		VkDescriptorSet shadowMapDescriptorSet;
 
-		GameObject::Map gameObjects;
-
-		VkImage preFilterCubeImg;
-		VkImage IrradianceCubeImg;
-		VkImageView preFilterCubeImgView;
-		VkImageView IrradianceCubeImgView;
-		VkDeviceMemory preFilterCubeMemory;
-		VkDeviceMemory IrradianceCubeMemory;
-		VkSampler preFilterCubeSampler;
-		VkSampler IrradianceCubeSampler;
-		VkImage lutBrdfImg;
-		VkImageView lutBrdfView;
-		VkSampler lutBrdfSampler;
-		VkDeviceMemory lutBrdfMemory;
-
 		VkImage fontImage;
 		VkImageView fontView;
 		VkSampler Sampler;
 		VkDeviceMemory fontMemory;
 
-		// offscreen with object index info pixels;
-		std::vector<VkImage> offscreenImage{SwapChain::MAX_FRAMES_IN_FLIGHT};
-		std::vector<VkDeviceMemory> offscreenMemory{SwapChain::MAX_FRAMES_IN_FLIGHT};
-		std::vector<VkImageView> offscreenImageView{SwapChain::MAX_FRAMES_IN_FLIGHT};
-		std::vector<VkFramebuffer> offscreenFrameBuffer{SwapChain::MAX_FRAMES_IN_FLIGHT};
-		VkRenderPass pickingRenderpass;
-
 		std::unique_ptr<class ImguiRenderSystem> imguiRenderSystem;
 		std::unique_ptr<class MousePickingRenderSystem> mousePickingRenderSystem;
 		std::unique_ptr<class ShadowRenderSystem> shadowMapRenderSystem;
+		std::unique_ptr<class PBRRendererSystem> pbrRenderSystem;
+		std::unique_ptr<class PBRResourceGenerator> pbrSourceGenerator;
+		std::unique_ptr<class PointLightSystem> pointLightSystem;
+		std::unique_ptr<class SkyBoxRenderSystem> skyboxRenderSystem;
 
 	private:
 		double px, py, pz;

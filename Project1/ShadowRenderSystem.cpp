@@ -6,7 +6,7 @@ namespace jhb {
 	ShadowRenderSystem::ShadowRenderSystem(Device& device, const std::string& vert, const std::string& frag)
 		:  BaseRenderSystem(device)
 	{
-		BaseRenderSystem::createPipeLineLayout({ initializeOffScreenDescriptor() }, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(OffscreenConstant) },  VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, sizeof(OffscreenConstant), sizeof(glm::mat4) } });
+		BaseRenderSystem::createPipeLineLayout({ initializeOffScreenDescriptor() }, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(OffscreenConstant) + sizeof(glm::mat4) } });
 		createOffscreenRenderPass();
 		createPipeline(offScreenRenderPass, vert, frag);
 		createShadowCubeMap();
@@ -351,26 +351,23 @@ namespace jhb {
 			{
 				// Update shader push constant block
 				// Contains current face view matrix
-				if (obj.first == 1 || obj.first == 4)
+				uint32_t instanceCount = 1;
+				offscreenBuffer.modelMat = obj.second.transform.mat4();
+				VkBuffer instance = nullptr;
+				if (obj.first == 0) // if damaged helmet
 				{
-					uint32_t instanceCount = 1;
-					offscreenBuffer.modelMat = obj.second.transform.mat4();
-					VkBuffer instance = nullptr;
-					if (obj.first == 1)
-					{
-						offscreenBuffer.modelMat = glm::mat4{ 1.f };
-					}
-
-					vkCmdPushConstants(
-						cmd,
-						pipelineLayout,
-						VK_SHADER_STAGE_VERTEX_BIT,
-						0,
-						sizeof(OffscreenConstant),
-						&offscreenBuffer);
-					obj.second.model->bind(cmd);
-					obj.second.model->drawNoTexture(cmd, pipeline->getPipeline(), pipelineLayout, frameIndex);
+					offscreenBuffer.modelMat = glm::mat4{ 1.f };
 				}
+
+				vkCmdPushConstants(
+					cmd,
+					pipelineLayout,
+					VK_SHADER_STAGE_VERTEX_BIT,
+					0,
+					sizeof(OffscreenConstant),
+					&offscreenBuffer);
+				obj.second.model->bind(cmd);
+				obj.second.model->drawNoTexture(cmd, pipeline->getPipeline(), pipelineLayout, frameIndex);
 			}
 
 			vkCmdEndRenderPass(cmd);
