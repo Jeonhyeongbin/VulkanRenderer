@@ -120,7 +120,7 @@ namespace jhb {
 			renderer.endSwapChainRenderPass(commandBuffer);
 			
 			renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass, imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
-			imguiRenderSystem->newFrame();
+			imguiRenderSystem->newFrame(pbrRenderSystem->pbrObjects[1]);
 			ImDrawData* draw_data = ImGui::GetDrawData();
 			ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
 			renderer.endSwapChainRenderPass(commandBuffer);

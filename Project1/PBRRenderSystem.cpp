@@ -210,7 +210,7 @@ namespace jhb {
 		model->createVertexBuffer(vertexBuffer);
 		model->createIndexBuffer(indexBuffer);
 		model->createObjectSphere(vertexBuffer);
-		model->updateInstanceBuffer(6, 2.5f, 0.f);
+		model->updateInstanceBuffer(6, 2.5f, 2.5f);
 		return model;
 	}
 
@@ -245,24 +245,24 @@ namespace jhb {
 				continue;
 			}
 
-			{
-				obj.model->bind(frameInfo.commandBuffer);
-			}
+			obj.model->bind(frameInfo.commandBuffer);
 
 			if (kv.first == 1)
 			{
 				auto modelmat = kv.second.transform.mat4();
 				vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelmat);
 			}
+
 			obj.model->draw(frameInfo. commandBuffer, pipelineLayout, frameInfo.frameIndex);
 		}
 	}
+
 	void PBRRendererSystem::createDamagedHelmet()
 	{
 		auto helmet = GameObject::createGameObject();
 		helmet.transform.translation = { 0.f, 0.f, 0.f };
 		helmet.transform.scale = { 1.f, 1.f, 1.f };
-		helmet.transform.rotation = { 4.5f, 0.f, 0.f };
+		helmet.transform.rotation = { -glm::radians(90.f), 0.f, 0.f};
 		helmet.model = loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf");
 		helmet.model->modelMatrix = helmet.transform.mat4();
 		helmet.setId(id++);
@@ -275,8 +275,9 @@ namespace jhb {
 		floorModel->loadModel("Models/quad.obj");
 		auto floor = GameObject::createGameObject();
 		floor.model = floorModel;
-		floor.transform.translation = { 0.f, 2.f, 0.f };
+		floor.transform.translation = { 0.f, 5.f, 0.f };
 		floor.transform.scale = { 10.f, 1.f ,10.f };
+		floor.transform.rotation = { 0.f, 0.f, 0.f };
 
 		PipelineConfigInfo pipelineconfigInfo{};
 		Pipeline::defaultPipelineConfigInfo(pipelineconfigInfo);
@@ -339,7 +340,9 @@ namespace jhb {
 		floor.setId(id++);
 		floor.model->createPipelineForModel("shaders/pbr.vert.spv",
 			"shaders/pbrnotexture.frag.spv", pipelineconfigInfo);
+		floor.model->updateInstanceBuffer(1, 0.f ,0.f,0,0);
+
 		pbrObjects.emplace(floor.getId(), std::move(floor));
-		//this is no gltf model, so using different pipeline 
+		//this is not gltf model, so using different pipeline 
 	}
 }

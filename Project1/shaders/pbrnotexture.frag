@@ -38,7 +38,7 @@ layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
 layout (location = 0) out vec4 outColor;
 
 #define PI 3.1415926535897932384626433832795
-#define EPSILON 0.15
+#define EPSILON 0.2
 #define SHADOW_OPACITY 0.5
 
 vec4 SRGBtoLINEAR(vec4 srgbIn)
@@ -142,7 +142,7 @@ void main() {
 	vec3 F0 = vec3(0.04);
 
 	vec4 albedo = vec4(fr, fg, fb, 1);
-	F0 = mix(F0, albedo.rgb, fragroughness);
+	F0 = mix(F0, albedo.rgb, fragmetallic);
 
 		if (ALPHA_MASK) {
 		if (albedo.a < ALPHA_MASK_CUTOFF) {
@@ -171,7 +171,7 @@ void main() {
 	// Ambient part
 	vec3 kD = 1.0 - F;
 	kD *= 1.0 - fragroughness;
-	vec3 ambient = (kD * diffuse + specular) * 0.02;
+	vec3 ambient = (kD * diffuse + specular);
 
 	vec3 color = ambient + Lo;
 

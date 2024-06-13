@@ -1014,12 +1014,7 @@ void jhb::Model::createObjectSphere(const std::vector<Vertex> vertices)
 	}
 }
 
-void jhb::Model::createFloor()
-{
-
-}
-
-void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, float offsetZ)
+void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, float offsetZ, float roughness, float metallic)
 {
 	instanceCount = _instanceCount;
 	if (instanceBuffer == nullptr)
@@ -1030,16 +1025,16 @@ void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, fl
 	std::vector<InstanceData> instanceData;
 	instanceData.resize(instanceCount);
 
-	float offsetx = offsetX;
-	float offsetz = offsetZ;
 	for (float i = 0; i < instanceCount; i++)
 	{
-		auto rotateLight = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>() / instanceCount), { 0.f, 0.f, 1.f });
-		glm::vec4 tmp{ -3.f, -3.f, 0.f , 1};
-		instanceData[i].pos = glm::vec3(rotateLight * tmp);
-		instanceData[i].r = (1.f);
-		instanceData[i].g = 1.0f;
-		instanceData[i].b = 1.0f;
+		auto rotate = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>() / instanceCount), { 0.f, 0.f, 1.f });
+		glm::vec4 tmp{ offsetX, 0.f, offsetZ, 1};
+		instanceData[i].pos = glm::vec3(rotate * tmp);
+		instanceData[i].r = 0.5f;
+		instanceData[i].g = 0.5f;
+		instanceData[i].b = 0.5f;
+		instanceData[i].roughness = roughness;
+		instanceData[i].metallic = metallic;
 	}
 
 	Buffer stagingBuffer(device, sizeof(InstanceData), 64, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
