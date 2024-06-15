@@ -143,6 +143,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="BaseRenderSystem.cpp" />
+    <ClCompile Include="BloomRenderSystem.cpp" />
     <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Descriptors.cpp" />
@@ -174,6 +175,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BaseRenderSystem.h" />
+    <ClInclude Include="BloomRenderSystem.h" />
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Descriptors.h" />
