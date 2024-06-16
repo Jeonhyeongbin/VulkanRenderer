@@ -57,15 +57,20 @@ namespace jhb {
 		void createAttachment(VkFormat format,
 			VkImageUsageFlagBits usage,
 			Texture* attachment);
+		void createDamagedHelmet();
+		void createFloor(VkRenderPass);
+
 		VkRenderPass createOffscreenRenderPass();
 		std::vector<VkDescriptorSetLayout> initializeOffScreenDescriptor();
-
+		std::shared_ptr<Model> loadGLTFFile(const std::string& filename);
 
 	private:
+		Texture SwapchainImages;
 		Texture PositionAttachment;
 		Texture AlbedoAttachment;
 		Texture NormalAttachment;
 		Texture DepthAttachment;
+		Texture MaterialAttachment;
 
 		VkFramebuffer OffscreenFrameBuffer;
 
@@ -78,5 +83,8 @@ namespace jhb {
 		std::unique_ptr<DescriptorPool> descriptorPool;
 		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout;
 		glm::vec3 _lightpos;
+	private:
+		GameObject::Map pbrObjects;
+		static uint32_t id;
 	};
 }
