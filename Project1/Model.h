@@ -68,7 +68,7 @@ namespace jhb {
 		float alphaCutOff;
 		bool doubleSided = false;
 		std::vector<VkDescriptorSet> descriptorSets{SwapChain::MAX_FRAMES_IN_FLIGHT}; // same type descriptor set for each frame
-		VkPipeline pipeline;
+		std::unique_ptr<Pipeline> pipeline = nullptr;
 	};
 
 	struct Mesh {
@@ -146,6 +146,7 @@ namespace jhb {
 		void createVertexBuffer(const std::vector<Vertex>& vertices);
 		void createIndexBuffer(const std::vector<uint32_t>& indices);
 		void createPipelineForModel(const std::string& vertFilepath, const std::string& fragFilepath, class PipelineConfigInfo& configInfo);
+		void createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo);
 
 	public:
 		void loadModel(const std::string& filepath);

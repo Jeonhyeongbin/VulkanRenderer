@@ -3,13 +3,18 @@
 #include <array>
 
 namespace jhb {
-	DeferedPBRRenderSystem::DeferedPBRRenderSystem(Device& device, std::vector<VkDescriptorSetLayout> descSetlayouts, const std::string& vert, const std::string& frag)
+	DeferedPBRRenderSystem::DeferedPBRRenderSystem(Device& device, std::vector<VkDescriptorSetLayout> descSetlayouts, const std::vector<VkImageView>& swapchainImageViews)
 		: BaseRenderSystem(device)
 	{
+		// 첫번째 subpass는 gltf모델의 머터리얼용 descriptorsetlayout을 첫번쨰 subpass용 pipelinelayout에 묶어 주어야함. 그러므로 uniform buffer 와 함께 총 2개의 descriptor set layout이 필요.
+		// 두번째 subpass는 pbr을 해야하기 때문에 pbrresource용 descriptorsetlayout을 두번째 subpass용 pipelinelayout에 묶어 주어야함. 이 때는 유니폼 버퍼는 필요없고 이미지용 descriptor set layout 1개만 필요.
 		BaseRenderSystem::createPipeLineLayout(descSetlayouts, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) } });
-		createOffscreenRenderPass();
-		createPipeline(offScreenRenderPass, vert, frag);
-		createOffscreenFrameBuffer();
+		createPipeline("", ""); //
+		createLightingPipelineAndPipelinelayout(); // second subapss용
+		createRenderPass();
+		createFrameBuffers(swapchainImageViews);
+		createDamagedHelmet();
+		createFloor();
 	}
 
 	DeferedPBRRenderSystem::~DeferedPBRRenderSystem()
@@ -24,64 +29,65 @@ namespace jhb {
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthTestEnable = true;
 		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
-		pipelineConfig.attributeDescriptions = jhb::Vertex::getAttrivuteDescriptions();
-		pipelineConfig.bindingDescriptions = jhb::Vertex::getBindingDescriptions();
-		VkVertexInputBindingDescription bindingdesc{};
-
-		bindingdesc.binding = 1;
-		bindingdesc.stride = sizeof(jhb::Model::InstanceData);
-		bindingdesc.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
-
-		pipelineConfig.bindingDescriptions.push_back(bindingdesc);
-
-		std::vector<VkVertexInputAttributeDescription> attrdesc(8);
-
-		attrdesc[0].binding = 1;
-		attrdesc[0].location = 5;
-		attrdesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrdesc[0].offset = offsetof(Model::InstanceData, Model::InstanceData::pos);
-
-		attrdesc[1].binding = 1;
-		attrdesc[1].location = 6;
-		attrdesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrdesc[1].offset = offsetof(Model::InstanceData, Model::InstanceData::rot);
-
-		attrdesc[2].binding = 1;
-		attrdesc[2].location = 7;
-		attrdesc[2].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[2].offset = offsetof(Model::InstanceData, Model::InstanceData::scale);
-
-		attrdesc[3].binding = 1;
-		attrdesc[3].location = 8;
-		attrdesc[3].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[3].offset = offsetof(Model::InstanceData, Model::InstanceData::roughness);
-		attrdesc[4].binding = 1;
-		attrdesc[4].location = 9;
-		attrdesc[4].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[4].offset = offsetof(Model::InstanceData, Model::InstanceData::metallic);
-		attrdesc[5].binding = 1;
-		attrdesc[5].location = 10;
-		attrdesc[5].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[5].offset = offsetof(Model::InstanceData, Model::InstanceData::r);
-		attrdesc[6].binding = 1;
-		attrdesc[6].location = 11;
-		attrdesc[6].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[6].offset = offsetof(Model::InstanceData, Model::InstanceData::g);
-		attrdesc[7].binding = 1;
-		attrdesc[7].location = 12;
-		attrdesc[7].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[7].offset = offsetof(Model::InstanceData, Model::InstanceData::b);
-
-		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
-
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
-		pipelineConfig.renderPass = renderPass;
+		createVertexAttributeAndBindingDesc(pipelineConfig);
+
+		pipelineConfig.renderPass = offScreenRenderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
 		pipeline = std::make_unique<Pipeline>(
 			device,
-			"shaders/pbr.vert.spv",
-			"shaders/pbr.frag.spv",
+			vert,
+			frag,
 			pipelineConfig);
+	}
+
+	void DeferedPBRRenderSystem::createGBuffers()
+	{
+		createAttachment(
+			VK_FORMAT_R16G16B16A16_SFLOAT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			&PositionAttachment);
+
+		// (World space) Positions
+		createAttachment(
+			VK_FORMAT_R16G16B16A16_SFLOAT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			&PositionAttachment);
+
+		// (World space) Normals
+		createAttachment(
+			VK_FORMAT_R16G16B16A16_SFLOAT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			&NormalAttachment);
+
+		// Albedo (color)
+		createAttachment(
+			VK_FORMAT_R8G8B8A8_UNORM,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			&AlbedoAttachment);
+
+		createAttachment(
+			VK_FORMAT_R16G16B16A16_SFLOAT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			&EmmisiveAttachment);
+
+		// Depth attachment
+
+		// Find a suitable depth format
+		VkFormat attDepthFormat;
+		VkFormat validDepthFormat = device.findSupportedFormat({ VK_FORMAT_D32_SFLOAT_S8_UINT,
+	VK_FORMAT_D32_SFLOAT,
+	VK_FORMAT_D24_UNORM_S8_UINT,
+	VK_FORMAT_D16_UNORM_S8_UINT,
+	VK_FORMAT_D16_UNORM
+			}, VK_IMAGE_TILING_OPTIMAL,
+			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+		assert(validDepthFormat);
+
+		createAttachment(
+			attDepthFormat,
+			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+			&DepthAttachment);
 	}
 
 	void DeferedPBRRenderSystem::createAttachment(VkFormat format, VkImageUsageFlagBits usage, Texture* attachment)
@@ -107,8 +113,8 @@ namespace jhb {
 		imageCIa.imageType = VK_IMAGE_TYPE_2D;
 		imageCIa.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		imageCIa.format = format;
-		imageCIa.extent.width = 1024;
-		imageCIa.extent.height = 1024;
+		imageCIa.extent.width = device.getWindow().getExtent().width;
+		imageCIa.extent.height = device.getWindow().getExtent().height;
 		imageCIa.extent.depth = 1;
 		imageCIa.mipLevels = 1;
 		imageCIa.arrayLayers = 1;
@@ -136,58 +142,52 @@ namespace jhb {
 		}
 	}
 
-	void DeferedPBRRenderSystem::createOffscreenFrameBuffer()
+	void DeferedPBRRenderSystem::createFrameBuffers(const std::vector<VkImageView>& swapchainImageViews)
 	{
-		// Color attachments
+		std::array<VkImageView, 6> attachments;
+		attachments[0] = SwapchainImages.view;
+		attachments[1] = PositionAttachment.view;
+		attachments[2] = NormalAttachment.view;
+		attachments[3] = AlbedoAttachment.view;
+		attachments[4] = MaterialAttachment.view;
+		attachments[5] = EmmisiveAttachment.view;
+		attachments[6] = DepthAttachment.view;
 
-		// (World space) Positions
-		createAttachment(
-			VK_FORMAT_R16G16B16A16_SFLOAT,
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-			&PositionAttachment);
+		frameBuffers.resize(swapchainImageViews.size());
+		for (int i = 0; i < swapchainImageViews.size(); i++)
+		{
+			VkFramebufferCreateInfo fbufCreateInfo = {};
+			fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			fbufCreateInfo.pNext = NULL;
+			fbufCreateInfo.renderPass = offScreenRenderPass;
+			fbufCreateInfo.pAttachments = attachments.data();
+			fbufCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+			fbufCreateInfo.width = device.getWindow().getExtent().width;
+			fbufCreateInfo.height = device.getWindow().getExtent().height;
+			fbufCreateInfo.layers = 1;
+			if (vkCreateFramebuffer(device.getLogicalDevice(), &fbufCreateInfo, nullptr, &frameBuffers[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("failed to create frameBuffer per face!");
+			}
+		}
+	}
 
-		// (World space) Normals
-		createAttachment(
-			VK_FORMAT_R16G16B16A16_SFLOAT,
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-			&NormalAttachment);
-
-		// Albedo (color)
-		createAttachment(
-			VK_FORMAT_R8G8B8A8_UNORM,
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-			&AlbedoAttachment);
-
-		// Depth attachment
-
-		// Find a suitable depth format
-		VkFormat attDepthFormat;
-		VkFormat validDepthFormat = device.findSupportedFormat({ VK_FORMAT_D32_SFLOAT_S8_UINT,
-	VK_FORMAT_D32_SFLOAT,
-	VK_FORMAT_D24_UNORM_S8_UINT,
-	VK_FORMAT_D16_UNORM_S8_UINT,
-	VK_FORMAT_D16_UNORM
-			}, VK_IMAGE_TILING_OPTIMAL,
-			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-		assert(validDepthFormat);
-
-		createAttachment(
-			attDepthFormat,
-			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-			&DepthAttachment);
+	void DeferedPBRRenderSystem::createRenderPass()
+	{
+		createGBuffers();
 
 		// Set up separate renderpass with references to the color and depth attachments
-		std::array<VkAttachmentDescription, 4> attachmentDescs = {};
+		std::array<VkAttachmentDescription, 6> attachmentDescs = {};
 
 		// Init attachment properties
-		for (uint32_t i = 0; i < 4; ++i)
+		for (uint32_t i = 0; i <7; ++i)
 		{
 			attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
 			attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 			attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 			attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 			attachmentDescs[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-			if (i == 3)
+			if (i == 6)
 			{
 				attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 				attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -200,85 +200,89 @@ namespace jhb {
 		}
 
 		// Formats
-		attachmentDescs[0].format = PositionAttachment.format;
-		attachmentDescs[1].format = NormalAttachment.format;
-		attachmentDescs[2].format = AlbedoAttachment.format;
-		attachmentDescs[3].format = DepthAttachment.format;
+		attachmentDescs[0].format = SwapchainImages.format;
+		attachmentDescs[1].format = PositionAttachment.format;
+		attachmentDescs[2].format = NormalAttachment.format;
+		attachmentDescs[3].format = AlbedoAttachment.format;
+		attachmentDescs[4].format = MaterialAttachment.format;
+		attachmentDescs[5].format = EmmisiveAttachment.format;
+		attachmentDescs[6].format = DepthAttachment.format;
 
 		std::vector<VkAttachmentReference> colorReferences;
-		colorReferences.push_back({ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 		colorReferences.push_back({ 1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 		colorReferences.push_back({ 2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+		colorReferences.push_back({ 3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+		colorReferences.push_back({ 4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+		colorReferences.push_back({ 5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 
 		VkAttachmentReference depthReference = {};
-		depthReference.attachment = 3;
+		depthReference.attachment = 6;
 		depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		VkSubpassDescription subpass = {};
-		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.pColorAttachments = colorReferences.data();
-		subpass.colorAttachmentCount = static_cast<uint32_t>(colorReferences.size());
-		subpass.pDepthStencilAttachment = &depthReference;
+		std::array<VkSubpassDescription, 2> subpassDescriptions{};
 
-		// Use subpass dependencies for attachment layout transitions
-		std::array<VkSubpassDependency, 3> dependencies;
+		subpassDescriptions[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpassDescriptions[0].pColorAttachments = colorReferences.data();
+		subpassDescriptions[0].colorAttachmentCount = static_cast<uint32_t>(colorReferences.size());
+		subpassDescriptions[0].pDepthStencilAttachment = &depthReference;
+
+		VkAttachmentReference colorReference{ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+
+		// light subpass will use inputattachemnts
+		subpassDescriptions[1].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpassDescriptions[1].pColorAttachments = &colorReference;
+		subpassDescriptions[1].colorAttachmentCount = 1;
+		subpassDescriptions[1].pDepthStencilAttachment = &depthReference;
+		subpassDescriptions[1].inputAttachmentCount = colorReferences.size();
+		subpassDescriptions[1].pInputAttachments = colorReferences.data();
+
+		// Subpass dependencies for layout transitions
+		std::array<VkSubpassDependency, 4> dependencies;
 
 		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependencies[0].dstSubpass = 0;
-		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-		dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;;
+		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;;
+		dependencies[0].srcAccessMask = 0;
+		dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		dependencies[0].dependencyFlags = 0;
 
-		dependencies[1].srcSubpass = 0;
-		dependencies[1].dstSubpass = 1;
+		dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[1].dstSubpass = 0;
 		dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[1].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[1].srcAccessMask = 0;
+		dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-		dependencies[2].srcSubpass = 1;
-		dependencies[2].dstSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[2].srcSubpass = 0;
+		dependencies[2].dstSubpass = 1;
 		dependencies[2].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependencies[2].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-		dependencies[2].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependencies[2].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependencies[2].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		dependencies[2].srcAccessMask =  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[2].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
 		dependencies[2].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		dependencies[3].srcSubpass = 1;
+		dependencies[3].dstSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[3].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[3].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependencies[3].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[3].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependencies[3].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.pAttachments = attachmentDescs.data();
 		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescs.size());
-		renderPassInfo.subpassCount = 1;
-		renderPassInfo.pSubpasses = &subpass;
-		renderPassInfo.dependencyCount = 2;
+		renderPassInfo.subpassCount = subpassDescriptions.size();
+		renderPassInfo.pSubpasses = subpassDescriptions.data();
+		renderPassInfo.dependencyCount = dependencies.size();
 		renderPassInfo.pDependencies = dependencies.data();
 
 		if (vkCreateRenderPass(device.getLogicalDevice(), &renderPassInfo, nullptr, &offScreenRenderPass))
 		{
 			throw std::runtime_error("failed to create offscreen RenderPass!");
-		}
-
-		std::array<VkImageView, 4> attachments;
-		attachments[0] = PositionAttachment.view;
-		attachments[1] = NormalAttachment.view;
-		attachments[2] = AlbedoAttachment.view;
-		attachments[3] = DepthAttachment.view;
-
-		VkFramebufferCreateInfo fbufCreateInfo = {};
-		fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		fbufCreateInfo.pNext = NULL;
-		fbufCreateInfo.renderPass = offScreenRenderPass;
-		fbufCreateInfo.pAttachments = attachments.data();
-		fbufCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-		fbufCreateInfo.width = device.getWindow().getExtent().width;
-		fbufCreateInfo.height = device.getWindow().getExtent().height;
-		fbufCreateInfo.layers = 1;
-		if (vkCreateFramebuffer(device.getLogicalDevice(), &fbufCreateInfo, nullptr, &OffscreenFrameBuffer) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create frameBuffer per face!");
 		}
 	} 
 
@@ -358,6 +362,16 @@ namespace jhb {
 		model->createIndexBuffer(indexBuffer);
 		model->createObjectSphere(vertexBuffer);
 		model->updateInstanceBuffer(6, 2.5f, 2.5f);
+
+		PipelineConfigInfo pipelineConfig{};
+		pipelineConfig.depthStencilInfo.depthTestEnable = true;
+		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
+		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
+		createVertexAttributeAndBindingDesc(pipelineConfig);
+
+		pipelineConfig.renderPass = offScreenRenderPass;
+		pipelineConfig.pipelineLayout = pipelineLayout;
+		model->createGraphicsPipelinePerMaterial("", "", pipelineConfig);
 		return model;
 	}
 
@@ -373,7 +387,7 @@ namespace jhb {
 		pbrObjects.emplace(helmet.getId(), std::move(helmet));
 	}
 
-	void DeferedPBRRenderSystem::createFloor(VkRenderPass renderPass)
+	void DeferedPBRRenderSystem::createFloor()
 	{
 		std::shared_ptr<Model> floorModel = std::make_unique<Model>(device);
 		floorModel->loadModel("Models/quad.obj");
@@ -383,12 +397,17 @@ namespace jhb {
 		floor.transform.scale = { 10.f, 1.f ,10.f };
 		floor.transform.rotation = { 0.f, 0.f, 0.f };
 
-		PipelineConfigInfo pipelineconfigInfo{};
-		Pipeline::defaultPipelineConfigInfo(pipelineconfigInfo);
-		pipelineconfigInfo.depthStencilInfo.depthTestEnable = true;
-		pipelineconfigInfo.depthStencilInfo.depthWriteEnable = true;
-		pipelineconfigInfo.attributeDescriptions = jhb::Vertex::getAttrivuteDescriptions();
-		pipelineconfigInfo.bindingDescriptions = jhb::Vertex::getBindingDescriptions();
+		floor.setId(id++);
+		floor.model->updateInstanceBuffer(1, 0.f, 0.f, 0, 0);
+
+		pbrObjects.emplace(floor.getId(), std::move(floor));
+		//this is not gltf model, so using different pipeline 
+	}
+
+	void DeferedPBRRenderSystem::createVertexAttributeAndBindingDesc(PipelineConfigInfo& pipelineConfig)
+	{
+		pipelineConfig.attributeDescriptions = jhb::Vertex::getAttrivuteDescriptions();
+		pipelineConfig.bindingDescriptions = jhb::Vertex::getBindingDescriptions();
 
 		VkVertexInputBindingDescription bindingdesc{};
 
@@ -396,7 +415,7 @@ namespace jhb {
 		bindingdesc.stride = sizeof(jhb::Model::InstanceData);
 		bindingdesc.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 
-		pipelineconfigInfo.bindingDescriptions.push_back(bindingdesc);
+		pipelineConfig.bindingDescriptions.push_back(bindingdesc);
 
 		std::vector<VkVertexInputAttributeDescription> attrdesc(8);
 
@@ -436,22 +455,84 @@ namespace jhb {
 		attrdesc[7].format = VK_FORMAT_R32_SFLOAT;
 		attrdesc[7].offset = offsetof(Model::InstanceData, Model::InstanceData::b);
 
-		pipelineconfigInfo.attributeDescriptions.insert(pipelineconfigInfo.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
+		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
+	}
 
-		pipelineconfigInfo.renderPass = renderPass;
-		pipelineconfigInfo.pipelineLayout = pipelineLayout;
-		pipelineconfigInfo.multisampleInfo.rasterizationSamples = device.msaaSamples;
-		floor.setId(id++);
-		floor.model->createPipelineForModel("shaders/pbr.vert.spv",
-			"shaders/pbrnotexture.frag.spv", pipelineconfigInfo);
-		floor.model->updateInstanceBuffer(1, 0.f, 0.f, 0, 0);
+	void DeferedPBRRenderSystem::createLightingPipelineAndPipelinelayout()
+	{
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayoutInfo.setLayoutCount = 1;
+		const VkDescriptorSetLayout tmpsetlayout[] = {descriptorSetLayout->getDescriptorSetLayout()};
+		pipelineLayoutInfo.pSetLayouts = tmpsetlayout;
+		if (vkCreatePipelineLayout(device.getLogicalDevice(), &pipelineLayoutInfo, nullptr, &lightingPipelinelayout) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create pipeline layout!");
+		}
 
-		pbrObjects.emplace(floor.getId(), std::move(floor));
-		//this is not gltf model, so using different pipeline 
+		PipelineConfigInfo pipelineConfig{};
+		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
+		pipelineConfig.depthStencilInfo.depthTestEnable = true;
+		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
+		pipelineConfig.subpass = 1;
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(1);
+		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].location = 0;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[0].offset = offsetof(Vertex, position);
+		
+		std::vector<VkVertexInputBindingDescription> bindingDescriptions(1);
+		bindingDescriptions[0].binding = 0;
+		bindingDescriptions[0].stride = sizeof(glm::vec3);
+		bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		pipelineConfig.attributeDescriptions = attributeDescriptions;
+		pipelineConfig.bindingDescriptions = bindingDescriptions;
+
+		pipelineConfig.renderPass = offScreenRenderPass;
+		pipelineConfig.pipelineLayout = pipelineLayout;
+		lightingPipeline = std::make_unique<Pipeline>(device, "","", pipelineConfig); // todo : make shader for subpass2 
 	}
 
 	void DeferedPBRRenderSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
+		BaseRenderSystem::renderGameObjects(frameInfo);
+		vkCmdBindDescriptorSets(
+			frameInfo.commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			pipelineLayout,
+			1, 1
+			, &frameInfo.pbrImageSamplerDescriptorSet,
+			0, nullptr
+		);
+		vkCmdBindDescriptorSets(
+			frameInfo.commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			pipelineLayout,
+			3, 1
+			, &frameInfo.shadowMapDescriptorSet,
+			0, nullptr
+		);
 
+
+		for (auto& kv : pbrObjects)
+		{
+			auto& obj = kv.second;
+
+			if (obj.model == nullptr)
+			{
+				continue;
+			}
+
+			obj.model->bind(frameInfo.commandBuffer);
+
+			if (kv.first == 1)
+			{
+				auto modelmat = kv.second.transform.mat4();
+				vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelmat);
+			}
+
+			obj.model->draw(frameInfo.commandBuffer, pipelineLayout, frameInfo.frameIndex);
+		}
 	}
 };

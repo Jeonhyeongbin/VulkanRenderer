@@ -213,6 +213,5 @@ namespace jhb {
 		assert(commandBuffer == getCurrentCommandBuffer() && "Can't end render pass on command buffer from a different frame!");
 
 		vkCmdEndRenderPass(commandBuffer);
-
 	}
 }

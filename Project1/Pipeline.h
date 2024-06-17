@@ -41,7 +41,7 @@ namespace jhb {
 
 		void bind(VkCommandBuffer buffer);
 		static void defaultPipelineConfigInfo(PipelineConfigInfo& info);
-		VkPipeline getPipeline() { return graphicsPipeline; }
+		VkPipeline* getPipeline() { return &graphicsPipeline; }
 	
 	private:
 		static std::vector<char> readFile(const std::string& filepath);

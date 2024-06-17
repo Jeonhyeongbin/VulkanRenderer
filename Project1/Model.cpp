@@ -212,6 +212,17 @@ void jhb::Model::createPipelineForModel(const std::string& vertFilepath, const s
 	}
 }
 
+void jhb::Model::createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo)
+{
+	for (auto& material : materials)
+	{
+		if (material.pipeline == nullptr)
+		{
+			material.pipeline = std::make_unique<Pipeline>(device, vertFilepath, fragFilepath, configInfo);
+		}
+	}
+}
+
 std::vector<VkVertexInputBindingDescription> jhb::Vertex::getBindingDescriptions()
 {
 	std::vector<VkVertexInputBindingDescription> bindingDescriptions(1);

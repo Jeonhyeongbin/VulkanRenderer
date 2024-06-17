@@ -291,7 +291,7 @@ namespace jhb {
 				1,
 				&pipelineInfo,
 				nullptr,
-				&material.pipeline) != VK_SUCCESS) {
+				material.pipeline->getPipeline()) != VK_SUCCESS) {
 				throw std::runtime_error("failed to create graphics pipeline!");
 			}
 		}

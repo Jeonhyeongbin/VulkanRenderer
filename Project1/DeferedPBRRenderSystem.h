@@ -39,7 +39,7 @@ namespace jhb {
 		} offscreenBuffer;
 
 	public:
-		DeferedPBRRenderSystem(Device& device, std::vector<VkDescriptorSetLayout> descSetlayouts, const std::string& vert, const std::string& frag);
+		DeferedPBRRenderSystem(Device& device, std::vector<VkDescriptorSetLayout> descSetlayouts, const std::vector<VkImageView>& swapchainImageViews);
 		~DeferedPBRRenderSystem();
 
 		DeferedPBRRenderSystem(const DeferedPBRRenderSystem&) = delete;
@@ -47,22 +47,29 @@ namespace jhb {
 		DeferedPBRRenderSystem& operator=(const DeferedPBRRenderSystem&) = delete;
 
 		virtual void renderGameObjects(FrameInfo& frameInfo) override;
-		void updateUniformBuffer(glm::vec3 pos);
-		void createOffscreenFrameBuffer();
 
 	private:
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass
-		virtual void createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag) override;
+		virtual void createPipeline(VkRenderPass , const std::string& vert, const std::string& frag) override;
+		void createGBuffers();
 		void createAttachment(VkFormat format,
 			VkImageUsageFlagBits usage,
 			Texture* attachment);
-		void createDamagedHelmet();
-		void createFloor(VkRenderPass);
+		void createFrameBuffers(const std::vector<VkImageView>& swapchainImageViews);
+		void createRenderPass();
 
-		VkRenderPass createOffscreenRenderPass();
+		void createDamagedHelmet();
+		void createFloor();
+		void createVertexAttributeAndBindingDesc(PipelineConfigInfo&);
+		void createLightingPipelineAndPipelinelayout();
+
 		std::vector<VkDescriptorSetLayout> initializeOffScreenDescriptor();
 		std::shared_ptr<Model> loadGLTFFile(const std::string& filename);
+
+	private:
+		std::unique_ptr<Pipeline> lightingPipeline = nullptr; // pipeline for second subpass
+		VkPipelineLayout lightingPipelinelayout;
 
 	private:
 		Texture SwapchainImages;
@@ -71,8 +78,9 @@ namespace jhb {
 		Texture NormalAttachment;
 		Texture DepthAttachment;
 		Texture MaterialAttachment;
+		Texture EmmisiveAttachment;
 
-		VkFramebuffer OffscreenFrameBuffer;
+		std::vector<VkFramebuffer> frameBuffers;
 
 		VkRenderPass offScreenRenderPass;
 		const VkExtent2D offscreenImageSize{ 1024, 1024 };

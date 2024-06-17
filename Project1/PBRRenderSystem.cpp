@@ -218,23 +218,6 @@ namespace jhb {
 	void PBRRendererSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
 		BaseRenderSystem::renderGameObjects(frameInfo);
-		vkCmdBindDescriptorSets(
-			frameInfo.commandBuffer,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			1, 1
-			, &frameInfo.pbrImageSamplerDescriptorSet,
-			0, nullptr
-		);
-		vkCmdBindDescriptorSets(
-			frameInfo.commandBuffer,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			3, 1
-			, &frameInfo.shadowMapDescriptorSet,
-			0, nullptr
-		);
-
 
 		for (auto& kv : pbrObjects)
 		{

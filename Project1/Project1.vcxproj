@@ -146,6 +146,7 @@
     <ClCompile Include="BloomRenderSystem.cpp" />
     <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="DeferedPBRRenderSystem.cpp" />
     <ClCompile Include="Descriptors.cpp" />
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="External\Imgui\imgui.cpp" />
@@ -178,6 +179,7 @@
     <ClInclude Include="BloomRenderSystem.h" />
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="DeferedPBRRenderSystem.h" />
     <ClInclude Include="Descriptors.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="External\Imgui\imconfig.h" />
