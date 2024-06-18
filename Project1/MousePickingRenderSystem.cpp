@@ -1,6 +1,7 @@
 #include "MousePickingRenderSystem.h"
 #include "JHBApplication.h"
 #include "Model.h"
+#include "Pipeline.h"
 
 jhb::MousePickingRenderSystem::MousePickingRenderSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag)
 	: BaseRenderSystem(device, globalSetLayOut, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(gltfPushConstantData)} })

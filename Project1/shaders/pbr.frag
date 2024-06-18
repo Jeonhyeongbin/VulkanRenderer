@@ -202,7 +202,7 @@ void main() {
 	color = pow(color, vec3(1.0f / ubo.gamma));
 
 	// Shadow
-	vec3 lightVec = fragPosWorld - vec3(lightPos);
+	vec3 lightVec = fragPosWorld - vec3(ubo.pointLights[0].position);
     float sampledDist = texture(shadowMap, lightVec).r;
     float dist = length(lightVec);
 

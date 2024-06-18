@@ -11,7 +11,7 @@ namespace jhb {
 		createGraphicsPipeline(vertFilepath, fragFilepath, configInfo);
 	}
 
-	Pipeline::Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo, std::vector<Material>& materials)
+	Pipeline::Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo, Material& materials)
 		: device{ device }
 	{
 		createGraphicsPipelinePerMaterial(vertFilepath, fragFilepath, configInfo, materials);
@@ -198,7 +198,7 @@ namespace jhb {
 
 	}
 
-	void Pipeline::createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo, std::vector<Material>& materials)
+	void Pipeline::createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo, Material& material)
 	{
 		assert(
 			configInfo.pipelineLayout != VK_NULL_HANDLE &&
@@ -246,7 +246,7 @@ namespace jhb {
 		pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;
 		pipelineInfo.pViewportState = &configInfo.viewportInfo;
 		pipelineInfo.pRasterizationState = &configInfo.rasterizationInfo;
-		configInfo.multisampleInfo.rasterizationSamples = device.msaaSamples;
+		//configInfo.multisampleInfo.rasterizationSamples = device.msaaSamples;
 ;		pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;
 		pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;
 		pipelineInfo.pDynamicState = nullptr;  // Optional
@@ -265,35 +265,33 @@ namespace jhb {
 		VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
 		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 		vkCreatePipelineCache(device.getLogicalDevice(), &pipelineCacheCreateInfo, nullptr, &pipelinCache);
-		for (auto& material : materials) {
 
-			struct MaterialSpecializationData {
-				VkBool32 alphaMask;
-				float alphaMaskCutoff;
-			} materialSpecializationData;
+		struct MaterialSpecializationData {
+			VkBool32 alphaMask;
+			float alphaMaskCutoff;
+		} materialSpecializationData;
 
-			materialSpecializationData.alphaMask = material.alphaMode == "MASK";
-			materialSpecializationData.alphaMaskCutoff = material.alphaCutOff;
+		materialSpecializationData.alphaMask = material.alphaMode == "MASK";
+		materialSpecializationData.alphaMaskCutoff = material.alphaCutOff;
 
-			// POI: Constant fragment shader material parameters will be set using specialization constants
-			std::vector<VkSpecializationMapEntry> specializationMapEntries = {
-				{0, offsetof(MaterialSpecializationData, alphaMask), sizeof(MaterialSpecializationData::alphaMask)},
-				{1, offsetof(MaterialSpecializationData, alphaMaskCutoff), sizeof(MaterialSpecializationData::alphaMaskCutoff)},
-			};
-			VkSpecializationInfo specializationInfo = { specializationMapEntries.size(), specializationMapEntries.data(), sizeof(materialSpecializationData), &materialSpecializationData };
-			shaderStages[1].pSpecializationInfo = &specializationInfo;
+		// POI: Constant fragment shader material parameters will be set using specialization constants
+		std::vector<VkSpecializationMapEntry> specializationMapEntries = {
+			{0, offsetof(MaterialSpecializationData, alphaMask), sizeof(MaterialSpecializationData::alphaMask)},
+			{1, offsetof(MaterialSpecializationData, alphaMaskCutoff), sizeof(MaterialSpecializationData::alphaMaskCutoff)},
+		};
+		VkSpecializationInfo specializationInfo = { specializationMapEntries.size(), specializationMapEntries.data(), sizeof(materialSpecializationData), &materialSpecializationData };
+		shaderStages[1].pSpecializationInfo = &specializationInfo;
 
-			// For double sided materials, culling will be disabled
-			configInfo.rasterizationInfo.cullMode = material.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_NONE;
-			if (vkCreateGraphicsPipelines(
-				device.getLogicalDevice(),
-				pipelinCache,
-				1,
-				&pipelineInfo,
-				nullptr,
-				material.pipeline->getPipeline()) != VK_SUCCESS) {
-				throw std::runtime_error("failed to create graphics pipeline!");
-			}
+		// For double sided materials, culling will be disabled
+		configInfo.rasterizationInfo.cullMode = material.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_NONE;
+		if (vkCreateGraphicsPipelines(
+			device.getLogicalDevice(),
+			pipelinCache,
+			1,
+			&pipelineInfo,
+			nullptr,
+			&graphicsPipeline) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create graphics pipeline!");
 		}
 	}
 

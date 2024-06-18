@@ -13,5 +13,9 @@
 %VULKAN_SDK%\Bin\glslc.exe shaders\picking.frag -o shaders\picking.frag.spv
 %VULKAN_SDK%\Bin\glslc.exe shaders\shadowOffscreen.vert -o shaders\shadowOffscreen.vert.spv
 %VULKAN_SDK%\Bin\glslc.exe shaders\shadowOffscreen.frag -o shaders\shadowOffscreen.frag.spv
+%VULKAN_SDK%\Bin\glslc.exe shaders\deferedoffscreen.vert -o shaders\deferedoffscreen.vert.spv
+%VULKAN_SDK%\Bin\glslc.exe shaders\deferedoffscreen.frag -o shaders\deferedoffscreen.frag.spv
+%VULKAN_SDK%\Bin\glslc.exe shaders\deferedPBR.vert -o shaders\deferedPBR.vert.spv
+%VULKAN_SDK%\Bin\glslc.exe shaders\deferedPBR.frag -o shaders\deferedPBR.frag.spv
 
 pause

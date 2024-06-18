@@ -72,6 +72,7 @@ namespace jhb {
 		std::unique_ptr<class PBRResourceGenerator> pbrSourceGenerator;
 		std::unique_ptr<class PointLightSystem> pointLightSystem;
 		std::unique_ptr<class SkyBoxRenderSystem> skyboxRenderSystem;
+		std::unique_ptr<class DeferedPBRRenderSystem> deferedPbrRenderSystem;
 
 	private:
 		double px, py, pz;

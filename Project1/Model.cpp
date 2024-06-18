@@ -218,7 +218,7 @@ void jhb::Model::createGraphicsPipelinePerMaterial(const std::string& vertFilepa
 	{
 		if (material.pipeline == nullptr)
 		{
-			material.pipeline = std::make_unique<Pipeline>(device, vertFilepath, fragFilepath, configInfo);
+			material.pipeline = std::make_unique<Pipeline>(device, vertFilepath, fragFilepath, configInfo, material);
 		}
 	}
 }
@@ -675,7 +675,7 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 			if (primitive.indexCount > 0) {
 				Material& material = materials[primitive.materialIndex];
 				// POI: Bind the pipeline for the node's material
-				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.pipeline);
+				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.pipeline->getPipeline());
 				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &material.descriptorSets[frameIndex], 0, nullptr);
 				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount, primitive.firstIndex, 0, 0);
 			}

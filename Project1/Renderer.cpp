@@ -174,7 +174,7 @@ namespace jhb {
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 	}
 
-	void Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent)
+	void Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, int attachmentCount)
 	{
 		assert(isFrameStarted && "Can't call beginSwapChainRenderPass while frame is not in progress!!");
 		assert(commandBuffer == getCurrentCommandBuffer() && "Can't begining render pass on command buffer from a different frame!");
@@ -187,9 +187,12 @@ namespace jhb {
 		renderPassInfo.renderArea.offset = { 0, 0 };
 		renderPassInfo.renderArea.extent = { extent.width, extent.height };
 
-		std::array<VkClearValue, 2> clearValues{};
-		clearValues[0].color = { 0, 0, 0, 1 };
-		clearValues[1].depthStencil = { 1.0f, 0 };
+		std::vector<VkClearValue> clearValues(attachmentCount);
+		for (int i = 0; i < attachmentCount; i++)
+		{
+			clearValues[i].color = { 0, 0, 0, 1 };
+		}
+		clearValues[attachmentCount-1].depthStencil = { 1.0f, 0 };
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
 

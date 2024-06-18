@@ -12,11 +12,11 @@ layout (location = 8) in float fg;
 layout (location = 9) in float fb;
 layout (location = 10) in vec3 lightPos;
 
-layout (set = 1, binding = 0) uniform sampler2D samplerColorMap;
-layout (set = 1, binding = 1) uniform sampler2D samplerNormalMap;
-layout (set = 1, binding = 2) uniform sampler2D samplerOcclusionMap;
-layout (set = 1, binding = 3) uniform sampler2D samplerEmissiveMap;
-layout (set = 1, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
+layout (set = 2, binding = 0) uniform sampler2D samplerColorMap;
+layout (set = 2, binding = 1) uniform sampler2D samplerNormalMap;
+layout (set = 2, binding = 2) uniform sampler2D samplerOcclusionMap;
+layout (set = 2, binding = 3) uniform sampler2D samplerEmissiveMap;
+layout (set = 2, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
 
 struct PointLight{
 	vec4 position; // w is  just for allign
@@ -36,6 +36,9 @@ layout(set=0, binding = 0) uniform GlobalUbo{
 
 layout (constant_id = 0) const bool ALPHA_MASK = false;
 layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
+
+#define NEAR_PLANE 0.1f
+#define FAR_PLANE 2
 
 float linearDepth(float depth)
 {

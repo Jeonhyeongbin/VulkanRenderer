@@ -3,15 +3,22 @@
 #include <array>
 
 namespace jhb {
-	DeferedPBRRenderSystem::DeferedPBRRenderSystem(Device& device, std::vector<VkDescriptorSetLayout> descSetlayouts, const std::vector<VkImageView>& swapchainImageViews)
+	uint32_t DeferedPBRRenderSystem::id = 0;
+	// descriptortsetlayouts =>  { globaluniform, gltfmaterial,pbrresource, shadow } 
+	DeferedPBRRenderSystem::DeferedPBRRenderSystem(Device& device, std::vector<VkDescriptorSetLayout> descSetlayouts, const std::vector<VkImageView>& swapchainImageViews, VkFormat swapchainFormat)
 		: BaseRenderSystem(device)
 	{
+		assert(descSetlayouts.size() == 4 && "descriptor setlayout size in defered render system less than 4!!!!!!!");
 		// 첫번째 subpass는 gltf모델의 머터리얼용 descriptorsetlayout을 첫번쨰 subpass용 pipelinelayout에 묶어 주어야함. 그러므로 uniform buffer 와 함께 총 2개의 descriptor set layout이 필요.
-		// 두번째 subpass는 pbr을 해야하기 때문에 pbrresource용 descriptorsetlayout을 두번째 subpass용 pipelinelayout에 묶어 주어야함. 이 때는 유니폼 버퍼는 필요없고 이미지용 descriptor set layout 1개만 필요.
-		BaseRenderSystem::createPipeLineLayout(descSetlayouts, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) } });
-		createPipeline("", ""); //
-		createLightingPipelineAndPipelinelayout(); // second subapss용
-		createRenderPass();
+		createRenderPass(swapchainFormat);
+		initializeOffScreenDescriptor();
+
+		BaseRenderSystem::createPipeLineLayout({ descSetlayouts[0],descSetlayouts[1], descSetlayouts[1] }, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)} });
+		createPipeline(nullptr, "shaders/deferedoffscreen.vert.spv",
+			"shaders/deferedoffscreen.frag.spv");
+		// 두번째 subpass는 pbr을 해야하기 때문에 pbrresource용 descriptorsetlayout을 두번째 subpass용 pipelinelayout에 묶어 주어야함. 이 때도 유니폼 버퍼가 필요하고(light 위치), pbr 이미지용 descriptor set layout, 
+		// 쉐도우용 descriptor set layout 3개 필요.
+		createLightingPipelineAndPipelinelayout({descSetlayouts[0], descSetlayouts[2], descSetlayouts[3] }); // second subapss용
 		createFrameBuffers(swapchainImageViews);
 		createDamagedHelmet();
 		createFloor();
@@ -32,6 +39,17 @@ namespace jhb {
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		createVertexAttributeAndBindingDesc(pipelineConfig);
 
+		std::array<VkPipelineColorBlendAttachmentState, 5> blendAttachmentStates;
+		for (int i = 0; i < 5; i++)
+		{
+			VkPipelineColorBlendAttachmentState colorblendState{};
+			colorblendState.blendEnable = VK_FALSE;
+			colorblendState.colorWriteMask = 0xf;
+			blendAttachmentStates[i] = colorblendState;
+		}
+
+		pipelineConfig.colorBlendInfo.attachmentCount = blendAttachmentStates.size();
+		pipelineConfig.colorBlendInfo.pAttachments = blendAttachmentStates.data();
 		pipelineConfig.renderPass = offScreenRenderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
 		pipeline = std::make_unique<Pipeline>(
@@ -66,6 +84,12 @@ namespace jhb {
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 			&AlbedoAttachment);
 
+		// Albedo (color)
+		createAttachment(
+			VK_FORMAT_R16G16B16A16_SFLOAT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			&MaterialAttachment);
+
 		createAttachment(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
@@ -75,17 +99,12 @@ namespace jhb {
 
 		// Find a suitable depth format
 		VkFormat attDepthFormat;
-		VkFormat validDepthFormat = device.findSupportedFormat({ VK_FORMAT_D32_SFLOAT_S8_UINT,
-	VK_FORMAT_D32_SFLOAT,
-	VK_FORMAT_D24_UNORM_S8_UINT,
-	VK_FORMAT_D16_UNORM_S8_UINT,
-	VK_FORMAT_D16_UNORM
-			}, VK_IMAGE_TILING_OPTIMAL,
+		VkFormat validDepthFormat = device.findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL,
 			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-		assert(validDepthFormat);
+		//assert(validDepthFormat);
 
 		createAttachment(
-			attDepthFormat,
+			validDepthFormat,
 			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 			&DepthAttachment);
 	}
@@ -120,13 +139,12 @@ namespace jhb {
 		imageCIa.arrayLayers = 1;
 		imageCIa.samples = VK_SAMPLE_COUNT_1_BIT;
 		imageCIa.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageCIa.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		imageCIa.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+		imageCIa.usage = usage | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 
 		device.createImageWithInfo(imageCIa, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, attachment->image, attachment->memory);
 		// Image view
 		VkImageViewCreateInfo viewCIa{};
-		viewCIa.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+		viewCIa.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		viewCIa.format = format;
 		viewCIa.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		viewCIa.subresourceRange = {};
@@ -134,8 +152,9 @@ namespace jhb {
 		viewCIa.subresourceRange.baseArrayLayer = 0;
 		viewCIa.subresourceRange.baseMipLevel = 0;
 		viewCIa.subresourceRange.levelCount = 1;
-		viewCIa.subresourceRange.layerCount = 6;
+		viewCIa.subresourceRange.layerCount = 1;
 		viewCIa.image = attachment->image;
+
 		if (vkCreateImageView(device.getLogicalDevice(), &viewCIa, nullptr, &attachment->view))
 		{
 			throw std::runtime_error("failed to create ImageView!");
@@ -144,8 +163,7 @@ namespace jhb {
 
 	void DeferedPBRRenderSystem::createFrameBuffers(const std::vector<VkImageView>& swapchainImageViews)
 	{
-		std::array<VkImageView, 6> attachments;
-		attachments[0] = SwapchainImages.view;
+		std::array<VkImageView, 7> attachments;
 		attachments[1] = PositionAttachment.view;
 		attachments[2] = NormalAttachment.view;
 		attachments[3] = AlbedoAttachment.view;
@@ -156,6 +174,7 @@ namespace jhb {
 		frameBuffers.resize(swapchainImageViews.size());
 		for (int i = 0; i < swapchainImageViews.size(); i++)
 		{
+			attachments[0] = swapchainImageViews[i];
 			VkFramebufferCreateInfo fbufCreateInfo = {};
 			fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 			fbufCreateInfo.pNext = NULL;
@@ -172,12 +191,12 @@ namespace jhb {
 		}
 	}
 
-	void DeferedPBRRenderSystem::createRenderPass()
+	void DeferedPBRRenderSystem::createRenderPass(VkFormat swapchianFormat)
 	{
 		createGBuffers();
 
 		// Set up separate renderpass with references to the color and depth attachments
-		std::array<VkAttachmentDescription, 6> attachmentDescs = {};
+		std::array<VkAttachmentDescription, 7> attachmentDescs = {};
 
 		// Init attachment properties
 		for (uint32_t i = 0; i <7; ++i)
@@ -192,6 +211,11 @@ namespace jhb {
 				attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 				attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 			}
+			else if (i == 0)
+			{
+				attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+				attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			}
 			else
 			{
 				attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -200,7 +224,7 @@ namespace jhb {
 		}
 
 		// Formats
-		attachmentDescs[0].format = SwapchainImages.format;
+		attachmentDescs[0].format = swapchianFormat;
 		attachmentDescs[1].format = PositionAttachment.format;
 		attachmentDescs[2].format = NormalAttachment.format;
 		attachmentDescs[3].format = AlbedoAttachment.format;
@@ -228,13 +252,20 @@ namespace jhb {
 
 		VkAttachmentReference colorReference{ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
 
+		std::vector<VkAttachmentReference> colorInputReferences;
+		colorInputReferences.push_back({ 1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+		colorInputReferences.push_back({ 2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+		colorInputReferences.push_back({ 3, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+		colorInputReferences.push_back({ 4, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+		colorInputReferences.push_back({ 5, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+
 		// light subpass will use inputattachemnts
 		subpassDescriptions[1].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpassDescriptions[1].pColorAttachments = &colorReference;
 		subpassDescriptions[1].colorAttachmentCount = 1;
 		subpassDescriptions[1].pDepthStencilAttachment = &depthReference;
-		subpassDescriptions[1].inputAttachmentCount = colorReferences.size();
-		subpassDescriptions[1].pInputAttachments = colorReferences.data();
+		subpassDescriptions[1].inputAttachmentCount = colorInputReferences.size();
+		subpassDescriptions[1].pInputAttachments = colorInputReferences.data();
 
 		// Subpass dependencies for layout transitions
 		std::array<VkSubpassDependency, 4> dependencies;
@@ -288,29 +319,33 @@ namespace jhb {
 
 	std::vector<VkDescriptorSetLayout> DeferedPBRRenderSystem::initializeOffScreenDescriptor()
 	{
-		descriptorPool = DescriptorPool::Builder(device).setMaxSets(1).addPoolSize(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 4).build(); // albedo, normal, material, depth
+		gbufferDescriptorPool = DescriptorPool::Builder(device).setMaxSets(1).addPoolSize(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 5).build(); // albedo, normal, material, depth
 
-		descriptorSetLayout = DescriptorSetLayout::Builder(device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_ALL_GRAPHICS).addBinding(1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_ALL_GRAPHICS).
-			addBinding(2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_ALL_GRAPHICS).
-			addBinding(3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_ALL_GRAPHICS).
+		gbufferDescriptorSetLayout = DescriptorSetLayout::Builder(device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT).addBinding(1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT).
+			addBinding(2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT).
+			addBinding(3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT).addBinding(4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT).
 			build();
 
-		VkDescriptorImageInfo albedoImgInfo{};
-		albedoImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		albedoImgInfo.imageView = AlbedoAttachment.view;
+		VkDescriptorImageInfo positionImgInfo{};
+		positionImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		positionImgInfo.imageView = PositionAttachment.view;
 		VkDescriptorImageInfo normalImgInfo{};
 		normalImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		normalImgInfo.imageView = NormalAttachment.view;
-		VkDescriptorImageInfo depthImgInfo{};
-		depthImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		depthImgInfo.imageView = DepthAttachment.view;
+		VkDescriptorImageInfo albedoImgInfo{};
+		albedoImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		albedoImgInfo.imageView = AlbedoAttachment.view;
 		VkDescriptorImageInfo materialImgInfo{};
 		materialImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		materialImgInfo.imageView = MaterialAttachment.view;
+		VkDescriptorImageInfo emmsiveImgInfo{};
+		emmsiveImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		emmsiveImgInfo.imageView = EmmisiveAttachment.view;
 
-		DescriptorWriter(*descriptorSetLayout, *descriptorPool).writeImage(0, &albedoImgInfo).writeImage(1, &normalImgInfo).writeImage(2, &depthImgInfo).writeImage(3, &materialImgInfo).build(descriptorSet);
-		return { descriptorSetLayout->getDescriptorSetLayout() };
+		DescriptorWriter(*gbufferDescriptorSetLayout, *gbufferDescriptorPool).writeImage(0, &positionImgInfo).writeImage(1, &normalImgInfo).writeImage(2, &albedoImgInfo).writeImage(3, &materialImgInfo)
+			.writeImage(4, &emmsiveImgInfo).build(gbufferDescriptorSet);
+		return { gbufferDescriptorSetLayout->getDescriptorSetLayout() };
 	}
 
 	std::shared_ptr<Model> DeferedPBRRenderSystem::loadGLTFFile(const std::string& filename)
@@ -368,10 +403,22 @@ namespace jhb {
 		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		createVertexAttributeAndBindingDesc(pipelineConfig);
+		std::array<VkPipelineColorBlendAttachmentState, 5> blendAttachmentStates;
+		for (int i = 0; i < 5; i++)
+		{
+			VkPipelineColorBlendAttachmentState colorblendState{};
+			colorblendState.blendEnable = VK_FALSE;
+			colorblendState.colorWriteMask = 0xf;
+			blendAttachmentStates[i] = colorblendState;
+		}
+
+		pipelineConfig.colorBlendInfo.attachmentCount = blendAttachmentStates.size();
+		pipelineConfig.colorBlendInfo.pAttachments = blendAttachmentStates.data();
 
 		pipelineConfig.renderPass = offScreenRenderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
-		model->createGraphicsPipelinePerMaterial("", "", pipelineConfig);
+		model->createGraphicsPipelinePerMaterial("shaders/deferedoffscreen.vert.spv",
+			"shaders/deferedoffscreen.frag.spv", pipelineConfig);
 		return model;
 	}
 
@@ -458,13 +505,14 @@ namespace jhb {
 		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
 	}
 
-	void DeferedPBRRenderSystem::createLightingPipelineAndPipelinelayout()
+	void DeferedPBRRenderSystem::createLightingPipelineAndPipelinelayout(const std::vector<VkDescriptorSetLayout>& externDescsetlayout)
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 1;
-		const VkDescriptorSetLayout tmpsetlayout[] = {descriptorSetLayout->getDescriptorSetLayout()};
-		pipelineLayoutInfo.pSetLayouts = tmpsetlayout;
+		std::vector<VkDescriptorSetLayout> descriptorsetlayouts = { gbufferDescriptorSetLayout->getDescriptorSetLayout() };
+		descriptorsetlayouts.insert(descriptorsetlayouts.end(), externDescsetlayout.begin(), externDescsetlayout.end());
+		pipelineLayoutInfo.setLayoutCount = descriptorsetlayouts.size();
+		pipelineLayoutInfo.pSetLayouts = descriptorsetlayouts.data();
 		if (vkCreatePipelineLayout(device.getLogicalDevice(), &pipelineLayoutInfo, nullptr, &lightingPipelinelayout) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create pipeline layout!");
@@ -490,30 +538,14 @@ namespace jhb {
 		pipelineConfig.bindingDescriptions = bindingDescriptions;
 
 		pipelineConfig.renderPass = offScreenRenderPass;
-		pipelineConfig.pipelineLayout = pipelineLayout;
-		lightingPipeline = std::make_unique<Pipeline>(device, "","", pipelineConfig); // todo : make shader for subpass2 
+		pipelineConfig.pipelineLayout = lightingPipelinelayout;
+		lightingPipeline = std::make_unique<Pipeline>(device, "shaders/deferedPBR.vert.spv",
+			"shaders/deferedPBR.frag.spv", pipelineConfig); 
 	}
 
 	void DeferedPBRRenderSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
 		BaseRenderSystem::renderGameObjects(frameInfo);
-		vkCmdBindDescriptorSets(
-			frameInfo.commandBuffer,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			1, 1
-			, &frameInfo.pbrImageSamplerDescriptorSet,
-			0, nullptr
-		);
-		vkCmdBindDescriptorSets(
-			frameInfo.commandBuffer,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			3, 1
-			, &frameInfo.shadowMapDescriptorSet,
-			0, nullptr
-		);
-
 
 		for (auto& kv : pbrObjects)
 		{
@@ -534,5 +566,35 @@ namespace jhb {
 
 			obj.model->draw(frameInfo.commandBuffer, pipelineLayout, frameInfo.frameIndex);
 		}
+
+		vkCmdNextSubpass(frameInfo.commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdBindPipeline(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPipeline->getPipeline());
+		vkCmdBindDescriptorSets(
+			frameInfo.commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			lightingPipelinelayout,
+			0, 1
+			, &gbufferDescriptorSet,
+			0, nullptr
+		);
+		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPipelinelayout, 1, 1, &frameInfo.globaldDescriptorSet, 0, NULL);
+		vkCmdBindDescriptorSets(
+			frameInfo.commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			lightingPipelinelayout,
+			2, 1
+			, &frameInfo.pbrImageSamplerDescriptorSet,
+			0, nullptr
+		);
+		vkCmdBindDescriptorSets(
+			frameInfo.commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			lightingPipelinelayout,
+			3, 1
+			, &frameInfo.shadowMapDescriptorSet,
+			0, nullptr
+		);
+		vkCmdDraw(frameInfo.commandBuffer, 3, 1, 0, 0);
 	}
 };

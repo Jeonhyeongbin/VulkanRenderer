@@ -39,7 +39,7 @@ namespace jhb {
 		} offscreenBuffer;
 
 	public:
-		DeferedPBRRenderSystem(Device& device, std::vector<VkDescriptorSetLayout> descSetlayouts, const std::vector<VkImageView>& swapchainImageViews);
+		DeferedPBRRenderSystem(Device& device, std::vector<VkDescriptorSetLayout> descSetlayouts, const std::vector<VkImageView>& swapchainImageViews, VkFormat swapchainFormat);
 		~DeferedPBRRenderSystem();
 
 		DeferedPBRRenderSystem(const DeferedPBRRenderSystem&) = delete;
@@ -47,7 +47,9 @@ namespace jhb {
 		DeferedPBRRenderSystem& operator=(const DeferedPBRRenderSystem&) = delete;
 
 		virtual void renderGameObjects(FrameInfo& frameInfo) override;
-
+	public:
+		VkFramebuffer getFrameBuffer(int idx) { return frameBuffers[idx]; }
+		VkRenderPass getRenderPass() { return offScreenRenderPass; }
 	private:
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass
@@ -57,12 +59,12 @@ namespace jhb {
 			VkImageUsageFlagBits usage,
 			Texture* attachment);
 		void createFrameBuffers(const std::vector<VkImageView>& swapchainImageViews);
-		void createRenderPass();
+		void createRenderPass(VkFormat);
 
 		void createDamagedHelmet();
 		void createFloor();
 		void createVertexAttributeAndBindingDesc(PipelineConfigInfo&);
-		void createLightingPipelineAndPipelinelayout();
+		void createLightingPipelineAndPipelinelayout(const std::vector<VkDescriptorSetLayout>&);
 
 		std::vector<VkDescriptorSetLayout> initializeOffScreenDescriptor();
 		std::shared_ptr<Model> loadGLTFFile(const std::string& filename);
@@ -72,7 +74,6 @@ namespace jhb {
 		VkPipelineLayout lightingPipelinelayout;
 
 	private:
-		Texture SwapchainImages;
 		Texture PositionAttachment;
 		Texture AlbedoAttachment;
 		Texture NormalAttachment;
@@ -86,12 +87,12 @@ namespace jhb {
 		const VkExtent2D offscreenImageSize{ 1024, 1024 };
 
 		std::unique_ptr<Buffer> uboBuffer;
-		VkDescriptorSet descriptorSet;
+		VkDescriptorSet gbufferDescriptorSet;
 
-		std::unique_ptr<DescriptorPool> descriptorPool;
-		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout;
+		std::unique_ptr<DescriptorPool> gbufferDescriptorPool;
+		std::unique_ptr<DescriptorSetLayout> gbufferDescriptorSetLayout;
 		glm::vec3 _lightpos;
-	private:
+	public:
 		GameObject::Map pbrObjects;
 		static uint32_t id;
 	};

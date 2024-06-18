@@ -6,23 +6,24 @@ layout (location = 0) in vec2 fraguv;
 #define EPSILON 0.15
 #define SHADOW_OPACITY 0.5
 
-layout (input_attachment_index = 0, binding = 0) uniform subpassInput inputPosition;
-layout (input_attachment_index = 1, binding = 1) uniform subpassInput inputNormal;
-layout (input_attachment_index = 2, binding = 2) uniform subpassInput inputAlbedo;
-layout (input_attachment_index = 3, binding = 3) uniform subpassInput inputMaterial;
-layout (input_attachment_index = 4, binding = 4) uniform subpassInput inputEmmisive;
+layout (set = 0, input_attachment_index = 0, binding = 0) uniform subpassInput inputPosition;
+layout (set = 0, input_attachment_index = 1, binding = 1) uniform subpassInput inputNormal;
+layout (set = 0, input_attachment_index = 2, binding = 2) uniform subpassInput inputAlbedo;
+layout (set = 0, input_attachment_index = 3, binding = 3) uniform subpassInput inputMaterial;
+layout (set = 0, input_attachment_index = 4, binding = 4) uniform subpassInput inputEmmisive;
 
 
-layout (set = 1, binding = 0) uniform sampler2D samplerBRDFLUT;
-layout (set = 1, binding = 1) uniform samplerCube samplerIrradiance;
-layout (set = 1, binding = 2) uniform samplerCube prefilteredMap;
+layout (set = 2, binding = 0) uniform sampler2D samplerBRDFLUT;
+layout (set = 2, binding = 1) uniform samplerCube samplerIrradiance;
+layout (set = 2, binding = 2) uniform samplerCube prefilteredMap;
+layout (set = 3, binding = 0) uniform samplerCube shadowMap;
 
 struct PointLight{
 	vec4 position; // w is  just for allign
 	vec4 color; // w is intensity
 } light;
 
-layout(set=0, binding = 0) uniform GlobalUbo{
+layout(set=1, binding = 0) uniform GlobalUbo{
 	mat4 projection;
 	mat4 view;
 	mat4 invView;
@@ -130,23 +131,24 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 	return color;
 }
 
-vec3 calculateNormal()
-{
-	vec3 tangentNormal = texture(samplerNormalMap, fraguv).xyz;
+// vec3 calculateNormal()
+// {
+// 	vec3 tangentNormal = texture(samplerNormalMap, fraguv).xyz;
 
-	vec3 N = normalize(fragNormalWorld);
-	vec3 T = normalize(fragtangent.xyz);
-	vec3 B = normalize(cross(N, T));
-	mat3 TBN = mat3(T, B, N);
+// 	vec3 N = normalize(fragNormalWorld);
+// 	vec3 T = normalize(fragtangent.xyz);
+// 	vec3 B = normalize(cross(N, T));
+// 	mat3 TBN = mat3(T, B, N);
 
-	return normalize(TBN * tangentNormal);
-}
+// 	return normalize(TBN * tangentNormal);
+// }
 
 void main() {
 	vec3 cameraPosWorld = ubo.invView[3].xyz;
 	vec3 fragPosWorld = subpassLoad(inputPosition).rgb;
-	vec3 metallicRoughness = texture(samplerMetallicRoughnessMap, fraguv).rgb;
-
+	float metallic = subpassLoad(inputMaterial).g;
+	float roughness = subpassLoad(inputMaterial).b;
+	float occulsion = subpassLoad(inputMaterial).r;
 	vec3 N = subpassLoad(inputNormal).rgb;
 
 	vec3 V = normalize(cameraPosWorld - fragPosWorld);
@@ -155,7 +157,7 @@ void main() {
 	vec3 F0 = vec3(0.04);
 
 	vec4 albedo = subpassLoad(inputAlbedo);
-	F0 = mix(F0, albedo.rgb, metallicRoughness.b);
+	F0 = mix(F0, albedo.rgb, metallic);
 
 		if (ALPHA_MASK) {
 		if (albedo.a < ALPHA_MASK_CUTOFF) {
@@ -167,25 +169,25 @@ void main() {
 	vec3 Lo = vec3(0.0);
 	for(int i = 0; i < ubo.pointLights.length(); i++) {
 		vec3 L = normalize(ubo.pointLights[i].position.xyz - fragPosWorld);
-		Lo += specularContribution(L, V, N, F0, metallicRoughness.b, metallicRoughness.g, ubo.pointLights[i].color, albedo);
+		Lo += specularContribution(L, V, N, F0, metallic, roughness, ubo.pointLights[i].color, albedo);
 	}
 
-	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), metallicRoughness.g)).rg;
-	vec3 reflection = prefilteredReflection(R, metallicRoughness.g).rgb;
+	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+	vec3 reflection = prefilteredReflection(R, roughness).rgb;
 	vec3 irradiance = texture(samplerIrradiance, N).rgb;
 
 	// Diffuse based on irradiance
 	vec3 diffuse = irradiance * albedo.rgb;
 
-	vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, metallicRoughness.g);
+	vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, roughness);
 
 	// Specular reflectance
 	vec3 specular = reflection * (F * brdf.x + brdf.y);
 
 	// Ambient part
 	vec3 kD = 1.0 - F;
-	kD *= 1.0 - metallicRoughness.g;
-	vec3 ambient = (kD * diffuse + specular) * texture(samplerOcclusionMap, fraguv).r;
+	kD *= 1.0 - roughness;
+	vec3 ambient = (kD * diffuse + specular) * occulsion;
 
 	vec3 color = ambient + Lo;
 
@@ -196,14 +198,14 @@ void main() {
 	color = pow(color, vec3(1.0f / ubo.gamma));
 
 	// Shadow
-	vec3 lightVec = fragPosWorld - vec3(lightPos);
+	vec3 lightVec = fragPosWorld - ubo.pointLights[0].position.xyz;
     float sampledDist = texture(shadowMap, lightVec).r;
     float dist = length(lightVec);
 
 	// Check if fragment is in shadow
     float shadow = (dist <= sampledDist + EPSILON) ? 1.0 : SHADOW_OPACITY;
 
-	vec4 emission = vec4(SRGBtoLINEAR(texture(samplerEmissiveMap, fraguv)).rgb,1) * vec4(fragColor,1);
+	vec4 emission = vec4(SRGBtoLINEAR(subpassLoad(inputEmmisive)).rgb,1);
 	outColor = vec4(color, 1.0) + emission;
 	outColor *= shadow;
 }

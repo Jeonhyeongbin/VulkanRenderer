@@ -31,9 +31,10 @@ namespace jhb {
 	class Pipeline
 	{
 	public:
+		Pipeline() = default;
 		Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo);
 		Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo
-			,std::vector<Material>& materials);
+			,class Material& materials);
 		~Pipeline();
 
 		Pipeline(const Pipeline&) = delete;
@@ -41,14 +42,14 @@ namespace jhb {
 
 		void bind(VkCommandBuffer buffer);
 		static void defaultPipelineConfigInfo(PipelineConfigInfo& info);
-		VkPipeline* getPipeline() { return &graphicsPipeline; }
+		VkPipeline& getPipeline() { return graphicsPipeline; }
 	
 	private:
 		static std::vector<char> readFile(const std::string& filepath);
 
 		void createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo);
 		void createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo,
-			std::vector<Material>& materials);
+			Material& materials);
 
 		void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
 

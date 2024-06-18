@@ -2,6 +2,7 @@
 
 #include "Device.h"
 #include "Buffer.h"
+#include "Pipeline.h"
 
 #define GLM_FORCE_RADIANS // not use degree;
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -68,7 +69,7 @@ namespace jhb {
 		float alphaCutOff;
 		bool doubleSided = false;
 		std::vector<VkDescriptorSet> descriptorSets{SwapChain::MAX_FRAMES_IN_FLIGHT}; // same type descriptor set for each frame
-		std::unique_ptr<Pipeline> pipeline = nullptr;
+		std::unique_ptr<class Pipeline> pipeline = nullptr;
 	};
 
 	struct Mesh {

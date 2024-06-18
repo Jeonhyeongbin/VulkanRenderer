@@ -11,6 +11,7 @@
 #include "PBRResourceGenerator.h"
 #include "MousePickingRenderSystem.h"
 #include "ShadowRenderSystem.h"
+#include "DeferedPBRRenderSystem.h"
 
 #define _USE_MATH_DEFINESimgui
 #include <math.h>
@@ -110,13 +111,12 @@ namespace jhb {
 			// because main application control over this multiple render pass like reflections, shadows, post-processing effects
 			//renderer.beginSwapChainRenderPass(commandBuffer);
 
-			shadowMapRenderSystem->updateShadowMap(commandBuffer, pbrRenderSystem->pbrObjects, frameIndex);
+			shadowMapRenderSystem->updateShadowMap(commandBuffer, deferedPbrRenderSystem->pbrObjects, frameIndex);
 
-			renderer.beginSwapChainRenderPass(commandBuffer);
-
-			skyboxRenderSystem->renderSkyBox(frameInfo);
-			pbrRenderSystem->renderGameObjects(frameInfo);
-			pointLightSystem->renderGameObjects(frameInfo);
+			renderer.beginSwapChainRenderPass(commandBuffer, deferedPbrRenderSystem->getRenderPass(), deferedPbrRenderSystem->getFrameBuffer(frameIndex), window.getExtent(), 7);
+			/*pbrRenderSystem->renderGameObjects(frameInfo);
+			pointLightSystem->renderGameObjects(frameInfo);*/
+			deferedPbrRenderSystem->renderGameObjects(frameInfo);
 			renderer.endSwapChainRenderPass(commandBuffer);
 			
 			renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass, imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
@@ -227,14 +227,17 @@ namespace jhb {
 
 		mousePickingRenderSystem = std::make_unique<MousePickingRenderSystem>(device, std::vector{ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout() }, "shaders/pbr.vert.spv", "shaders/picking.frag.spv");
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
-		pbrRenderSystem = std::make_unique<PBRRendererSystem>(device, renderer.getSwapChainRenderPass(), std::vector{descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout(),
+		/*pbrRenderSystem = std::make_unique<PBRRendererSystem>(device, renderer.getSwapChainRenderPass(), std::vector{descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout(),
 			descSetLayouts[3]->getDescriptorSetLayout(), descSetLayouts[5]->getDescriptorSetLayout()
 		}, "shaders/pbr.vert.spv",
 			"shaders/pbr.frag.spv");
-		pbrRenderSystem->createFloor(renderer.getSwapChainRenderPass());
-
+		pbrRenderSystem->createFloor(renderer.getSwapChainRenderPass());*/
+		
+		deferedPbrRenderSystem = std::make_unique<DeferedPBRRenderSystem>(device, std::vector{ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[3]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout()
+		, descSetLayouts[5]->getDescriptorSetLayout()}, renderer.getSwapChainImageViews(), renderer.GetSwapChain().getSwapChainImageFormat());
 		pointLightSystem = std::make_unique<PointLightSystem>(device, renderer.getSwapChainRenderPass(), std::vector { descSetLayouts[0]->getDescriptorSetLayout()}, "shaders/point_light.vert.spv",
 			"shaders/point_light.frag.spv");
+
 		skyboxRenderSystem = std::make_unique<SkyBoxRenderSystem>(device, renderer.getSwapChainRenderPass(), std::vector { descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout() }, "shaders/skybox.vert.spv",
 			"shaders/skybox.frag.spv");
 
@@ -287,7 +290,7 @@ namespace jhb {
 
 		// for gltf color map and normal map and emissive, occlusion, metallicRoughness Textures
 		// this time, only need damaged helmet materials info
-		auto gltfModel = pbrRenderSystem->pbrObjects[0].model;
+		auto gltfModel = deferedPbrRenderSystem->pbrObjects[0].model;
 		for (auto& material : gltfModel->materials)
 		{
 			std::vector<VkDescriptorImageInfo> imageinfos = { gltfModel->getTexture(material.baseColorTextureIndex).descriptor, gltfModel->getTexture(material.normalTextureIndex).descriptor

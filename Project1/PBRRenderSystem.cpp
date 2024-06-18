@@ -87,11 +87,11 @@ namespace jhb {
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
-		pipeline = std::make_unique<Pipeline>(
+	/*	pipeline = std::make_unique<Pipeline>(
 			device,
 			"shaders/pbr.vert.spv",
 			"shaders/pbr.frag.spv",
-			pipelineConfig, materials);
+			pipelineConfig, materials);*/
 	}
 
 	void PBRRendererSystem::createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag)

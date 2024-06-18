@@ -31,6 +31,10 @@ namespace jhb {
 		VkImageView getSwapChianImageView(int index) const {
 			return swapChainImageviews[index];
 		}
+
+		const std::vector<VkImageView>& getSwapChianImageViews() const {
+			return swapChainImageviews;
+		}
 		VkRenderPass getRenderPass() { return renderPass; }
 		size_t getImageCount() { return swapChainImages.size(); }
 		VkResult acquireNextImage(uint32_t* imageIndex);

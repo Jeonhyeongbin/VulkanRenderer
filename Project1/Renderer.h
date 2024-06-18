@@ -30,12 +30,13 @@ namespace jhb {
 		SwapChain& GetSwapChain() { return *swapChain; }
 		VkRenderPass getSwapChainRenderPass() const { return swapChain->getRenderPass(); }
 		VkImageView getSwapChainImageView(int index) { return swapChain->getSwapChianImageView(index); }
+		const std::vector<VkImageView>& getSwapChainImageViews() const { return swapChain->getSwapChianImageViews(); }
 		float getAspectRatio() const { return swapChain->extentAspectRatio(); }
 		void setWindowExtent(VkExtent2D _extent) { extent = _extent; }
 
 		VkCommandBuffer beginFrame();
 		void endFrame();
-		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent);
+		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, int attachmentCount = 2);
 		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer);
 		void beginSwapChainRenderPassWithMouseCoordinate(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, float x, float y);
 		void endSwapChainRenderPass(VkCommandBuffer commandBuffer);
