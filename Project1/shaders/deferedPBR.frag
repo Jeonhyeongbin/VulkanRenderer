@@ -146,8 +146,8 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 void main() {
 	vec3 cameraPosWorld = ubo.invView[3].xyz;
 	vec3 fragPosWorld = subpassLoad(inputPosition).rgb;
-	float metallic = subpassLoad(inputMaterial).g;
-	float roughness = subpassLoad(inputMaterial).b;
+	float metallic = subpassLoad(inputMaterial).b;
+	float roughness = subpassLoad(inputMaterial).g;
 	float occulsion = subpassLoad(inputMaterial).r;
 	vec3 N = subpassLoad(inputNormal).rgb;
 
