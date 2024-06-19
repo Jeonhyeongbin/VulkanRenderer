@@ -18,4 +18,6 @@
 %VULKAN_SDK%\Bin\glslc.exe shaders\deferedPBR.vert -o shaders\deferedPBR.vert.spv
 %VULKAN_SDK%\Bin\glslc.exe shaders\deferedPBR.frag -o shaders\deferedPBR.frag.spv
 %VULKAN_SDK%\Bin\glslc.exe shaders\deferedoffscreenNotexture.frag -o shaders\deferedoffscreenNotexture.frag.spv
+%VULKAN_SDK%\Bin\glslc.exe shaders\deferedoffscreenSkybox.vert -o shaders\deferedoffscreenSkybox.vert.spv
+%VULKAN_SDK%\Bin\glslc.exe shaders\deferedoffscreenSkybox.frag -o shaders\deferedoffscreenSkybox.frag.spv
 pause

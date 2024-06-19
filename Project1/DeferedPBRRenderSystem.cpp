@@ -482,6 +482,55 @@ namespace jhb {
 		//this is not gltf model, so using different pipeline 
 	}
 
+	void DeferedPBRRenderSystem::createSkybox()
+	{
+		std::vector<std::string> cubefiles = {  };
+		std::vector<Vertex> vertices = {
+			{{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
+	  {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
+	  {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
+	  {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
+
+	  {{.5f, -.5f, -.5f}, {.8f, .8f, .5f}},
+	  {{.5f, .5f, .5f}, {.8f, .8f, .5f}},
+	  {{.5f, -.5f, .5f}, {.8f, .8f, .5f}},
+	  {{.5f, .5f, -.5f}, {.8f, .8f, .5f}},
+
+	  {{-.5f, -.5f, -.5f}, {.9f, .6f, .5f}},
+	  {{.5f, -.5f, .5f}, {.9f, .6f, .5f}},
+	  {{-.5f, -.5f, .5f}, {.9f, .6f, .5f}},
+	  {{.5f, -.5f, -.5f}, {.9f, .6f, .5f}},
+
+	  {{-.5f, .5f, -.5f}, {.8f, .5f, .5f}},
+	  {{.5f, .5f, .5f}, {.8f, .5f, .5f}},
+	  {{-.5f, .5f, .5f}, {.8f, .5f, .5f}},
+	  {{.5f, .5f, -.5f}, {.8f, .5f, .5f}},
+
+	  {{-.5f, -.5f, 0.5f}, {.5f, .5f, .8f}},
+	  {{.5f, .5f, 0.5f}, {.5f, .5f, .8f}},
+	  {{-.5f, .5f, 0.5f}, {.5f, .5f, .8f}},
+	  {{.5f, -.5f, 0.5f}, {.5f, .5f, .8f}},
+
+	  {{-.5f, -.5f, -0.5f}, {.5f, .8f, .5f}},
+	  {{.5f, .5f, -0.5f}, {.5f, .8f, .5f}},
+	  {{-.5f, .5f, -0.5f}, {.5f, .8f, .5f}},
+	  {{.5f, -.5f, -0.5f}, {.5f, .8f, .5f}},
+		};
+
+		std::vector<uint32_t> indices = { 0,  1,  2,  0,  3,  1,  4,  5,  6,  4,  7,  5,  8,  9,  10, 8,  11, 9,
+								12, 13, 14, 12, 15, 13, 16, 17, 18, 16, 19, 17, 20, 21, 22, 20, 23, 21 };
+
+		std::shared_ptr<Model> cube = std::make_unique<Model>(device);
+		cube->createVertexBuffer(vertices);
+		cube->createIndexBuffer(indices);
+		cube->getTexture(0).loadKTXTexture(device, "Texture/pisa_cube.ktx", VK_IMAGE_VIEW_TYPE_CUBE, 6);
+		auto skyBox = GameObject::createGameObject();
+		skyBox.model = cube;
+		skyBox.transform.translation = { 0.f, 0.f, 0.f };
+		skyBox.transform.scale = { 10.f, 10.f ,10.f };
+		pbrObjects.emplace(skyBox.getId(), std::move(skyBox));
+	}
+
 	void DeferedPBRRenderSystem::createVertexAttributeAndBindingDesc(PipelineConfigInfo& pipelineConfig)
 	{
 		pipelineConfig.attributeDescriptions = jhb::Vertex::getAttrivuteDescriptions();

@@ -1,22 +1,8 @@
 #version 450
 
-layout (location = 0) in vec3 fragColor;
-layout (location = 1) in vec3 fragPosWorld;
-layout (location = 2) in vec3 fragNormalWorld;
-layout (location = 3) in vec2 fraguv;
-layout (location = 4) in vec4 fragtangent;
-layout (location = 5) in float fragroughness;
-layout (location = 6) in float fragmetallic;
-layout (location = 7) in float fr;
-layout (location = 8) in float fg;
-layout (location = 9) in float fb;
-layout (location = 10) in vec3 lightPos;
+layout (location = 0) in vec3 texCoord;
 
-layout (set = 2, binding = 0) uniform sampler2D samplerColorMap;
-layout (set = 2, binding = 1) uniform sampler2D samplerNormalMap;
-layout (set = 2, binding = 2) uniform sampler2D samplerOcclusionMap;
-layout (set = 2, binding = 3) uniform sampler2D samplerEmissiveMap;
-layout (set = 2, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
+layout (set=1,binding = 0) uniform samplerCube skybox;
 
 struct PointLight{
 	vec4 position; // w is  just for allign
@@ -55,19 +41,17 @@ layout (location = 5) out vec4 outColor;
 
 
 void main() {
-	outPosition = vec4(fragPosWorld, 1.0);
+	outPosition = vec4(vec3(0), 1.0);
 
-	vec3 N = normalize(fragNormalWorld);
-	N.y = -N.y;
+	vec3 N = vec3(0.f, 0.f,0.f);
 	outNormal = vec4(N, 1.0);
 
-	outAlbedo.rgb = texture(samplerColorMap, fraguv).rgb;
+	outAlbedo.rgb = texture(skybox, texCoord).rgb;
 
 	// Store linearized depth in alpha component
 	outPosition.a = linearDepth(gl_FragCoord.z);
-	outMaterial.gb = texture(samplerMetallicRoughnessMap, fraguv).gb;
-	outMaterial.r = texture(samplerOcclusionMap, fraguv).r;
-	outEmmisive.rgb = texture(samplerEmissiveMap, fraguv).rgb;
+	outMaterial = vec4(0);
+	outEmmisive.rgb = vec3(0);
 
 	// Write color attachments to avoid undefined behaviour (validation error)
 	outColor = vec4(0.0);
