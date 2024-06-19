@@ -58,9 +58,9 @@ void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLa
 		}
 	}
 	else {
-		if (perModelPipeline)
+		if (noTexturePipeline)
 		{
-			perModelPipeline->bind(commandBuffer);
+			noTexturePipeline->bind(commandBuffer);
 		}
 		if (hasIndexBuffer)
 		{
@@ -103,9 +103,9 @@ void jhb::Model::drawInPickPhase(VkCommandBuffer commandBuffer, VkPipelineLayout
 		}
 	}
 	else {
-		if (perModelPipeline)
+		if (noTexturePipeline)
 		{
-			perModelPipeline->bind(commandBuffer);
+			noTexturePipeline->bind(commandBuffer);
 		}
 		if (hasIndexBuffer)
 		{
@@ -206,9 +206,10 @@ void jhb::Model::createIndexBuffer(const std::vector<uint32_t>& indices)
 
 void jhb::Model::createPipelineForModel(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo)
 {
-	if (perModelPipeline == nullptr)
+	// pipeline for no gltf model or no texture
+	if (noTexturePipeline == nullptr)
 	{
-		perModelPipeline = std::make_unique<Pipeline>(device, vertFilepath, fragFilepath, configInfo);
+		noTexturePipeline = std::make_unique<Pipeline>(device, vertFilepath, fragFilepath, configInfo);
 	}
 }
 

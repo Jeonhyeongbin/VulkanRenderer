@@ -60,6 +60,13 @@ namespace jhb {
 			auto commandBuffer = renderer.beginFrame();
 			if (commandBuffer == nullptr) // begine frame return null pointer if swap chain need recreated
 			{
+				mousePickingRenderSystem->destroyOffscreenFrameBuffer();
+				mousePickingRenderSystem->createOffscreenFrameBuffers();
+
+				renderer.setWindowExtent(window.getExtent());
+				imguiRenderSystem->recreateFrameBuffer(device, renderer.GetSwapChain(), window.getExtent());
+				deferedPbrRenderSystem->createFrameBuffers(renderer.getSwapChainImageViews(), true);
+				window.resetWindowResizedFlag();
 				continue;
 			}
 
@@ -109,14 +116,20 @@ namespace jhb {
 			// render part : vkcmd
 			// this is why beginFram and beginswapchian renderpass are not combined;
 			// because main application control over this multiple render pass like reflections, shadows, post-processing effects
-			//renderer.beginSwapChainRenderPass(commandBuffer);
+			// renderer.beginSwapChainRenderPass(commandBuffer);
 
 			shadowMapRenderSystem->updateShadowMap(commandBuffer, deferedPbrRenderSystem->pbrObjects, frameIndex);
 
 			renderer.beginSwapChainRenderPass(commandBuffer, deferedPbrRenderSystem->getRenderPass(), deferedPbrRenderSystem->getFrameBuffer(frameIndex), window.getExtent(), 7);
-			/*pbrRenderSystem->renderGameObjects(frameInfo);
-			pointLightSystem->renderGameObjects(frameInfo);*/
+			/*
+			pbrRenderSystem->renderGameObjects(frameInfo);
+			pointLightSystem->renderGameObjects(frameInfo);
+			*/
 			deferedPbrRenderSystem->renderGameObjects(frameInfo);
+			renderer.endSwapChainRenderPass(commandBuffer);
+			
+			renderer.beginSwapChainRenderPass(commandBuffer);
+			skyboxRenderSystem->renderSkyBox(frameInfo);
 			renderer.endSwapChainRenderPass(commandBuffer);
 			
 			renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass, imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
@@ -125,16 +138,6 @@ namespace jhb {
 			ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
 			renderer.endSwapChainRenderPass(commandBuffer);
 			renderer.endFrame();
-			if (window.wasWindowResized())
-			{
-				mousePickingRenderSystem->destroyOffscreenFrameBuffer();
-				mousePickingRenderSystem->createOffscreenFrameBuffers();
-
-				renderer.setWindowExtent(window.getExtent());
-				imguiRenderSystem->recreateFrameBuffer(device, renderer.GetSwapChain(), window.getExtent());
-				window.resetWindowResizedFlag();
-				continue;
-			}
 		}
 
 		vkDeviceWaitIdle(device.getLogicalDevice());
@@ -227,12 +230,7 @@ namespace jhb {
 
 		mousePickingRenderSystem = std::make_unique<MousePickingRenderSystem>(device, std::vector{ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout() }, "shaders/pbr.vert.spv", "shaders/picking.frag.spv");
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
-		/*pbrRenderSystem = std::make_unique<PBRRendererSystem>(device, renderer.getSwapChainRenderPass(), std::vector{descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout(),
-			descSetLayouts[3]->getDescriptorSetLayout(), descSetLayouts[5]->getDescriptorSetLayout()
-		}, "shaders/pbr.vert.spv",
-			"shaders/pbr.frag.spv");
-		pbrRenderSystem->createFloor(renderer.getSwapChainRenderPass());*/
-		
+
 		deferedPbrRenderSystem = std::make_unique<DeferedPBRRenderSystem>(device, std::vector{ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[3]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout()
 		, descSetLayouts[5]->getDescriptorSetLayout()}, renderer.getSwapChainImageViews(), renderer.GetSwapChain().getSwapChainImageFormat());
 		pointLightSystem = std::make_unique<PointLightSystem>(device, renderer.getSwapChainRenderPass(), std::vector { descSetLayouts[0]->getDescriptorSetLayout()}, "shaders/point_light.vert.spv",
@@ -320,7 +318,7 @@ namespace jhb {
 		if (window.GetMousePressed() == true && window.objectId <0)
 		{
 			renderer.beginSwapChainRenderPass(commandBuffer, mousePickingRenderSystem->pickingRenderpass, mousePickingRenderSystem->offscreenFrameBuffer[frameIndex], window.getExtent());
-			mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, pbrRenderSystem->pbrObjects, { globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex] }, frameIndex, uboPickingIndexBuffer[frameIndex].get());
+			mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, deferedPbrRenderSystem->pbrObjects, { globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex] }, frameIndex, uboPickingIndexBuffer[frameIndex].get());
 			renderer.endSwapChainRenderPass(commandBuffer);
 
 			// check object id from a pixel whicch located in mouse pointer coordinate
@@ -347,7 +345,7 @@ namespace jhb {
 		// picking only apply to pbrobjects
 		if (window.objectId > 0)
 		{
-			auto& pickedObject = pbrRenderSystem->pbrObjects[window.objectId - 1];
+			auto& pickedObject = deferedPbrRenderSystem->pbrObjects[window.objectId - 1];
 			{
 				if (pickedObject.model)
 				{

@@ -11,6 +11,7 @@ namespace jhb {
 		assert(descSetlayouts.size() == 4 && "descriptor setlayout size in defered render system less than 4!!!!!!!");
 		// 첫번째 subpass는 gltf모델의 머터리얼용 descriptorsetlayout을 첫번쨰 subpass용 pipelinelayout에 묶어 주어야함. 그러므로 uniform buffer 와 함께 총 2개의 descriptor set layout이 필요.
 		createRenderPass(swapchainFormat);
+		createFrameBuffers(swapchainImageViews);
 		initializeOffScreenDescriptor();
 
 		BaseRenderSystem::createPipeLineLayout({ descSetlayouts[0],descSetlayouts[1], descSetlayouts[1] }, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)} });
@@ -19,7 +20,6 @@ namespace jhb {
 		// 두번째 subpass는 pbr을 해야하기 때문에 pbrresource용 descriptorsetlayout을 두번째 subpass용 pipelinelayout에 묶어 주어야함. 이 때도 유니폼 버퍼가 필요하고(light 위치), pbr 이미지용 descriptor set layout, 
 		// 쉐도우용 descriptor set layout 3개 필요.
 		createLightingPipelineAndPipelinelayout({descSetlayouts[0], descSetlayouts[2], descSetlayouts[3] }); // second subapss용
-		createFrameBuffers(swapchainImageViews);
 		createDamagedHelmet();
 		createFloor();
 	}
@@ -161,8 +161,18 @@ namespace jhb {
 		}
 	}
 
-	void DeferedPBRRenderSystem::createFrameBuffers(const std::vector<VkImageView>& swapchainImageViews)
+	void DeferedPBRRenderSystem::createFrameBuffers(const std::vector<VkImageView>& swapchainImageViews, bool shouldRecreate)
 	{
+		if (shouldRecreate)
+		{
+			removeVkResources();
+			createGBuffers();
+
+			gbufferDescriptorPool = nullptr;
+			gbufferDescriptorSetLayout = nullptr;
+			initializeOffScreenDescriptor();
+		}
+
 		std::array<VkImageView, 7> attachments;
 		attachments[1] = PositionAttachment.view;
 		attachments[2] = NormalAttachment.view;
@@ -194,7 +204,6 @@ namespace jhb {
 	void DeferedPBRRenderSystem::createRenderPass(VkFormat swapchianFormat)
 	{
 		createGBuffers();
-
 		// Set up separate renderpass with references to the color and depth attachments
 		std::array<VkAttachmentDescription, 7> attachmentDescs = {};
 
@@ -447,6 +456,28 @@ namespace jhb {
 		floor.setId(id++);
 		floor.model->updateInstanceBuffer(1, 0.f, 0.f, 0, 0);
 
+		PipelineConfigInfo pipelineConfig{};
+		pipelineConfig.depthStencilInfo.depthTestEnable = true;
+		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
+		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
+		createVertexAttributeAndBindingDesc(pipelineConfig);
+		std::array<VkPipelineColorBlendAttachmentState, 5> blendAttachmentStates;
+		for (int i = 0; i < 5; i++)
+		{
+			VkPipelineColorBlendAttachmentState colorblendState{};
+			colorblendState.blendEnable = VK_FALSE;
+			colorblendState.colorWriteMask = 0xf;
+			blendAttachmentStates[i] = colorblendState;
+		}
+
+		pipelineConfig.colorBlendInfo.attachmentCount = blendAttachmentStates.size();
+		pipelineConfig.colorBlendInfo.pAttachments = blendAttachmentStates.data();
+
+		pipelineConfig.renderPass = offScreenRenderPass;
+		pipelineConfig.pipelineLayout = pipelineLayout;
+
+		floor.model->createPipelineForModel("shaders/deferedoffscreen.vert.spv",
+			"shaders/deferedoffscreenNotexture.frag.spv", pipelineConfig);
 		pbrObjects.emplace(floor.getId(), std::move(floor));
 		//this is not gltf model, so using different pipeline 
 	}
@@ -541,6 +572,36 @@ namespace jhb {
 		pipelineConfig.pipelineLayout = lightingPipelinelayout;
 		lightingPipeline = std::make_unique<Pipeline>(device, "shaders/deferedPBR.vert.spv",
 			"shaders/deferedPBR.frag.spv", pipelineConfig); 
+	}
+
+	void DeferedPBRRenderSystem::removeVkResources()
+	{
+		vkDestroyImage(device.getLogicalDevice(), NormalAttachment.image, nullptr);
+		vkDestroyImageView(device.getLogicalDevice(), NormalAttachment.view, nullptr);
+		vkFreeMemory(device.getLogicalDevice(), NormalAttachment.memory, nullptr);
+
+		vkDestroyImage(device.getLogicalDevice(), AlbedoAttachment.image, nullptr);
+		vkDestroyImageView(device.getLogicalDevice(), AlbedoAttachment.view, nullptr);
+		vkFreeMemory(device.getLogicalDevice(), AlbedoAttachment.memory, nullptr);
+
+		vkDestroyImage(device.getLogicalDevice(), MaterialAttachment.image, nullptr);
+		vkDestroyImageView(device.getLogicalDevice(), MaterialAttachment.view, nullptr);
+		vkFreeMemory(device.getLogicalDevice(), MaterialAttachment.memory, nullptr);
+
+		vkDestroyImage(device.getLogicalDevice(), EmmisiveAttachment.image, nullptr);
+		vkDestroyImageView(device.getLogicalDevice(), EmmisiveAttachment.view, nullptr);
+		vkFreeMemory(device.getLogicalDevice(), EmmisiveAttachment.memory, nullptr);
+
+		vkDestroyImage(device.getLogicalDevice(), DepthAttachment.image, nullptr);
+		vkDestroyImageView(device.getLogicalDevice(), DepthAttachment.view, nullptr);
+		vkFreeMemory(device.getLogicalDevice(), DepthAttachment.memory, nullptr);
+
+		gbufferDescriptorSetLayout = nullptr;
+
+		for (int i = 0; i < frameBuffers.size(); i++)
+		{
+			vkDestroyFramebuffer(device.getLogicalDevice(), frameBuffers[i], nullptr);
+		}
 	}
 
 	void DeferedPBRRenderSystem::renderGameObjects(FrameInfo& frameInfo)

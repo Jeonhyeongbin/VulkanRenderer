@@ -50,6 +50,7 @@ namespace jhb {
 	public:
 		VkFramebuffer getFrameBuffer(int idx) { return frameBuffers[idx]; }
 		VkRenderPass getRenderPass() { return offScreenRenderPass; }
+		void createFrameBuffers(const std::vector<VkImageView>& swapchainImageViews, bool shouldRecreate = false);
 	private:
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass
@@ -58,13 +59,13 @@ namespace jhb {
 		void createAttachment(VkFormat format,
 			VkImageUsageFlagBits usage,
 			Texture* attachment);
-		void createFrameBuffers(const std::vector<VkImageView>& swapchainImageViews);
 		void createRenderPass(VkFormat);
 
 		void createDamagedHelmet();
 		void createFloor();
 		void createVertexAttributeAndBindingDesc(PipelineConfigInfo&);
 		void createLightingPipelineAndPipelinelayout(const std::vector<VkDescriptorSetLayout>&);
+		void removeVkResources();
 
 		std::vector<VkDescriptorSetLayout> initializeOffScreenDescriptor();
 		std::shared_ptr<Model> loadGLTFFile(const std::string& filename);

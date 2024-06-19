@@ -36,7 +36,7 @@ namespace jhb {
 
 		VkCommandBuffer beginFrame();
 		void endFrame();
-		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, int attachmentCount = 2);
+		bool beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, int attachmentCount = 2);
 		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer);
 		void beginSwapChainRenderPassWithMouseCoordinate(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, float x, float y);
 		void endSwapChainRenderPass(VkCommandBuffer commandBuffer);

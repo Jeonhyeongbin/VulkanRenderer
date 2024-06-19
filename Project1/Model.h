@@ -165,7 +165,7 @@ namespace jhb {
 
 	public:
 		// only for no gftl model
-		std::unique_ptr<class Pipeline> perModelPipeline = nullptr;
+		std::unique_ptr<class Pipeline> noTexturePipeline = nullptr;
 		glm::mat4 modelMatrix;
 
 	private:

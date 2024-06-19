@@ -78,7 +78,7 @@ namespace jhb {
 
 		auto result = swapChain->acquireNextImage(&currentImageIndex);
 
-		if (result == VK_ERROR_OUT_OF_DATE_KHR)
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.wasWindowResized())
 		{
 			// right after window resized
 			recreateSwapChain(dependencies, extent, true, VK_FORMAT_R16G16B16A16_SFLOAT, 2);
@@ -131,7 +131,7 @@ namespace jhb {
 		beginSwapChainRenderPass(commandBuffer, swapChain->getRenderPass(), swapChain->getFrameBuffer(currentFrameIndex), swapChain->getSwapChainExtent());
 	}
 
-	void Renderer::beginSwapChainRenderPassWithMouseCoordinate(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, float x, float y)
+	void Renderer::beginSwapChainRenderPassWithMouseCoordinate(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D _extent, float x, float y)
 	{
 		assert(isFrameStarted && "Can't call beginSwapChainRenderPass while frame is not in progress!!");
 		assert(commandBuffer == getCurrentCommandBuffer() && "Can't begining render pass on command buffer from a different frame!");
@@ -174,7 +174,7 @@ namespace jhb {
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 	}
 
-	void Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, int attachmentCount)
+	bool Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D _extent, int attachmentCount)
 	{
 		assert(isFrameStarted && "Can't call beginSwapChainRenderPass while frame is not in progress!!");
 		assert(commandBuffer == getCurrentCommandBuffer() && "Can't begining render pass on command buffer from a different frame!");
@@ -185,7 +185,13 @@ namespace jhb {
 		renderPassInfo.framebuffer = frameBuffer;
 
 		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = { extent.width, extent.height };
+		renderPassInfo.renderArea.extent = { _extent.width, _extent.height };
+		if (extent.width != _extent.width || extent.height != _extent.height)
+		{
+			//rectea
+			extent = _extent;
+			return false;
+		}
 
 		std::vector<VkClearValue> clearValues(attachmentCount);
 		for (int i = 0; i < attachmentCount; i++)
@@ -208,6 +214,7 @@ namespace jhb {
 		VkRect2D scissor{ {0, 0}, {swapChain->getSwapChainExtent().width, swapChain->getSwapChainExtent().height} };
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+		return true;
 	}
 
 	void Renderer::endSwapChainRenderPass(VkCommandBuffer commandBuffer)
