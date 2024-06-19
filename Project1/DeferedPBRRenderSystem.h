@@ -63,6 +63,8 @@ namespace jhb {
 
 		void createDamagedHelmet();
 		void createFloor();
+		void createSkybox();
+
 		void createVertexAttributeAndBindingDesc(PipelineConfigInfo&);
 		void createLightingPipelineAndPipelinelayout(const std::vector<VkDescriptorSetLayout>&);
 		void removeVkResources();
