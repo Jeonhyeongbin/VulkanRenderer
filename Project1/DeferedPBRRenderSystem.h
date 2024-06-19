@@ -67,6 +67,7 @@ namespace jhb {
 
 		void createVertexAttributeAndBindingDesc(PipelineConfigInfo&);
 		void createLightingPipelineAndPipelinelayout(const std::vector<VkDescriptorSetLayout>&);
+		void createSkyboxPipelineAndPipelinelayout(const std::vector<VkDescriptorSetLayout>& externDescsetlayout);
 		void removeVkResources();
 
 		std::vector<VkDescriptorSetLayout> initializeOffScreenDescriptor();
@@ -74,7 +75,9 @@ namespace jhb {
 
 	private:
 		std::unique_ptr<Pipeline> lightingPipeline = nullptr; // pipeline for second subpass
+		std::unique_ptr<Pipeline> skyboxPipeline = nullptr; // pipeline for skybox
 		VkPipelineLayout lightingPipelinelayout;
+		VkPipelineLayout skyboxPipelinelayout;
 
 	private:
 		Texture PositionAttachment;

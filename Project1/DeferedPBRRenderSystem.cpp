@@ -8,7 +8,7 @@ namespace jhb {
 	DeferedPBRRenderSystem::DeferedPBRRenderSystem(Device& device, std::vector<VkDescriptorSetLayout> descSetlayouts, const std::vector<VkImageView>& swapchainImageViews, VkFormat swapchainFormat)
 		: BaseRenderSystem(device)
 	{
-		assert(descSetlayouts.size() == 4 && "descriptor setlayout size in defered render system less than 4!!!!!!!");
+		assert(descSetlayouts.size() == 5 && "descriptor setlayout size in defered render system less than 5!!!!!!!");
 		// 첫번째 subpass는 gltf모델의 머터리얼용 descriptorsetlayout을 첫번쨰 subpass용 pipelinelayout에 묶어 주어야함. 그러므로 uniform buffer 와 함께 총 2개의 descriptor set layout이 필요.
 		createRenderPass(swapchainFormat);
 		createFrameBuffers(swapchainImageViews);
@@ -20,8 +20,10 @@ namespace jhb {
 		// 두번째 subpass는 pbr을 해야하기 때문에 pbrresource용 descriptorsetlayout을 두번째 subpass용 pipelinelayout에 묶어 주어야함. 이 때도 유니폼 버퍼가 필요하고(light 위치), pbr 이미지용 descriptor set layout, 
 		// 쉐도우용 descriptor set layout 3개 필요.
 		createLightingPipelineAndPipelinelayout({descSetlayouts[0], descSetlayouts[2], descSetlayouts[3] }); // second subapss용
+		createSkyboxPipelineAndPipelinelayout({ descSetlayouts[0], descSetlayouts[4]});
 		createDamagedHelmet();
 		createFloor();
+		createSkybox();
 	}
 
 	DeferedPBRRenderSystem::~DeferedPBRRenderSystem()
@@ -457,8 +459,8 @@ namespace jhb {
 		floor.model->updateInstanceBuffer(1, 0.f, 0.f, 0, 0);
 
 		PipelineConfigInfo pipelineConfig{};
-		pipelineConfig.depthStencilInfo.depthTestEnable = true;
-		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
+		pipelineConfig.depthStencilInfo.depthTestEnable = false;
+		pipelineConfig.depthStencilInfo.depthWriteEnable = false;
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		createVertexAttributeAndBindingDesc(pipelineConfig);
 		std::array<VkPipelineColorBlendAttachmentState, 5> blendAttachmentStates;
@@ -623,6 +625,42 @@ namespace jhb {
 			"shaders/deferedPBR.frag.spv", pipelineConfig); 
 	}
 
+	void DeferedPBRRenderSystem::createSkyboxPipelineAndPipelinelayout(const std::vector<VkDescriptorSetLayout>& externDescsetlayout)
+	{
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayoutInfo.setLayoutCount = externDescsetlayout.size();
+		pipelineLayoutInfo.pSetLayouts = externDescsetlayout.data();
+		if (vkCreatePipelineLayout(device.getLogicalDevice(), &pipelineLayoutInfo, nullptr, &skyboxPipelinelayout) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create pipeline layout!");
+		}
+
+		PipelineConfigInfo pipelineConfig{};
+		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
+		pipelineConfig.depthStencilInfo.depthTestEnable = false;
+		pipelineConfig.depthStencilInfo.depthWriteEnable = false;
+		pipelineConfig.subpass = 0;
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(1);
+		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].location = 0;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[0].offset = offsetof(Vertex, position);
+
+		std::vector<VkVertexInputBindingDescription> bindingDescriptions(1);
+		bindingDescriptions[0].binding = 0;
+		bindingDescriptions[0].stride = sizeof(glm::vec3);
+		bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		pipelineConfig.attributeDescriptions = attributeDescriptions;
+		pipelineConfig.bindingDescriptions = bindingDescriptions;
+
+		pipelineConfig.renderPass = offScreenRenderPass;
+		pipelineConfig.pipelineLayout = skyboxPipelinelayout;
+		skyboxPipeline = std::make_unique<Pipeline>(device, "shaders/deferedoffscreenSkybox.vert.spv",
+			"shaders/deferedoffscreenSkybox.frag.spv", pipelineConfig);
+	}
+
 	void DeferedPBRRenderSystem::removeVkResources()
 	{
 		vkDestroyImage(device.getLogicalDevice(), NormalAttachment.image, nullptr);
@@ -674,6 +712,13 @@ namespace jhb {
 				vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelmat);
 			}
 
+			if (kv.first == 2)
+			{
+				vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipelinelayout, 1, 1, &frameInfo.skyBoxImageSamplerDecriptorSet, 0, nullptr);
+				vkCmdBindPipeline(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline->getPipeline());
+				obj.model->draw(frameInfo.commandBuffer, skyboxPipelinelayout, frameInfo.frameIndex);
+				continue;
+			}
 			obj.model->draw(frameInfo.commandBuffer, pipelineLayout, frameInfo.frameIndex);
 		}
 

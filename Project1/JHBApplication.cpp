@@ -127,11 +127,7 @@ namespace jhb {
 			*/
 			deferedPbrRenderSystem->renderGameObjects(frameInfo);
 			renderer.endSwapChainRenderPass(commandBuffer);
-			
-			renderer.beginSwapChainRenderPass(commandBuffer);
-			skyboxRenderSystem->renderSkyBox(frameInfo);
-			renderer.endSwapChainRenderPass(commandBuffer);
-			
+		
 			renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass, imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
 			imguiRenderSystem->newFrame(deferedPbrRenderSystem->pbrObjects[1]);
 			ImDrawData* draw_data = ImGui::GetDrawData();
@@ -232,7 +228,7 @@ namespace jhb {
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
 
 		deferedPbrRenderSystem = std::make_unique<DeferedPBRRenderSystem>(device, std::vector{ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[3]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout()
-		, descSetLayouts[5]->getDescriptorSetLayout()}, renderer.getSwapChainImageViews(), renderer.GetSwapChain().getSwapChainImageFormat());
+		, descSetLayouts[5]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout()}, renderer.getSwapChainImageViews(), renderer.GetSwapChain().getSwapChainImageFormat());
 		pointLightSystem = std::make_unique<PointLightSystem>(device, renderer.getSwapChainRenderPass(), std::vector { descSetLayouts[0]->getDescriptorSetLayout()}, "shaders/point_light.vert.spv",
 			"shaders/point_light.frag.spv");
 
@@ -253,8 +249,8 @@ namespace jhb {
 
 		VkDescriptorImageInfo skyBoximageInfo{};
 		skyBoximageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		skyBoximageInfo.imageView = skyboxRenderSystem->skyBox.model->getTexture(0).view;
-		skyBoximageInfo.sampler = skyboxRenderSystem->skyBox.model->getTexture(0).sampler;
+		skyBoximageInfo.imageView = deferedPbrRenderSystem->pbrObjects[2].model->getTexture(0).view;
+		skyBoximageInfo.sampler = deferedPbrRenderSystem->pbrObjects[2].model->getTexture(0).sampler;
 
 		for (int i = 0; i < CubeBoxDescriptorSets.size(); i++)
 		{
