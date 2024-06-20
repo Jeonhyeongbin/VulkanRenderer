@@ -40,12 +40,12 @@ float linearDepth(float depth)
 	return (2.0f * NEAR_PLANE * FAR_PLANE) / (FAR_PLANE + NEAR_PLANE - z * (FAR_PLANE - NEAR_PLANE));	
 }
 
-layout (location = 0) out vec4 outPosition;
-layout (location = 1) out vec4 outNormal;
-layout (location = 2) out vec4 outAlbedo;
-layout (location = 3) out vec4 outMaterial;
-layout (location = 4) out vec4 outEmmisive;
-layout (location = 5) out vec4 outColor;
+layout (location = 0) out vec4 outColor;
+layout (location = 1) out vec4 outPosition;
+layout (location = 2) out vec4 outNormal;
+layout (location = 3) out vec4 outAlbedo;
+layout (location = 4) out vec4 outMaterial;
+layout (location = 5) out vec4 outEmmisive;
 
 
 void main() {
@@ -55,13 +55,13 @@ void main() {
 	N.y = -N.y;
 	outNormal = vec4(N, 1.0);
 
-	outAlbedo.rgb = fragColor;
+	outAlbedo = vec4(1,1,1,1);
 
 	// Store linearized depth in alpha component
 	outPosition.a = linearDepth(gl_FragCoord.z);
 	outMaterial.g = fragmetallic;
 	outMaterial.b = fragroughness;
-	outMaterial.r = 0.f;
+	outMaterial.r = 1.f;
 	outEmmisive.rgb = vec3(0.f, 0.f, 0.f);
 
 	// Write color attachments to avoid undefined behaviour (validation error)

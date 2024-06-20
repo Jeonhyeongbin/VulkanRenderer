@@ -24,6 +24,7 @@ namespace jhb {
 		createDamagedHelmet();
 		createFloor();
 		createSkybox();
+
 	}
 
 	DeferedPBRRenderSystem::~DeferedPBRRenderSystem()
@@ -38,6 +39,7 @@ namespace jhb {
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthTestEnable = true;
 		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
+		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		createVertexAttributeAndBindingDesc(pipelineConfig);
 
@@ -82,7 +84,7 @@ namespace jhb {
 
 		// Albedo (color)
 		createAttachment(
-			VK_FORMAT_R8G8B8A8_UNORM,
+			VK_FORMAT_R16G16B16A16_SFLOAT,
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 			&AlbedoAttachment);
 
@@ -244,6 +246,7 @@ namespace jhb {
 		attachmentDescs[6].format = DepthAttachment.format;
 
 		std::vector<VkAttachmentReference> colorReferences;
+		colorReferences.push_back({ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 		colorReferences.push_back({ 1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 		colorReferences.push_back({ 2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 		colorReferences.push_back({ 3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
@@ -412,6 +415,7 @@ namespace jhb {
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthTestEnable = true;
 		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
+		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		createVertexAttributeAndBindingDesc(pipelineConfig);
 		std::array<VkPipelineColorBlendAttachmentState, 5> blendAttachmentStates;
@@ -459,8 +463,8 @@ namespace jhb {
 		floor.model->updateInstanceBuffer(1, 0.f, 0.f, 0, 0);
 
 		PipelineConfigInfo pipelineConfig{};
-		pipelineConfig.depthStencilInfo.depthTestEnable = false;
-		pipelineConfig.depthStencilInfo.depthWriteEnable = false;
+		pipelineConfig.depthStencilInfo.depthTestEnable = true;
+		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		createVertexAttributeAndBindingDesc(pipelineConfig);
 		std::array<VkPipelineColorBlendAttachmentState, 5> blendAttachmentStates;
@@ -477,7 +481,7 @@ namespace jhb {
 
 		pipelineConfig.renderPass = offScreenRenderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
-
+		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 		floor.model->createPipelineForModel("shaders/deferedoffscreen.vert.spv",
 			"shaders/deferedoffscreenNotexture.frag.spv", pipelineConfig);
 		pbrObjects.emplace(floor.getId(), std::move(floor));
@@ -530,6 +534,7 @@ namespace jhb {
 		skyBox.model = cube;
 		skyBox.transform.translation = { 0.f, 0.f, 0.f };
 		skyBox.transform.scale = { 10.f, 10.f ,10.f };
+		skyBox.setId(id++);
 		pbrObjects.emplace(skyBox.getId(), std::move(skyBox));
 	}
 
@@ -602,8 +607,8 @@ namespace jhb {
 
 		PipelineConfigInfo pipelineConfig{};
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
-		pipelineConfig.depthStencilInfo.depthTestEnable = true;
-		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
+		pipelineConfig.depthStencilInfo.depthTestEnable = false;
+		pipelineConfig.depthStencilInfo.depthWriteEnable = false;
 		pipelineConfig.subpass = 1;
 		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(1);
 		attributeDescriptions[0].binding = 0;
@@ -631,6 +636,9 @@ namespace jhb {
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipelineLayoutInfo.setLayoutCount = externDescsetlayout.size();
 		pipelineLayoutInfo.pSetLayouts = externDescsetlayout.data();
+		const VkPushConstantRange constantRange[] = { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData)} };
+		pipelineLayoutInfo.pPushConstantRanges = constantRange;
+		pipelineLayoutInfo.pushConstantRangeCount = 1;
 		if (vkCreatePipelineLayout(device.getLogicalDevice(), &pipelineLayoutInfo, nullptr, &skyboxPipelinelayout) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create pipeline layout!");
@@ -638,22 +646,25 @@ namespace jhb {
 
 		PipelineConfigInfo pipelineConfig{};
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
-		pipelineConfig.depthStencilInfo.depthTestEnable = false;
-		pipelineConfig.depthStencilInfo.depthWriteEnable = false;
+		pipelineConfig.depthStencilInfo.depthTestEnable = true;
+		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
+		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 		pipelineConfig.subpass = 0;
-		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(1);
-		attributeDescriptions[0].binding = 0;
-		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, position);
 
-		std::vector<VkVertexInputBindingDescription> bindingDescriptions(1);
-		bindingDescriptions[0].binding = 0;
-		bindingDescriptions[0].stride = sizeof(glm::vec3);
-		bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		createVertexAttributeAndBindingDesc(pipelineConfig);
+		//std::vector<VkVertexInputAttributeDescription> attributeDescriptions(1);
+		//attributeDescriptions[0].binding = 0;
+		//attributeDescriptions[0].location = 0;
+		//attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		//attributeDescriptions[0].offset = offsetof(Vertex, Vertex::position);
 
-		pipelineConfig.attributeDescriptions = attributeDescriptions;
-		pipelineConfig.bindingDescriptions = bindingDescriptions;
+		//std::vector<VkVertexInputBindingDescription> bindingDescriptions(1);
+		//bindingDescriptions[0].binding = 0;
+		//bindingDescriptions[0].stride = sizeof(glm::vec3);
+		//bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		//pipelineConfig.attributeDescriptions = attributeDescriptions;
+		//pipelineConfig.bindingDescriptions = bindingDescriptions;
 
 		pipelineConfig.renderPass = offScreenRenderPass;
 		pipelineConfig.pipelineLayout = skyboxPipelinelayout;
@@ -714,8 +725,16 @@ namespace jhb {
 
 			if (kv.first == 2)
 			{
+				auto& skyBox = kv.second;
 				vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipelinelayout, 1, 1, &frameInfo.skyBoxImageSamplerDecriptorSet, 0, nullptr);
 				vkCmdBindPipeline(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline->getPipeline());
+
+				SimplePushConstantData push{};
+				push.ModelMatrix = skyBox.transform.mat4();
+				push.normalMatrix = skyBox.transform.normalMatrix();
+
+				vkCmdPushConstants(frameInfo.commandBuffer, skyboxPipelinelayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
+
 				obj.model->draw(frameInfo.commandBuffer, skyboxPipelinelayout, frameInfo.frameIndex);
 				continue;
 			}

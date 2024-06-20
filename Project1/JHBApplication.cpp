@@ -116,7 +116,6 @@ namespace jhb {
 			// render part : vkcmd
 			// this is why beginFram and beginswapchian renderpass are not combined;
 			// because main application control over this multiple render pass like reflections, shadows, post-processing effects
-			// renderer.beginSwapChainRenderPass(commandBuffer);
 
 			shadowMapRenderSystem->updateShadowMap(commandBuffer, deferedPbrRenderSystem->pbrObjects, frameIndex);
 
@@ -343,7 +342,7 @@ namespace jhb {
 		{
 			auto& pickedObject = deferedPbrRenderSystem->pbrObjects[window.objectId - 1];
 			{
-				if (pickedObject.model)
+				if (pickedObject.model && pickedObject.getId()!=2)
 				{
 					// should transfer rotation axis to object space;
 					pickedObject.model->pickedObjectRotationMatrix *= glm::rotate(glm::mat4{1.f}, (float)((px - x)*(0.001)), glm::vec3{0, 0, 1});

@@ -157,6 +157,11 @@ void main() {
 	vec3 F0 = vec3(0.04);
 
 	vec4 albedo = subpassLoad(inputAlbedo);
+	if(albedo.a == -1)
+	{
+		outColor = vec4(albedo.rgb, 1);
+	}
+	else{
 	F0 = mix(F0, albedo.rgb, metallic);
 
 		if (ALPHA_MASK) {
@@ -208,4 +213,5 @@ void main() {
 	vec4 emission = vec4(SRGBtoLINEAR(subpassLoad(inputEmmisive)).rgb,1);
 	outColor = vec4(color, 1.0) + emission;
 	outColor *= shadow;
+	}
 }
