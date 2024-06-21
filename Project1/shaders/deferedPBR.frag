@@ -170,7 +170,6 @@ void main() {
 		}
 	}
 	vec3 occlusionMaterialRoughness = subpassLoad(inputMaterial).rgb;
-	vec3 emmsive = subpassLoad(inputEmmisive).rgb;
 	vec3 Lo = vec3(0.0);
 	for(int i = 0; i < ubo.pointLights.length(); i++) {
 		vec3 L = normalize(ubo.pointLights[i].position.xyz - fragPosWorld);
@@ -209,6 +208,10 @@ void main() {
 
 	// Check if fragment is in shadow
     float shadow = (dist <= sampledDist + EPSILON) ? 1.0 : SHADOW_OPACITY;
+	if(fragPosWorld.z >1.0)
+	{
+		shadow = 1;
+	}
 
 	vec4 emission = vec4(SRGBtoLINEAR(subpassLoad(inputEmmisive)).rgb,1);
 	outColor = vec4(color, 1.0) + emission;

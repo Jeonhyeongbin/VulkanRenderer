@@ -40,6 +40,12 @@ layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
 #define NEAR_PLANE 0.1f
 #define FAR_PLANE 2
 
+vec4 SRGBtoLINEAR(vec4 srgbIn)
+{
+	vec3 linOut = pow(srgbIn.xyz,vec3(2.2));
+	return vec4(linOut,srgbIn.w);
+}
+
 float linearDepth(float depth)
 {
 	float z = depth * 2.0f - 1.0f; 
@@ -68,7 +74,7 @@ void main() {
 	outPosition.a = linearDepth(gl_FragCoord.z);
 	outMaterial.gb = texture(samplerMetallicRoughnessMap, fraguv).gb;
 	outMaterial.r = texture(samplerOcclusionMap, fraguv).r;
-	outEmmisive.rgb = texture(samplerEmissiveMap, fraguv).rgb;
+	outEmmisive.rgb = texture(samplerEmissiveMap , fraguv).rgb;
 
 	// Write color attachments to avoid undefined behaviour (validation error)
 	outColor = vec4(0.0);

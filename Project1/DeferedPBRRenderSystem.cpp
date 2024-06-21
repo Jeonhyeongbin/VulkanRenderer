@@ -24,7 +24,6 @@ namespace jhb {
 		createDamagedHelmet();
 		createFloor();
 		createSkybox();
-
 	}
 
 	DeferedPBRRenderSystem::~DeferedPBRRenderSystem()
@@ -88,12 +87,12 @@ namespace jhb {
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 			&AlbedoAttachment);
 
-		// Albedo (color)
+		// material
 		createAttachment(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 			&MaterialAttachment);
-
+		// emmsive
 		createAttachment(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
@@ -418,8 +417,8 @@ namespace jhb {
 		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		createVertexAttributeAndBindingDesc(pipelineConfig);
-		std::array<VkPipelineColorBlendAttachmentState, 5> blendAttachmentStates;
-		for (int i = 0; i < 5; i++)
+		std::array<VkPipelineColorBlendAttachmentState, 6> blendAttachmentStates;
+		for (int i = 0; i < 6; i++)
 		{
 			VkPipelineColorBlendAttachmentState colorblendState{};
 			colorblendState.blendEnable = VK_FALSE;
