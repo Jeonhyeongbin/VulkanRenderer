@@ -59,8 +59,8 @@ void main() {
 
 	// Store linearized depth in alpha component
 	outPosition.a = linearDepth(gl_FragCoord.z);
-	outMaterial.g = fragmetallic;
-	outMaterial.b = fragroughness;
+	outMaterial.g = fragroughness;
+	outMaterial.b = fragmetallic;
 	outMaterial.r = 1.f;
 	outEmmisive.rgb = vec3(0.f, 0.f, 0.f);
 

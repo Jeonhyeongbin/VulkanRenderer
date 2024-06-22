@@ -208,11 +208,6 @@ void main() {
 
 	// Check if fragment is in shadow
     float shadow = (dist <= sampledDist + EPSILON) ? 1.0 : SHADOW_OPACITY;
-	if(fragPosWorld.z >1.0)
-	{
-		shadow = 1;
-	}
-
 	vec4 emission = vec4(SRGBtoLINEAR(subpassLoad(inputEmmisive)).rgb,1);
 	outColor = vec4(color, 1.0) + emission;
 	outColor *= shadow;

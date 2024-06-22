@@ -18,27 +18,12 @@ layout (set = 2, binding = 2) uniform sampler2D samplerOcclusionMap;
 layout (set = 2, binding = 3) uniform sampler2D samplerEmissiveMap;
 layout (set = 2, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
 
-struct PointLight{
-	vec4 position; // w is  just for allign
-	vec4 color; // w is intensity
-} light;
-
-layout(set=0, binding = 0) uniform GlobalUbo{
-	mat4 projection;
-	mat4 view;
-	mat4 invView;
-	vec4 ambientLightColor;
-	PointLight pointLights[10];
-	int numLights;
-	float exposure;
-	float gamma;
-} ubo;
 
 layout (constant_id = 0) const bool ALPHA_MASK = false;
 layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
 
 #define NEAR_PLANE 0.1f
-#define FAR_PLANE 2
+#define FAR_PLANE 1024
 
 vec4 SRGBtoLINEAR(vec4 srgbIn)
 {
@@ -59,13 +44,27 @@ layout (location = 3) out vec4 outAlbedo;
 layout (location = 4) out vec4 outMaterial;
 layout (location = 5) out vec4 outEmmisive;
 
+vec3 calculateNormal(vec3 inNormal)
+{
+	vec3 tangentNormal = texture(samplerNormalMap, fraguv).xyz * 2.0 - 1.0;
 
+	vec3 N = normalize(fragNormalWorld);
+	vec3 q1 = dFdx(fragPosWorld);
+	vec3 q2 = dFdy(fragPosWorld);
+	vec2 st1 = dFdx(fraguv);
+	vec2 st2 = dFdy(fraguv);
+
+	vec3 T = normalize(q1 * st2.t- q2 * st1.t);
+	vec3 B = -normalize(cross(N, T));
+	mat3 TBN = mat3(T, B, N);
+
+	return normalize(TBN * tangentNormal);
+}
 
 void main() {
 	outPosition = vec4(fragPosWorld, 1.0);
 
 	vec3 N = normalize(fragNormalWorld);
-	N.y = -N.y;
 	outNormal = vec4(N, 1.0);
 
 	outAlbedo.rgb = texture(samplerColorMap, fraguv).rgb;
