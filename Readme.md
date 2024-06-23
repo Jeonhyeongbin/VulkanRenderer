@@ -24,6 +24,7 @@ try {
 ![실행 결과](./image.png)
 
 - Instancing
+- MultiSampling
 - PBR-IBL
 - Mouse-Picking
 - Defered-rendering (using subpass)
