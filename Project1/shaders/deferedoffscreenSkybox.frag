@@ -1,7 +1,6 @@
 #version 450
 
 layout (location = 0) in vec3 texCoord;
-layout (location = 1) in vec4 fragpos;
 
 layout (set=1,binding = 0) uniform samplerCube skybox;
 
@@ -23,7 +22,7 @@ layout (location = 5) out vec4 outEmmisive;
 
 
 void main() {
-	outPosition = fragpos;
+	outPosition = vec4(0.f);
 
 	vec3 N = vec3(0.f, 0.f,0.f);
 	outNormal = vec4(N, 1.0);

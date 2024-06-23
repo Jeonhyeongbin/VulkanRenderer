@@ -139,6 +139,6 @@ namespace jhb {
 		const bool enableValidationLayers = true;
 #endif
 		public:
-			VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+			VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_8_BIT;
 	};
 }

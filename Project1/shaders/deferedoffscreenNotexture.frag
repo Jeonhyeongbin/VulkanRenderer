@@ -52,7 +52,7 @@ void main() {
 	outPosition = vec4(fragPosWorld, 1.0);
 
 	vec3 N = normalize(fragNormalWorld);
-	N.y = -N.y;
+	N.y = N.y;
 	outNormal = vec4(N, 1.0);
 
 	outAlbedo = vec4(1,1,1,1);

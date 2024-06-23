@@ -119,7 +119,7 @@ namespace jhb {
 
 			shadowMapRenderSystem->updateShadowMap(commandBuffer, deferedPbrRenderSystem->pbrObjects, frameIndex);
 
-			renderer.beginSwapChainRenderPass(commandBuffer, deferedPbrRenderSystem->getRenderPass(), deferedPbrRenderSystem->getFrameBuffer(frameIndex), window.getExtent(), 7);
+			renderer.beginSwapChainRenderPass(commandBuffer, deferedPbrRenderSystem->getRenderPass(), deferedPbrRenderSystem->getFrameBuffer(frameIndex), window.getExtent(), 8);
 			/*
 			pbrRenderSystem->renderGameObjects(frameInfo);
 			pointLightSystem->renderGameObjects(frameInfo);

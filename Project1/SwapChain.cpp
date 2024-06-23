@@ -2,6 +2,7 @@
 #include <array>
 
 namespace jhb {
+	VkFormat SwapChain::swapChainImageFormat;
 	SwapChain::SwapChain(Device& device, VkExtent2D extent, const std::vector<VkSubpassDependency>& dependencies, bool shouldSwapChainCreate, VkFormat format, int attachmentCount)
 		:device{ device }, swapChainExtent{ extent }
 	{

@@ -59,13 +59,14 @@ namespace jhb {
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilites);
+	public:
+		static VkFormat swapChainImageFormat;
 
 	private:
 		Device& device;
 		VkExtent2D swapChainExtent;
 
 		VkSwapchainKHR swapChain;
-		VkFormat swapChainImageFormat;
 		VkFormat swapChainDepthFormat;
 		VkRenderPass renderPass;
 

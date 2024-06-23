@@ -58,7 +58,7 @@ namespace jhb {
 		void createGBuffers();
 		void createAttachment(VkFormat format,
 			VkImageUsageFlagBits usage,
-			Texture* attachment);
+			Texture* attachment, VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT);
 		void createRenderPass(VkFormat);
 
 		void createDamagedHelmet();
@@ -86,6 +86,7 @@ namespace jhb {
 		Texture DepthAttachment;
 		Texture MaterialAttachment;
 		Texture EmmisiveAttachment;
+		Texture ColorResolveAttachment;
 
 		std::vector<VkFramebuffer> frameBuffers;
 

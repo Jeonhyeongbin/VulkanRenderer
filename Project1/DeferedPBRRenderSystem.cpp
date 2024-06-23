@@ -1,6 +1,7 @@
 #include "DeferedPBRRenderSystem.h"
 #include <memory>
 #include <array>
+#include "SwapChain.h"
 
 namespace jhb {
 	uint32_t DeferedPBRRenderSystem::id = 0;
@@ -42,8 +43,9 @@ namespace jhb {
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		createVertexAttributeAndBindingDesc(pipelineConfig);
 
-		std::array<VkPipelineColorBlendAttachmentState, 5> blendAttachmentStates;
-		for (int i = 0; i < 5; i++)
+		// swapchain이미지는 사용하지 않지만 sascha willam 은 혹시나 모르므로 color값자체는 swapchain쪽에 저장 그러므로 일단 swapchain도 포함하여 5개가 아닌 6개를 colorblendstate에 지정해주자
+		std::array<VkPipelineColorBlendAttachmentState, 6> blendAttachmentStates;
+		for (int i = 0; i < blendAttachmentStates.size(); i++)
 		{
 			VkPipelineColorBlendAttachmentState colorblendState{};
 			colorblendState.blendEnable = VK_FALSE;
@@ -64,10 +66,6 @@ namespace jhb {
 
 	void DeferedPBRRenderSystem::createGBuffers()
 	{
-		createAttachment(
-			VK_FORMAT_R16G16B16A16_SFLOAT,
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-			&PositionAttachment);
 
 		// (World space) Positions
 		createAttachment(
@@ -110,9 +108,39 @@ namespace jhb {
 			validDepthFormat,
 			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 			&DepthAttachment);
+
+		// create colorresolve for msa
+		VkImageCreateInfo imageCI{};
+		imageCI.imageType = VK_IMAGE_TYPE_2D;
+		imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageCI.format = jhb::SwapChain::swapChainImageFormat;
+		imageCI.extent.width = device.getWindow().getExtent().width;
+		imageCI.extent.height = device.getWindow().getExtent().height;
+		imageCI.extent.depth = 1;
+		imageCI.mipLevels = 1;
+		ColorResolveAttachment.format = jhb::SwapChain::swapChainImageFormat;
+		imageCI.arrayLayers = 1;
+		imageCI.samples = device.msaaSamples;
+		imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageCI.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+		device.createImageWithInfo(imageCI, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, ColorResolveAttachment.image, ColorResolveAttachment.memory);
+		// Image view
+		VkImageViewCreateInfo viewCI{};
+		viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewCI.format = jhb::SwapChain::swapChainImageFormat;
+		viewCI.subresourceRange = {};
+		viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		viewCI.subresourceRange.levelCount = 1;
+		viewCI.subresourceRange.layerCount = 1;
+		viewCI.image = ColorResolveAttachment.image;
+		if (vkCreateImageView(device.getLogicalDevice(), &viewCI, nullptr, &ColorResolveAttachment.view))
+		{
+			throw std::runtime_error("failed to create ImageView!");
+		}
 	}
 
-	void DeferedPBRRenderSystem::createAttachment(VkFormat format, VkImageUsageFlagBits usage, Texture* attachment)
+	void DeferedPBRRenderSystem::createAttachment(VkFormat format, VkImageUsageFlagBits usage, Texture* attachment, VkSampleCountFlagBits sampleCount)
 	{
 		VkImageAspectFlags aspectMask = 0;
 		VkImageLayout imageLayout;
@@ -140,7 +168,7 @@ namespace jhb {
 		imageCIa.extent.depth = 1;
 		imageCIa.mipLevels = 1;
 		imageCIa.arrayLayers = 1;
-		imageCIa.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageCIa.samples = sampleCount;
 		imageCIa.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		imageCIa.usage = usage | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 
@@ -176,13 +204,14 @@ namespace jhb {
 			initializeOffScreenDescriptor();
 		}
 
-		std::array<VkImageView, 7> attachments;
+		std::array<VkImageView, 8> attachments;
 		attachments[1] = PositionAttachment.view;
 		attachments[2] = NormalAttachment.view;
 		attachments[3] = AlbedoAttachment.view;
 		attachments[4] = MaterialAttachment.view;
 		attachments[5] = EmmisiveAttachment.view;
 		attachments[6] = DepthAttachment.view;
+		attachments[7] = ColorResolveAttachment.view;
 
 		frameBuffers.resize(swapchainImageViews.size());
 		for (int i = 0; i < swapchainImageViews.size(); i++)
@@ -208,13 +237,23 @@ namespace jhb {
 	{
 		createGBuffers();
 		// Set up separate renderpass with references to the color and depth attachments
-		std::array<VkAttachmentDescription, 7> attachmentDescs = {};
+		std::array<VkAttachmentDescription, 8> attachmentDescs = {};
 
 		// Init attachment properties
-		for (uint32_t i = 0; i <7; ++i)
+		for (uint32_t i = 0; i <8; ++i)
 		{
-			attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
-			attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			if (i<7)
+			{
+				attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
+				attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			}
+			else
+			{
+				attachmentDescs[i].samples = device.msaaSamples;
+				attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			}
+
+			
 			attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 			attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 			attachmentDescs[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -227,6 +266,11 @@ namespace jhb {
 			{
 				attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 				attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			}
+			else if (i == 7)
+			{
+				attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+				attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			}
 			else
 			{
@@ -243,6 +287,7 @@ namespace jhb {
 		attachmentDescs[4].format = MaterialAttachment.format;
 		attachmentDescs[5].format = EmmisiveAttachment.format;
 		attachmentDescs[6].format = DepthAttachment.format;
+		attachmentDescs[7].format = ColorResolveAttachment.format;
 
 		std::vector<VkAttachmentReference> colorReferences;
 		colorReferences.push_back({ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
@@ -263,7 +308,7 @@ namespace jhb {
 		subpassDescriptions[0].colorAttachmentCount = static_cast<uint32_t>(colorReferences.size());
 		subpassDescriptions[0].pDepthStencilAttachment = &depthReference;
 
-		VkAttachmentReference colorReference{ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+		VkAttachmentReference colorReference{ 7, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
 
 		std::vector<VkAttachmentReference> colorInputReferences;
 		colorInputReferences.push_back({ 1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
@@ -272,11 +317,14 @@ namespace jhb {
 		colorInputReferences.push_back({ 4, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
 		colorInputReferences.push_back({ 5, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
 
+		VkAttachmentReference colorResolveReference{ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+
 		// light subpass will use inputattachemnts
 		subpassDescriptions[1].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpassDescriptions[1].pColorAttachments = &colorReference;
 		subpassDescriptions[1].colorAttachmentCount = 1;
-		subpassDescriptions[1].pDepthStencilAttachment = &depthReference;
+		subpassDescriptions[1].pResolveAttachments = &colorResolveReference;
+		//subpassDescriptions[1].pDepthStencilAttachment = &depthReference;
 		subpassDescriptions[1].inputAttachmentCount = colorInputReferences.size();
 		subpassDescriptions[1].pInputAttachments = colorInputReferences.data();
 
@@ -418,7 +466,7 @@ namespace jhb {
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		createVertexAttributeAndBindingDesc(pipelineConfig);
 		std::array<VkPipelineColorBlendAttachmentState, 6> blendAttachmentStates;
-		for (int i = 0; i < 6; i++)
+		for (int i = 0; i < blendAttachmentStates.size(); i++)
 		{
 			VkPipelineColorBlendAttachmentState colorblendState{};
 			colorblendState.blendEnable = VK_FALSE;
@@ -466,8 +514,8 @@ namespace jhb {
 		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		createVertexAttributeAndBindingDesc(pipelineConfig);
-		std::array<VkPipelineColorBlendAttachmentState, 5> blendAttachmentStates;
-		for (int i = 0; i < 5; i++)
+		std::array<VkPipelineColorBlendAttachmentState, 6> blendAttachmentStates;
+		for (int i = 0; i < blendAttachmentStates.size(); i++)
 		{
 			VkPipelineColorBlendAttachmentState colorblendState{};
 			colorblendState.blendEnable = VK_FALSE;
@@ -622,7 +670,7 @@ namespace jhb {
 
 		pipelineConfig.attributeDescriptions = attributeDescriptions;
 		pipelineConfig.bindingDescriptions = bindingDescriptions;
-
+		pipelineConfig.multisampleInfo.rasterizationSamples = device.msaaSamples;
 		pipelineConfig.renderPass = offScreenRenderPass;
 		pipelineConfig.pipelineLayout = lightingPipelinelayout;
 		lightingPipeline = std::make_unique<Pipeline>(device, "shaders/deferedPBR.vert.spv",
@@ -645,6 +693,19 @@ namespace jhb {
 
 		PipelineConfigInfo pipelineConfig{};
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
+
+		std::array<VkPipelineColorBlendAttachmentState, 6> blendAttachmentStates;
+		for (int i = 0; i < blendAttachmentStates.size(); i++)
+		{
+			VkPipelineColorBlendAttachmentState colorblendState{};
+			colorblendState.blendEnable = VK_FALSE;
+			colorblendState.colorWriteMask = 0xf;
+			blendAttachmentStates[i] = colorblendState;
+		}
+
+		pipelineConfig.colorBlendInfo.attachmentCount = blendAttachmentStates.size();
+		pipelineConfig.colorBlendInfo.pAttachments = blendAttachmentStates.data();
+
 		pipelineConfig.depthStencilInfo.depthTestEnable = true;
 		pipelineConfig.depthStencilInfo.depthWriteEnable = true;
 		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
@@ -703,8 +764,6 @@ namespace jhb {
 
 	void DeferedPBRRenderSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
-		BaseRenderSystem::renderGameObjects(frameInfo);
-
 		for (auto& kv : pbrObjects)
 		{
 			auto& obj = kv.second;
@@ -724,6 +783,14 @@ namespace jhb {
 
 			if (kv.first == 2)
 			{
+				vkCmdBindDescriptorSets(
+					frameInfo.commandBuffer,
+					VK_PIPELINE_BIND_POINT_GRAPHICS,
+					skyboxPipelinelayout,
+					0, 1
+					, &frameInfo.globaldDescriptorSet,
+					0, nullptr
+				);
 				auto& skyBox = kv.second;
 				vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipelinelayout, 1, 1, &frameInfo.skyBoxImageSamplerDecriptorSet, 0, nullptr);
 				vkCmdBindPipeline(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline->getPipeline());
@@ -737,6 +804,14 @@ namespace jhb {
 				obj.model->draw(frameInfo.commandBuffer, skyboxPipelinelayout, frameInfo.frameIndex);
 				continue;
 			}
+			vkCmdBindDescriptorSets(
+				frameInfo.commandBuffer,
+				VK_PIPELINE_BIND_POINT_GRAPHICS,
+				pipelineLayout,
+				0, 1
+				, &frameInfo.globaldDescriptorSet,
+				0, nullptr
+			);
 			obj.model->draw(frameInfo.commandBuffer, pipelineLayout, frameInfo.frameIndex);
 		}
 

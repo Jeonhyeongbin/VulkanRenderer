@@ -196,9 +196,14 @@ namespace jhb {
 		std::vector<VkClearValue> clearValues(attachmentCount);
 		for (int i = 0; i < attachmentCount; i++)
 		{
-			clearValues[i].color = { 0, 0, 0, 1 };
+			if (i == 6)
+			{
+				clearValues[i].depthStencil = { 1.0f, 0 };
+			}
+			else {
+				clearValues[i].color = { 0, 0, 0, 1 };
+			}
 		}
-		clearValues[attachmentCount-1].depthStencil = { 1.0f, 0 };
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
 
