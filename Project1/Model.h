@@ -2,6 +2,7 @@
 
 #include "Device.h"
 #include "Buffer.h"
+#include "Pipeline.h"
 
 #define GLM_FORCE_RADIANS // not use degree;
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -68,7 +69,7 @@ namespace jhb {
 		float alphaCutOff;
 		bool doubleSided = false;
 		std::vector<VkDescriptorSet> descriptorSets{SwapChain::MAX_FRAMES_IN_FLIGHT}; // same type descriptor set for each frame
-		VkPipeline pipeline;
+		std::unique_ptr<class Pipeline> pipeline = nullptr;
 	};
 
 	struct Mesh {
@@ -146,6 +147,7 @@ namespace jhb {
 		void createVertexBuffer(const std::vector<Vertex>& vertices);
 		void createIndexBuffer(const std::vector<uint32_t>& indices);
 		void createPipelineForModel(const std::string& vertFilepath, const std::string& fragFilepath, class PipelineConfigInfo& configInfo);
+		void createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo);
 
 	public:
 		void loadModel(const std::string& filepath);
@@ -163,7 +165,7 @@ namespace jhb {
 
 	public:
 		// only for no gftl model
-		std::unique_ptr<class Pipeline> perModelPipeline = nullptr;
+		std::unique_ptr<class Pipeline> noTexturePipeline = nullptr;
 		glm::mat4 modelMatrix;
 
 	private:

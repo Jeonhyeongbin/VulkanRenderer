@@ -58,9 +58,9 @@ void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLa
 		}
 	}
 	else {
-		if (perModelPipeline)
+		if (noTexturePipeline)
 		{
-			perModelPipeline->bind(commandBuffer);
+			noTexturePipeline->bind(commandBuffer);
 		}
 		if (hasIndexBuffer)
 		{
@@ -103,9 +103,9 @@ void jhb::Model::drawInPickPhase(VkCommandBuffer commandBuffer, VkPipelineLayout
 		}
 	}
 	else {
-		if (perModelPipeline)
+		if (noTexturePipeline)
 		{
-			perModelPipeline->bind(commandBuffer);
+			noTexturePipeline->bind(commandBuffer);
 		}
 		if (hasIndexBuffer)
 		{
@@ -206,9 +206,21 @@ void jhb::Model::createIndexBuffer(const std::vector<uint32_t>& indices)
 
 void jhb::Model::createPipelineForModel(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo)
 {
-	if (perModelPipeline == nullptr)
+	// pipeline for no gltf model or no texture
+	if (noTexturePipeline == nullptr)
 	{
-		perModelPipeline = std::make_unique<Pipeline>(device, vertFilepath, fragFilepath, configInfo);
+		noTexturePipeline = std::make_unique<Pipeline>(device, vertFilepath, fragFilepath, configInfo);
+	}
+}
+
+void jhb::Model::createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo)
+{
+	for (auto& material : materials)
+	{
+		if (material.pipeline == nullptr)
+		{
+			material.pipeline = std::make_unique<Pipeline>(device, vertFilepath, fragFilepath, configInfo, material);
+		}
 	}
 }
 
@@ -652,7 +664,7 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix = modelMatrix * pickedObjectRotationMatrix * node->matrix;
+		glm::mat4 nodeMatrix = modelMatrix  * node->matrix* pickedObjectRotationMatrix;
 		Node* currentParent = node->parent;
 		while (currentParent) {
 			nodeMatrix = currentParent->matrix * nodeMatrix;
@@ -664,7 +676,7 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 			if (primitive.indexCount > 0) {
 				Material& material = materials[primitive.materialIndex];
 				// POI: Bind the pipeline for the node's material
-				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.pipeline);
+				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.pipeline->getPipeline());
 				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &material.descriptorSets[frameIndex], 0, nullptr);
 				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount, primitive.firstIndex, 0, 0);
 			}

@@ -31,6 +31,10 @@ namespace jhb {
 		VkImageView getSwapChianImageView(int index) const {
 			return swapChainImageviews[index];
 		}
+
+		const std::vector<VkImageView>& getSwapChianImageViews() const {
+			return swapChainImageviews;
+		}
 		VkRenderPass getRenderPass() { return renderPass; }
 		size_t getImageCount() { return swapChainImages.size(); }
 		VkResult acquireNextImage(uint32_t* imageIndex);
@@ -55,13 +59,14 @@ namespace jhb {
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilites);
+	public:
+		static VkFormat swapChainImageFormat;
 
 	private:
 		Device& device;
 		VkExtent2D swapChainExtent;
 
 		VkSwapchainKHR swapChain;
-		VkFormat swapChainImageFormat;
 		VkFormat swapChainDepthFormat;
 		VkRenderPass renderPass;
 

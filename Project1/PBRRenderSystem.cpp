@@ -87,11 +87,11 @@ namespace jhb {
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
-		pipeline = std::make_unique<Pipeline>(
+	/*	pipeline = std::make_unique<Pipeline>(
 			device,
 			"shaders/pbr.vert.spv",
 			"shaders/pbr.frag.spv",
-			pipelineConfig, materials);
+			pipelineConfig, materials);*/
 	}
 
 	void PBRRendererSystem::createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag)
@@ -218,23 +218,6 @@ namespace jhb {
 	void PBRRendererSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
 		BaseRenderSystem::renderGameObjects(frameInfo);
-		vkCmdBindDescriptorSets(
-			frameInfo.commandBuffer,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			1, 1
-			, &frameInfo.pbrImageSamplerDescriptorSet,
-			0, nullptr
-		);
-		vkCmdBindDescriptorSets(
-			frameInfo.commandBuffer,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			pipelineLayout,
-			3, 1
-			, &frameInfo.shadowMapDescriptorSet,
-			0, nullptr
-		);
-
 
 		for (auto& kv : pbrObjects)
 		{

@@ -375,6 +375,11 @@ namespace jhb {
 				{
 					offscreenBuffer.modelMat = glm::mat4{ 1.f };
 				}
+				if (obj.first == 2)
+				{
+					//  must skybox cube model excluded
+					continue;
+				}
 
 				vkCmdPushConstants(
 					cmd,

@@ -111,6 +111,12 @@
     <ClCompile Include="ShadowRenderSystem.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
+    <ClCompile Include="BloomRenderSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DeferedPBRRenderSystem.cpp">
+      <Filter>Systems</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Pipeline.h">
@@ -204,6 +210,12 @@
       <Filter>Systems</Filter>
     </ClInclude>
     <ClInclude Include="ShadowRenderSystem.h">
+      <Filter>Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="BloomRenderSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DeferedPBRRenderSystem.h">
       <Filter>Systems</Filter>
     </ClInclude>
   </ItemGroup>
