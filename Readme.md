@@ -24,10 +24,9 @@ try {
 ![실행 결과](./image.png)
 
 - Instancing
-- MultiSampling
 - PBR-IBL
 - Mouse-Picking
-- Defered-rendering (using subpass)
+- Deferred-rendering (using subpass)
 - Omnidirectional-shadowMapping
 - KTX(Khronos Texture) texture storage Format을 사용하였습니다.
 - gtlf 2.0 format with tinygltf [tinygltf](https://github.com/syoyo/tinygltf).
