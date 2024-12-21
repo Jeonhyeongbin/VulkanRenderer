@@ -31,6 +31,10 @@ try {
 - KTX(Khronos Texture) texture storage Format을 사용하였습니다.
 - gtlf 2.0 format with tinygltf [tinygltf](https://github.com/syoyo/tinygltf).
 
+# InProgress
+- GPUT based Culling and LOD
+- SSAO
+
 
 # 조작법
 - 마우스로 회전 및 wasd키로 이동 및 마우스휠로 줌인 줌아웃.
