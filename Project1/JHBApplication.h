@@ -76,5 +76,6 @@ namespace jhb {
 
 	private:
 		double px, py, pz;
+		bool isComputeFrustumCulling;
 	};
 }
