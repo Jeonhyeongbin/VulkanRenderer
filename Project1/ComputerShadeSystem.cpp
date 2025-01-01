@@ -92,18 +92,18 @@ jhb::ComputerShadeSystem::BuildComputeCommandBuffer()
 			0, nullptr);
 
 		vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelinelayout, 0, 1, &compute.descriptorSet, 0, 0);
+		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelinelayout, 0, 1, &cullingDescriptorSet, 0, 0);
 
 		// Clear the buffer that the compute shader pass will write statistics and draw calls to
-		vkCmdFillBuffer(cmdBuffer, indirectDrawCountBuffer.buffer, 0, indirectCommandsBuffer.descriptor.range, 0);
+		vkCmdFillBuffer(cmdBuffer, IndirectCommandBuffer->getBuffer(), 0, IndirectCommandBuffer->descriptorInfo().range, 0);
 
-		// This barrier ensures that the fill command is finished before the compute shader can start writing to the buffer
-		VkMemoryBarrier memoryBarrier = vks::initializers::memoryBarrier();
+		VkMemoryBarrier memoryBarrier{};
+		memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 		memoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
 		vkCmdPipelineBarrier(
-			compute.commandBuffer,
+			cmdBuffer,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_FLAGS_NONE,

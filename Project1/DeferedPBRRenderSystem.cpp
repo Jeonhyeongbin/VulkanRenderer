@@ -458,6 +458,7 @@ namespace jhb {
 		model->createIndexBuffer(indexBuffer);
 		model->createObjectSphere(vertexBuffer);
 		model->updateInstanceBuffer(6, 2.5f, 2.5f);
+		model->createObjectSphere(vertexBuffer);
 
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthTestEnable = true;

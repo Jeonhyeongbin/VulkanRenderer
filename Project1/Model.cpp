@@ -1024,6 +1024,8 @@ void jhb::Model::createObjectSphere(const std::vector<Vertex> vertices)
 		if (vertex.position.z > sphere.maxcoordinate.z)
 			sphere.maxcoordinate.z = vertex.position.z;
 	}
+
+	// todo : 구의 중심과 반지름 구하기.
 }
 
 void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, float offsetZ, float roughness, float metallic)
