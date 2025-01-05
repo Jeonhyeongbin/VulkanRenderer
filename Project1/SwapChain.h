@@ -42,6 +42,7 @@ namespace jhb {
 		VkFormat findDepthFormat();
 
 		VkResult submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex);
+		VkResult submitComputeCommandBuffers(const VkCommandBuffer* buffers, uint32_t* frameIndex);
 
 		bool compareSwapChainFormats(const SwapChain& swapChain) const {
 			return swapChain.swapChainDepthFormat == swapChainDepthFormat && swapChain.swapChainImageFormat == swapChainImageFormat;
@@ -87,6 +88,9 @@ namespace jhb {
 		std::vector<VkSemaphore> renderFinishedSemaphores;
 		std::vector<VkFence> inFlightFences;
 		std::vector<VkFence> imagesInFlight;
+
+		std::vector<VkSemaphore> computeSemaphores;
+		std::vector<VkFence> computeFences;
 
 		size_t currentFrame = 0;
 	};

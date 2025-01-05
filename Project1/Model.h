@@ -37,7 +37,7 @@ namespace jhb {
 	};
 
 	struct Sphere {
-		glm::vec4 center;
+		glm::vec3 center;
 		float radius;
 
 		glm::vec4 mincoordinate{glm::vec3{(std::numeric_limits<float>::max)()}, 1};
@@ -124,6 +124,7 @@ namespace jhb {
 			float roughness = 0.0f;
 			float metallic = 0.0f;
 			float r, g, b;
+			float radius;
 		};
 
 		Model(Device& device);
@@ -156,6 +157,7 @@ namespace jhb {
 		void loadMaterials(tinygltf::Model& input);
 		void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
 		void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
+		void IndriectdrawNode(VkCommandBuffer commandBuffer, uint32_t count, Buffer indirectCommandBuffer,VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
 		void drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, Node* node);
 
 		void PickingPhasedrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex, VkPipeline pipeline);

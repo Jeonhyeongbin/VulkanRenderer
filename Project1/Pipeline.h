@@ -44,9 +44,10 @@ namespace jhb {
 		static void defaultPipelineConfigInfo(PipelineConfigInfo& info);
 		VkPipeline& getPipeline() { return graphicsPipeline; }
 	
-	private:
+	public:
 		static std::vector<char> readFile(const std::string& filepath);
 
+	private:
 		void createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo);
 		void createGraphicsPipelinePerMaterial(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo,
 			Material& materials);

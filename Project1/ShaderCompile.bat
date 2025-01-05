@@ -20,4 +20,6 @@
 %VULKAN_SDK%\Bin\glslc.exe shaders\deferedoffscreenNotexture.frag -o shaders\deferedoffscreenNotexture.frag.spv
 %VULKAN_SDK%\Bin\glslc.exe shaders\deferedoffscreenSkybox.vert -o shaders\deferedoffscreenSkybox.vert.spv
 %VULKAN_SDK%\Bin\glslc.exe shaders\deferedoffscreenSkybox.frag -o shaders\deferedoffscreenSkybox.frag.spv
+%VULKAN_SDK%\Bin\glslc.exe shaders\computeCull.comp -o computeCull.comp.spv
+
 pause

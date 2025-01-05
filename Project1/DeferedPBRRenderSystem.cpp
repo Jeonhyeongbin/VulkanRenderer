@@ -458,6 +458,7 @@ namespace jhb {
 		model->createIndexBuffer(indexBuffer);
 		model->createObjectSphere(vertexBuffer);
 		model->updateInstanceBuffer(6, 2.5f, 2.5f);
+		model->createObjectSphere(vertexBuffer);
 
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthTestEnable = true;
@@ -598,7 +599,7 @@ namespace jhb {
 
 		pipelineConfig.bindingDescriptions.push_back(bindingdesc);
 
-		std::vector<VkVertexInputAttributeDescription> attrdesc(8);
+		std::vector<VkVertexInputAttributeDescription> attrdesc(9);
 
 		attrdesc[0].binding = 1;
 		attrdesc[0].location = 5;
@@ -635,6 +636,10 @@ namespace jhb {
 		attrdesc[7].location = 12;
 		attrdesc[7].format = VK_FORMAT_R32_SFLOAT;
 		attrdesc[7].offset = offsetof(Model::InstanceData, Model::InstanceData::b);
+		attrdesc[8].binding = 1;
+		attrdesc[8].location = 12;
+		attrdesc[8].format = VK_FORMAT_R32_SFLOAT;
+		attrdesc[8].offset = offsetof(Model::InstanceData, Model::InstanceData::radius);
 
 		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
 	}

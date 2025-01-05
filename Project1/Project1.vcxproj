@@ -146,6 +146,7 @@
     <ClCompile Include="BloomRenderSystem.cpp" />
     <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="ComputerShadeSystem.cpp" />
     <ClCompile Include="DeferedPBRRenderSystem.cpp" />
     <ClCompile Include="Descriptors.cpp" />
     <ClCompile Include="Device.cpp" />
@@ -169,6 +170,7 @@
     <ClCompile Include="Pipeline.cpp" />
     <ClCompile Include="PointLightSystem.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="Scene.cpp" />
     <ClCompile Include="ShadowRenderSystem.cpp" />
     <ClCompile Include="SkyBoxRenderSystem.cpp" />
     <ClCompile Include="SwapChain.cpp" />
@@ -179,6 +181,7 @@
     <ClInclude Include="BloomRenderSystem.h" />
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="ComputerShadeSystem.h" />
     <ClInclude Include="DeferedPBRRenderSystem.h" />
     <ClInclude Include="Descriptors.h" />
     <ClInclude Include="Device.h" />
@@ -203,6 +206,7 @@
     <ClInclude Include="Pipeline.h" />
     <ClInclude Include="PointLightSystem.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="Scene.h" />
     <ClInclude Include="ShadowRenderSystem.h" />
     <ClInclude Include="SkyBoxRenderSystem.h" />
     <ClInclude Include="SwapChain.h" />

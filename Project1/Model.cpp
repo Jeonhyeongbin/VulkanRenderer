@@ -21,6 +21,7 @@
 #include <ktxvulkan.h>
 #include "BaseRenderSystem.h"
 #include "Pipeline.h"
+#include <random>
 
 namespace std{
 	template <>
@@ -688,6 +689,50 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 	
 }
 
+void jhb::Model::IndriectdrawNode(VkCommandBuffer commandBuffer, uint32_t count, Buffer indirectCommandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex)
+{
+	if (!node->visible) {
+		return;
+	}
+	if (node->mesh.primitives.size() > 0) {
+		// Pass the node's matrix via push constants
+		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
+		glm::mat4 nodeMatrix = modelMatrix * node->matrix * pickedObjectRotationMatrix;
+		Node* currentParent = node->parent;
+		while (currentParent) {
+			nodeMatrix = currentParent->matrix * nodeMatrix;
+			currentParent = currentParent->parent;
+		}
+		// Pass the final matrix to the vertex shader using push constants
+		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeMatrix);
+		for (Primitive& primitive : node->mesh.primitives) {
+			if (primitive.indexCount > 0) {
+				Material& material = materials[primitive.materialIndex];
+				// POI: Bind the pipeline for the node's material
+				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.pipeline->getPipeline());
+				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &material.descriptorSets[frameIndex], 0, nullptr);
+
+				if (device.features.multiDrawIndirect)
+				{
+					vkCmdDrawIndexedIndirect(commandBuffer, indirectCommandBuffer.getBuffer(), 0, count, sizeof(VkDrawIndexedIndirectCommand));
+				}
+				else
+				{
+					// If multi draw is not available, we must issue separate draw commands
+					for (auto j = 0; j < count; j++)
+					{
+						vkCmdDrawIndexedIndirect(commandBuffer, indirectCommandBuffer.getBuffer(), j * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+					}
+				}
+				//vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount, primitive.firstIndex, 0, 0);
+			}
+		}
+	}
+	for (auto& child : node->children) {
+		IndriectdrawNode(commandBuffer, count, indirectCommandBuffer, pipelineLayout, child, frameIndex);
+	}
+}
+
 void jhb::Model::drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, Node* node)
 {
 	if (!node->visible) {
@@ -1024,6 +1069,10 @@ void jhb::Model::createObjectSphere(const std::vector<Vertex> vertices)
 		if (vertex.position.z > sphere.maxcoordinate.z)
 			sphere.maxcoordinate.z = vertex.position.z;
 	}
+
+	// todo : 구의 중심과 반지름 구하기.
+	sphere.center = { (sphere.maxcoordinate.x + sphere.mincoordinate.x) / 2, (sphere.maxcoordinate.y + sphere.mincoordinate.y) / 2, (sphere.maxcoordinate.z + sphere.mincoordinate.z) / 2 };
+	sphere.radius = (float)(sqrt(pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2));
 }
 
 void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, float offsetZ, float roughness, float metallic)
@@ -1031,17 +1080,26 @@ void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, fl
 	instanceCount = _instanceCount;
 	if (instanceBuffer == nullptr)
 	{
-		instanceBuffer = std::make_unique<Buffer>(device, sizeof(InstanceData), instanceCount, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		instanceBuffer = std::make_unique<Buffer>(device, sizeof(InstanceData), instanceCount, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	}
+
+	std::random_device rd;
+	std::mt19937 gen(rd());
+
+	std::uniform_int_distribution<float> dist(0, 1000);
 
 	std::vector<InstanceData> instanceData;
 	instanceData.resize(instanceCount);
 
 	for (float i = 0; i < instanceCount; i++)
 	{
-		auto rotate = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>() / instanceCount), { 0.f, 0.f, 1.f });
-		glm::vec4 tmp{ offsetX, 0.f, offsetZ, 1};
-		instanceData[i].pos = glm::vec3(rotate * tmp);
+		//auto rotate = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>() / instanceCount), { 0.f, 0.f, 1.f });
+		//glm::vec4 tmp{ offsetX, 0.f, offsetZ, 1};
+		//instanceData[i].pos = glm::vec3(rotate * tmp);
+		instanceData[i].pos.x = dist(gen);
+		instanceData[i].pos.y = dist(gen);
+		instanceData[i].pos.z = dist(gen);
+		instanceData[i].radius = sphere.radius;
 		instanceData[i].r = 0.5f;
 		instanceData[i].g = 0.5f;
 		instanceData[i].b = 0.5f;
