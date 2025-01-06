@@ -12,6 +12,7 @@
 #include "MousePickingRenderSystem.h"
 #include "ShadowRenderSystem.h"
 #include "DeferedPBRRenderSystem.h"
+#include "ComputerShadeSystem.h"
 
 #define _USE_MATH_DEFINESimgui
 #include <math.h>
@@ -26,6 +27,8 @@ namespace jhb {
 		globalDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		pbrResourceDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		pickingObjUboDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
+		computeShaderSystem = std::make_unique<ComputerShadeSystem>(device);
 
 		init();
 	}
@@ -49,6 +52,9 @@ namespace jhb {
 		window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
 		float aspect = renderer.getAspectRatio();
 		window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
+		
+		computeShaderSystem->SetupDescriptor(deferedPbrRenderSystem->pbrObjects);
+
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
 			glfwPollEvents(); //may block
@@ -93,7 +99,10 @@ namespace jhb {
 			ubo.pointLights[0].color.g = 40.f;
 			ubo.pointLights[0].color.b = 40.f;
 			ubo.pointLights[0].color.a = 30.f;
-				
+			
+			computeShaderSystem->UpdateUniform(frameIndex, ubo.view, ubo.projection);
+			
+
 			pointLightSystem->update(frameInfo, ubo);
 			uboBuffers[frameIndex]->writeToBuffer(&ubo); // wrtie to using frame buffer index
 			uboBuffers[frameIndex]->flush(); //not using coherent_bit flag, so must to flush memory manually

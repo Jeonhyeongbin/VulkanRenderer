@@ -152,7 +152,7 @@ namespace jhb {
 		return result;
 	}
 
-	VkResult SwapChain::submitComputeCommandBuffers(const VkCommandBuffer* buffers, uint32_t* frameIndex)
+	VkResult SwapChain::submitComputeCommandBuffers(const VkCommandBuffer* buffers)
 	{
 		vkWaitForFences(device.getLogicalDevice(), 1, &computeFences[currentFrame], VK_TRUE, UINT64_MAX);
 		vkResetFences(device.getLogicalDevice(), 1, &computeFences[currentFrame]);

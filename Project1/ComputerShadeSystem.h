@@ -76,19 +76,25 @@ namespace jhb {
 		ComputerShadeSystem(Device& device);
 		~ComputerShadeSystem();
 		
-
+	private:
 		void createPipeLineLayoutAndPipeline();
+		void BuildComputeCommandBuffer();
 
-		void BuildComputeCommandBuffer(uint32_t framIndex);
 		// indirect command 는 cpu에서 업데이트 할 매개체 버퍼
 		// indricetCommands를 mapping을 통헤 Gpu메모리에 실제 올릴 IndirectCommandBuffer에 값을 씀.
-		void SetupDescriptor(const GameObject& helmet);
+
+
+		// computeshader 초기화 -> helmet이나 다른 게임 오브젝트들에서  여기 indirectCommands에 VkDrawIndexedIndirectCommand추가 .
+	public:
+		void SetupDescriptor(const GameObject::Map&);
 		void UpdateUniform(uint32_t framIndex, glm::mat4 view, glm::mat4 projection);
 	private:
 		Device& device;
 
 		std::vector<std::unique_ptr<Buffer>> IndirectCommandBuffer;
 		std::vector<std::unique_ptr<Buffer>> uboBuffer;
+		std::unique_ptr<Buffer> instanceBuffer;
+
 		std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
 
 		VkPipeline pipeline;
@@ -106,6 +112,7 @@ namespace jhb {
 		VkShaderModule computeShader;
 	public:
 		uint32_t ojectCount;
+		std::vector<VkCommandBuffer> computeCommandBuffers;
 	};
 }
 

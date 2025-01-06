@@ -73,6 +73,26 @@ void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLa
 	}
 }
 
+void jhb::Model::drawIndirect(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, int frameIndex)
+{
+}
+
+void jhb::Model::buildIndirectCommand(std::vector<VkDrawIndexedIndirectCommand>& indirectCommandBuffer)
+{
+	if (!nodes.empty())
+	{
+		for (auto& node : nodes) {
+			buildIndriectNode(node, indirectCommandBuffer);
+		}
+	}
+	else {
+		if (hasIndexBuffer)
+		{
+			indirectCommandBuffer.push_back(VkDrawIndexedIndirectCommand{ indexCount, instanceCount, 0,0,0 });
+		}
+	}
+}
+
 void jhb::Model::drawNoTexture(VkCommandBuffer buffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, int frameIndex)
 {
 	if (!nodes.empty())
@@ -689,47 +709,21 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 	
 }
 
-void jhb::Model::IndriectdrawNode(VkCommandBuffer commandBuffer, uint32_t count, Buffer indirectCommandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex)
+void jhb::Model::buildIndriectNode(Node* node, std::vector<VkDrawIndexedIndirectCommand>& indirectCommandsBuffer)
 {
 	if (!node->visible) {
 		return;
 	}
 	if (node->mesh.primitives.size() > 0) {
-		// Pass the node's matrix via push constants
-		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix = modelMatrix * node->matrix * pickedObjectRotationMatrix;
-		Node* currentParent = node->parent;
-		while (currentParent) {
-			nodeMatrix = currentParent->matrix * nodeMatrix;
-			currentParent = currentParent->parent;
-		}
-		// Pass the final matrix to the vertex shader using push constants
-		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeMatrix);
 		for (Primitive& primitive : node->mesh.primitives) {
 			if (primitive.indexCount > 0) {
-				Material& material = materials[primitive.materialIndex];
-				// POI: Bind the pipeline for the node's material
-				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.pipeline->getPipeline());
-				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &material.descriptorSets[frameIndex], 0, nullptr);
-
-				if (device.features.multiDrawIndirect)
-				{
-					vkCmdDrawIndexedIndirect(commandBuffer, indirectCommandBuffer.getBuffer(), 0, count, sizeof(VkDrawIndexedIndirectCommand));
-				}
-				else
-				{
-					// If multi draw is not available, we must issue separate draw commands
-					for (auto j = 0; j < count; j++)
-					{
-						vkCmdDrawIndexedIndirect(commandBuffer, indirectCommandBuffer.getBuffer(), j * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
-					}
-				}
+				indirectCommandsBuffer.push_back(VkDrawIndexedIndirectCommand{primitive.indexCount, instanceCount, primitive.firstIndex});
 				//vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount, primitive.firstIndex, 0, 0);
 			}
 		}
 	}
 	for (auto& child : node->children) {
-		IndriectdrawNode(commandBuffer, count, indirectCommandBuffer, pipelineLayout, child, frameIndex);
+		buildIndriectNode(child, indirectCommandsBuffer);
 	}
 }
 
@@ -1088,7 +1082,6 @@ void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, fl
 
 	std::uniform_int_distribution<float> dist(0, 1000);
 
-	std::vector<InstanceData> instanceData;
 	instanceData.resize(instanceCount);
 
 	for (float i = 0; i < instanceCount; i++)

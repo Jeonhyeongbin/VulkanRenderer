@@ -42,7 +42,7 @@ namespace jhb {
 		VkFormat findDepthFormat();
 
 		VkResult submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex);
-		VkResult submitComputeCommandBuffers(const VkCommandBuffer* buffers, uint32_t* frameIndex);
+		VkResult submitComputeCommandBuffers(const VkCommandBuffer* buffers);
 
 		bool compareSwapChainFormats(const SwapChain& swapChain) const {
 			return swapChain.swapChainDepthFormat == swapChainDepthFormat && swapChain.swapChainImageFormat == swapChainImageFormat;

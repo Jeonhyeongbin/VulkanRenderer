@@ -65,6 +65,7 @@ namespace jhb {
 		VkSampler Sampler;
 		VkDeviceMemory fontMemory;
 
+		std::unique_ptr<class ComputerShadeSystem> computeShaderSystem;
 		std::unique_ptr<class ImguiRenderSystem> imguiRenderSystem;
 		std::unique_ptr<class MousePickingRenderSystem> mousePickingRenderSystem;
 		std::unique_ptr<class ShadowRenderSystem> shadowMapRenderSystem;

@@ -1,9 +1,12 @@
 #include "ComputerShadeSystem.h"
 #include "SwapChain.h"
+#include "Model.h"
 
 jhb::ComputerShadeSystem::ComputerShadeSystem(Device& device)
 {
+	computeCommandBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 	createPipeLineLayoutAndPipeline();
+	BuildComputeCommandBuffer();
 }
 
 void jhb::ComputerShadeSystem::createPipeLineLayoutAndPipeline()
@@ -47,69 +50,94 @@ void jhb::ComputerShadeSystem::createPipeLineLayoutAndPipeline()
 	}
 }
 
-void jhb::ComputerShadeSystem::BuildComputeCommandBuffer(uint32_t framIndex)
+void jhb::ComputerShadeSystem::BuildComputeCommandBuffer()
 {
-	VkCommandBuffer cmdBuffer = device.beginSingleComputeCommands();  
-	auto queueFamilies = device.findQueueFamilies(device.getPhysicalDevice());
-	if (queueFamilies.computeFamily != queueFamilies.graphicsFamily)
+	VkCommandBufferBeginInfo cmdBufferBeginInfo{};
+	cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+	for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		VkBufferMemoryBarrier buffer_barrier =
+		if(vkBeginCommandBuffer(computeCommandBuffers[i], &cmdBufferBeginInfo))
 		{
-			VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-			nullptr,
-			0,
-			VK_ACCESS_SHADER_WRITE_BIT,
-			queueFamilies.graphicsFamily.value(),
-			queueFamilies.computeFamily.value(),
-			IndirectCommandBuffer[framIndex]->getBuffer(),
-			0,
-			IndirectCommandBuffer[framIndex]->descriptorInfo().range
-		};
+			throw std::runtime_error("failed to begin command buffer");
+		}
 
-		vkCmdPipelineBarrier(
-			cmdBuffer,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_FLAGS_NONE,
-			0, nullptr,
-			1, &buffer_barrier,
-			0, nullptr);
+		auto queueFamilies = device.findQueueFamilies(device.getPhysicalDevice());
+		if (queueFamilies.computeFamily != queueFamilies.graphicsFamily)
+		{
+			VkBufferMemoryBarrier buffer_barrier =
+			{
+				VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+				nullptr,
+				0,
+				VK_ACCESS_SHADER_WRITE_BIT,
+				queueFamilies.graphicsFamily.value(),
+				queueFamilies.computeFamily.value(),
+				IndirectCommandBuffer[i]->getBuffer(),
+				0,
+				IndirectCommandBuffer[i]->descriptorInfo().range
+			};
 
-		vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelinelayout, 0, 1, &descriptorSet[framIndex], 0, 0);
+			vkCmdPipelineBarrier(
+				computeCommandBuffers[i],
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				VK_FLAGS_NONE,
+				0, nullptr,
+				1, &buffer_barrier,
+				0, nullptr);
 
-		// Clear the buffer that the compute shader pass will write statistics and draw calls to
-		vkCmdFillBuffer(cmdBuffer, IndirectCommandBuffer[framIndex]->getBuffer(), 0, IndirectCommandBuffer[framIndex]->descriptorInfo().range, 0);
+			vkCmdBindPipeline(computeCommandBuffers[i], VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+			vkCmdBindDescriptorSets(computeCommandBuffers[i], VK_PIPELINE_BIND_POINT_COMPUTE, pipelinelayout, 0, 1, &descriptorSet[i], 0, 0);
 
-		VkMemoryBarrier memoryBarrier{};
-		memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-		memoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			// Clear the buffer that the compute shader pass will write statistics and draw calls to
+			vkCmdFillBuffer(computeCommandBuffers[i], IndirectCommandBuffer[i]->getBuffer(), 0, IndirectCommandBuffer[i]->descriptorInfo().range, 0);
 
-		vkCmdPipelineBarrier(
-			cmdBuffer,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_FLAGS_NONE,
-			1, &memoryBarrier,
-			0, nullptr,
-			0, nullptr);
+			VkMemoryBarrier memoryBarrier{};
+			memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+			memoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			vkCmdPipelineBarrier(
+				computeCommandBuffers[i],
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				VK_FLAGS_NONE,
+				1, &memoryBarrier,
+				0, nullptr,
+				0, nullptr);
+		}
 	}
 }
 
-void jhb::ComputerShadeSystem::SetupDescriptor(const GameObject& helmet)
+void jhb::ComputerShadeSystem::SetupDescriptor(const GameObject::Map& gameObjs)
 {
-	indirectCommands.resize(ojectCount);
-	for (int i = 0; i < ojectCount; i++)
+	std::vector<Model::InstanceData> instanceDatas;
+	for (auto& gameObj : gameObjs)
 	{
-		indirectCommands[i].instanceCount = 1;
-		indirectCommands[i].firstInstance = i;
+		if (gameObj.first == 0)
+		{
+			auto tmp = gameObj.second.model->instanceData;
+			instanceDatas.insert(instanceDatas.end(), tmp.begin(), tmp.end());
+			gameObj.second.model->buildIndirectCommand(indirectCommands);
+		}
+	}
+
+	{
+		// 모든 오브젝트들의 인스턴스 정보를 device 버퍼로 넘김.
+		instanceBuffer = std::make_unique<Buffer>(device, sizeof(instanceDatas), instanceDatas.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
+
+		Buffer stagingBuffer(device, sizeof(instanceDatas), instanceDatas.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		stagingBuffer.map();
+		stagingBuffer.writeToBuffer(instanceDatas.data(), instanceBuffer->getBufferSize(), 0);
+
+		device.copyBuffer(stagingBuffer.getBuffer(), instanceBuffer->getBuffer(), instanceBuffer->getBufferSize());
+		stagingBuffer.unmap();
 	}
 
 	for (int i = 0; i < jhb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		{
-			// instance---------
 			IndirectCommandBuffer[i] = std::make_unique<Buffer>(
 				device,
 				sizeof(VkDrawIndexedIndirectCommand) * ojectCount,
@@ -157,12 +185,11 @@ void jhb::ComputerShadeSystem::SetupDescriptor(const GameObject& helmet)
 
 	for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		auto instancebufferInfo = helmet.model->instanceBuffer->descriptorInfo();
+		auto instancebufferInfo = instanceBuffer->descriptorInfo();
 		auto indirectbufferInfo = IndirectCommandBuffer[i]->descriptorInfo();
 		auto uboInfo = uboBuffer[i]->descriptorInfo();
 		DescriptorWriter(*computeDescriptorSetLayout, *discriptorPool[0]).writeBuffer(0, &instancebufferInfo).writeBuffer(1, &indirectbufferInfo).writeBuffer(2, &uboInfo).build(descriptorSet[i]);
 	}
-
 }
 
 void jhb::ComputerShadeSystem::UpdateUniform(uint32_t framIndex, glm::mat4 view, glm::mat4 projection)

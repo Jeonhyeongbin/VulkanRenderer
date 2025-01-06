@@ -141,6 +141,7 @@ namespace jhb {
 		//static std::unique_ptr<Model> createModelFromFile(Device& device, const std::string& Modelfilepath, const std::string& texturefilepath);
 		void draw(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, int frameIndex);
 		void drawNoTexture(VkCommandBuffer buffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, int frameIndex);
+		void drawIndirect(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, int frameIndex);
 
 		void drawInPickPhase(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, VkPipeline pipeline, int frameIndex);
 		void bind(VkCommandBuffer buffer);
@@ -157,8 +158,9 @@ namespace jhb {
 		void loadMaterials(tinygltf::Model& input);
 		void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
 		void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
-		void IndriectdrawNode(VkCommandBuffer commandBuffer, uint32_t count, Buffer indirectCommandBuffer,VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
+		void buildIndriectNode(Node* node, std::vector<VkDrawIndexedIndirectCommand>& indirectCommandsBuffer);
 		void drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, Node* node);
+		void buildIndirectCommand(std::vector<VkDrawIndexedIndirectCommand>& indirectCommandBuffer);
 
 		void PickingPhasedrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex, VkPipeline pipeline);
 		void calculateTangent(glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3, glm::vec3 pos1, glm::vec3 pos2, glm::vec3 pos3, glm::vec4& tangent);
@@ -187,6 +189,7 @@ namespace jhb {
 	public:
 		uint32_t instanceCount = 1;
 		std::unique_ptr<Buffer> instanceBuffer = nullptr;
+		std::vector<InstanceData> instanceData;
 
 	public:
 		std::vector<Material> materials;
