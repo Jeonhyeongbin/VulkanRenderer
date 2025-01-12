@@ -29,7 +29,9 @@ namespace jhb {
 
     class GameObject {
     public:
+        // 프리미티브 id, 인스턴스 id 분리
         using id_t = unsigned int;
+        
         using Map = std::unordered_map<id_t, GameObject>;
 
         static GameObject createGameObject() {

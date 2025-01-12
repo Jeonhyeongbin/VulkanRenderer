@@ -73,8 +73,27 @@ void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLa
 	}
 }
 
-void jhb::Model::drawIndirect(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, int frameIndex)
+void jhb::Model::drawIndirect(VkCommandBuffer commandBuffer, const Buffer& indirectCommandBuffer, VkPipelineLayout pipelineLayout, int frameIndex)
 {
+	if (!nodes.empty())
+	{
+		for (auto& node : nodes) {
+			drawNode(commandBuffer, pipelineLayout, node, frameIndex);
+		}
+	}
+	else {
+		if (noTexturePipeline)
+		{
+			noTexturePipeline->bind(commandBuffer);
+		}
+		if (hasIndexBuffer)
+		{
+			vkCmdDrawIndexedIndirect(commandBuffer, indirectCommandBuffer.getBuffer(), , 1, sizeof(VkDrawIndirectCommand));
+		}
+		//else {
+		//	vkCmdDraw(commandBuffer, vertexCount, instanceCount, 0, 0);
+		//}
+	}
 }
 
 void jhb::Model::buildIndirectCommand(std::vector<VkDrawIndexedIndirectCommand>& indirectCommandBuffer)

@@ -141,7 +141,7 @@ namespace jhb {
 		//static std::unique_ptr<Model> createModelFromFile(Device& device, const std::string& Modelfilepath, const std::string& texturefilepath);
 		void draw(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, int frameIndex);
 		void drawNoTexture(VkCommandBuffer buffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, int frameIndex);
-		void drawIndirect(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, int frameIndex);
+		void drawIndirect(VkCommandBuffer commandBuffer, const Buffer& indirectCommandBuffer, VkPipelineLayout pipelineLayout, int frameIndex);
 
 		void drawInPickPhase(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, VkPipeline pipeline, int frameIndex);
 		void bind(VkCommandBuffer buffer);
@@ -171,6 +171,7 @@ namespace jhb {
 		// only for no gftl model
 		std::unique_ptr<class Pipeline> noTexturePipeline = nullptr;
 		glm::mat4 modelMatrix;
+	public:
 
 	private:
 		Device& device;
