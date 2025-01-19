@@ -11,7 +11,11 @@ namespace jhb {
 		{
 			if (Primitives.find(typeName) == Primitives.end())
 			{
-				Primitives.insert(std::unordered_map<std::string, Model>::value_type(typeName, primitive));
+				Primitives.emplace(typeName, primitive);
+			}
+			else
+			{
+				AddInstanceToModel(typeName);
 			}
 		}
 
@@ -25,8 +29,9 @@ namespace jhb {
 			Model& primitive = Primitives[ModelType];
 
 			primitive.instanceCount++;
-
 		}
+
+		std::shared_ptr<Model> loadGLTFFile(const std::string& filename);
 
 	private:
 		std::unordered_map<std::string, Model> Primitives;

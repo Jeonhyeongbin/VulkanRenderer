@@ -75,6 +75,8 @@ namespace jhb {
 		std::unique_ptr<class SkyBoxRenderSystem> skyboxRenderSystem;
 		std::unique_ptr<class DeferedPBRRenderSystem> deferedPbrRenderSystem;
 
+		class Scene* GlobalScene;
+
 	private:
 		double px, py, pz;
 		bool isComputeFrustumCulling;

@@ -13,6 +13,7 @@
 #include "ShadowRenderSystem.h"
 #include "DeferedPBRRenderSystem.h"
 #include "ComputerShadeSystem.h"
+#include "Scene.h"
 
 #define _USE_MATH_DEFINESimgui
 #include <math.h>
@@ -29,6 +30,7 @@ namespace jhb {
 		pickingObjUboDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
 		computeShaderSystem = std::make_unique<ComputerShadeSystem>(device);
+		GlobalScene = new Scene();
 
 		init();
 	}

@@ -485,16 +485,19 @@ namespace jhb {
 		return model;
 	}
 
-	void DeferedPBRRenderSystem::createDamagedHelmet()
+	void DeferedPBRRenderSystem::createDamagedHelmets()
 	{
-		auto helmet = GameObject::createGameObject();
-		helmet.transform.translation = { 0.f, 0.f, 0.f };
-		helmet.transform.scale = { 1.f, 1.f, 1.f };
-		helmet.transform.rotation = { -glm::radians(90.f), 0.f, 0.f };
-		helmet.model = loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf");
-		helmet.model->modelMatrix = helmet.transform.mat4();
-		helmet.setId(id++);
-		pbrObjects.emplace(helmet.getId(), std::move(helmet));
+		for (int i = 0; i< 6; i++)
+		{
+			auto helmet = GameObject::createGameObject();
+			helmet.transform.translation = { 0.f, 0.f, 0.f };
+			helmet.transform.scale = { 1.f, 1.f, 1.f };
+			helmet.transform.rotation = { -glm::radians(90.f), 0.f, 0.f };
+			helmet.model = loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf");
+			helmet.model->modelMatrix = helmet.transform.mat4();
+			helmet.setId(id++);
+			pbrObjects.emplace(helmet.getId(), std::move(helmet));
+		}
 	}
 
 	void DeferedPBRRenderSystem::createFloor()

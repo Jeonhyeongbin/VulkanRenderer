@@ -159,6 +159,7 @@
     <ClCompile Include="External\Imgui\imgui_widgets.cpp" />
     <ClCompile Include="FrameInfo.cpp" />
     <ClCompile Include="GameObject.cpp" />
+    <ClCompile Include="GameObjectManager.cpp" />
     <ClCompile Include="ImguiRenderSystem.cpp" />
     <ClCompile Include="InputController.cpp" />
     <ClCompile Include="JHBApplication.cpp" />
@@ -195,6 +196,7 @@
     <ClInclude Include="External\Imgui\imstb_truetype.h" />
     <ClInclude Include="FrameInfo.h" />
     <ClInclude Include="GameObject.h" />
+    <ClInclude Include="GameObjectManager.h" />
     <ClInclude Include="imconfig.h" />
     <ClInclude Include="ImguiRenderSystem.h" />
     <ClInclude Include="InputController.h" />
