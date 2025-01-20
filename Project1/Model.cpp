@@ -40,7 +40,7 @@ jhb::Model::Model(Device& _device) : device{ _device }
 {
 }
 
-jhb::Model::Model(Device& _device, glm::mat4 modelMatrix) : device{ _device }, modelMatrix{modelMatrix}
+jhb::Model::Model(Device& _device, glm::mat4 modelMatrix) : device{ _device }
 {
 	//createVertexBuffer(builder->vertices);
 	//createIndexBuffer(builder->indices);
@@ -570,8 +570,7 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 	if (inputNode.matrix.size() == 16) {
 		inverseRootModelMatrix = glm::inverse(glm::mat4(*inputNode.matrix.data()));
 	}
-	inverseRootModelMatrix = glm::inverse(modelMatrix);
-	rootModelMatrix = modelMatrix * node->matrix;
+	rootModelMatrix = node->matrix;
 	// Load node's children
 	if (inputNode.children.size() > 0) {
 		for (size_t i = 0; i < inputNode.children.size(); i++) {
@@ -704,7 +703,7 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix = modelMatrix  * node->matrix* pickedObjectRotationMatrix;
+		glm::mat4 nodeMatrix =  node->matrix* pickedObjectRotationMatrix;
 		Node* currentParent = node->parent;
 		while (currentParent) {
 			nodeMatrix = currentParent->matrix * nodeMatrix;
@@ -754,7 +753,7 @@ void jhb::Model::drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pip
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix = modelMatrix * pickedObjectRotationMatrix * node->matrix;
+		glm::mat4 nodeMatrix =  pickedObjectRotationMatrix * node->matrix;
 		Node* currentParent = node->parent;
 		while (currentParent) {
 			nodeMatrix = currentParent->matrix * nodeMatrix;
@@ -1019,7 +1018,7 @@ void jhb::Model::PickingPhasedrawNode(VkCommandBuffer commandBuffer, VkPipelineL
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix = modelMatrix * node->matrix;
+		glm::mat4 nodeMatrix = node->matrix;
 		Node* currentParent = node->parent;
 		
 		while (currentParent) {

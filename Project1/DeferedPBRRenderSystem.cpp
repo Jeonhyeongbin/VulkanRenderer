@@ -22,7 +22,7 @@ namespace jhb {
 		// 쉐도우용 descriptor set layout 3개 필요.
 		createLightingPipelineAndPipelinelayout({descSetlayouts[0], descSetlayouts[2], descSetlayouts[3] }); // second subapss용
 		createSkyboxPipelineAndPipelinelayout({ descSetlayouts[0], descSetlayouts[4]});
-		createDamagedHelmet();
+		createDamagedHelmets();
 		createFloor();
 		createSkybox();
 	}
@@ -494,7 +494,6 @@ namespace jhb {
 			helmet.transform.scale = { 1.f, 1.f, 1.f };
 			helmet.transform.rotation = { -glm::radians(90.f), 0.f, 0.f };
 			helmet.model = loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf");
-			helmet.model->modelMatrix = helmet.transform.mat4();
 			helmet.setId(id++);
 			pbrObjects.emplace(helmet.getId(), std::move(helmet));
 		}

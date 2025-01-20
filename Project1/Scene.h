@@ -31,8 +31,6 @@ namespace jhb {
 			primitive.instanceCount++;
 		}
 
-		std::shared_ptr<Model> loadGLTFFile(const std::string& filename);
-
 	private:
 		std::unordered_map<std::string, Model> Primitives;
 	};
