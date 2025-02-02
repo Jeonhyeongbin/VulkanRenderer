@@ -86,7 +86,7 @@ namespace jhb {
 
 		// computeshader 초기화 -> helmet이나 다른 게임 오브젝트들에서  여기 indirectCommands에 VkDrawIndexedIndirectCommand추가 .
 	public:
-		void SetupDescriptor(const GameObject::Map&);
+		void SetupDescriptor();
 		void UpdateUniform(uint32_t framIndex, glm::mat4 view, glm::mat4 projection);
 	private:
 		Device& device;

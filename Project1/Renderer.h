@@ -34,6 +34,8 @@ namespace jhb {
 		float getAspectRatio() const { return swapChain->extentAspectRatio(); }
 		void setWindowExtent(VkExtent2D _extent) { extent = _extent; }
 
+		void excuteComputeDispatch(const VkCommandBuffer* buffers);
+
 		VkCommandBuffer beginFrame();
 		void endFrame();
 		bool beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, int attachmentCount = 2);

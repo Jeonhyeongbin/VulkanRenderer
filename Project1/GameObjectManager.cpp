@@ -2,7 +2,7 @@
 
 void jhb::GameObjectManager::AddGameObject(const jhb::GameObject& gameObject)
 {
-
+	gameObjects.emplace(gameObject.getId(), gameObject);
 }
 
 void jhb::GameObjectManager::GetGameObject(unsigned int id)

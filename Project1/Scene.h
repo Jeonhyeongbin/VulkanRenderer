@@ -6,32 +6,33 @@
 namespace jhb {
 	class Scene {
 	public:
-		
-		void AddToScene(const std::string& typeName, const Model& primitive)
-		{
-			if (Primitives.find(typeName) == Primitives.end())
-			{
-				Primitives.emplace(typeName, primitive);
-			}
-			else
-			{
-				AddInstanceToModel(typeName);
-			}
-		}
 
-		bool AddInstanceToModel(std::string ModelType)
-		{
-			if (Primitives.find(ModelType) == Primitives.end())
-			{
-				return false;
-			}
+		//	void AddToScene(const std::string& typeName, const Model& primitive)
+		//	{
+		//		if (Primitives.find(typeName) == Primitives.end())
+		//		{
+		//			Primitives.emplace(typeName, primitive);
+		//		}
+		//		else
+		//		{
+		//			AddInstanceToModel(typeName);
+		//		}
+		//	}
 
-			Model& primitive = Primitives[ModelType];
+		//	bool AddInstanceToModel(std::string ModelType)
+		//	{
+		//		if (Primitives.find(ModelType) == Primitives.end())
+		//		{
+		//			return false;
+		//		}
 
-			primitive.instanceCount++;
-		}
+		//		Model& primitive = Primitives[ModelType];
 
-	private:
-		std::unordered_map<std::string, Model> Primitives;
+		//		primitive.instanceCount++;
+		//	}
+
+		//private:
+		//	std::unordered_map<std::string, Model> Primitives;
+		//};
 	};
 }

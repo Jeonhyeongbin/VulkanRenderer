@@ -233,11 +233,11 @@ namespace jhb {
 	}
 
 	void Device::initVulkan() {
-		vkGetPhysicalDeviceFeatures(physicalDevice, &features);
 		createInstance();
 		setupDebugMessenger();
 		createSurface();
 		pickPhysicalDevice();
+		vkGetPhysicalDeviceFeatures(physicalDevice, &features);
 		createLogicalDevice();
 		createCommandPool();
 	}

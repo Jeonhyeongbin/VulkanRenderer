@@ -49,7 +49,7 @@ namespace jhb {
         GameObject(GameObject&&) = default;
         GameObject& operator=(GameObject&&) = default;
 
-        id_t getId() { return id; }
+        id_t getId() const { return id; }
         void setId(uint32_t _id) { id = _id; }
 
         std::unique_ptr<PointLightComponent> pointLight = nullptr;

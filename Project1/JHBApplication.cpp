@@ -29,8 +29,8 @@ namespace jhb {
 		pbrResourceDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		pickingObjUboDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
-		computeShaderSystem = std::make_unique<ComputerShadeSystem>(device);
-		GlobalScene = new Scene();
+		//computeShaderSystem = std::make_unique<ComputerShadeSystem>(device);
+		GlobalScene = new jhb::Scene();
 
 		init();
 	}
@@ -55,7 +55,7 @@ namespace jhb {
 		float aspect = renderer.getAspectRatio();
 		window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
 		
-		computeShaderSystem->SetupDescriptor(deferedPbrRenderSystem->pbrObjects);
+		//computeShaderSystem->SetupDescriptor(deferedPbrRenderSystem->pbrObjects);
 
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
@@ -79,6 +79,8 @@ namespace jhb {
 			}
 
 			int frameIndex = renderer.getFrameIndex();
+			//renderer.excuteComputeDispatch(&(computeShaderSystem->computeCommandBuffers[frameIndex]));
+
 			FrameInfo frameInfo{
 				frameIndex,
 				frameTime,

@@ -72,6 +72,11 @@ namespace jhb {
 		// todo
 	}
 
+	void Renderer::excuteComputeDispatch(const VkCommandBuffer* buffers)
+	{
+		swapChain->submitComputeCommandBuffers(buffers);
+	}
+
 	VkCommandBuffer Renderer::beginFrame()
 	{
 		assert(!isFrameStarted && "Can't call beginFrame while already in progress");

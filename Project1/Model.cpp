@@ -88,7 +88,7 @@ void jhb::Model::drawIndirect(VkCommandBuffer commandBuffer, const Buffer& indir
 		}
 		if (hasIndexBuffer)
 		{
-			vkCmdDrawIndexedIndirect(commandBuffer, indirectCommandBuffer.getBuffer(), , 1, sizeof(VkDrawIndirectCommand));
+			vkCmdDrawIndexedIndirect(commandBuffer, indirectCommandBuffer.getBuffer(),0 , 1, sizeof(VkDrawIndirectCommand));
 		}
 		//else {
 		//	vkCmdDraw(commandBuffer, vertexCount, instanceCount, 0, 0);
@@ -1084,7 +1084,7 @@ void jhb::Model::createObjectSphere(const std::vector<Vertex> vertices)
 
 	// todo : 구의 중심과 반지름 구하기.
 	sphere.center = { (sphere.maxcoordinate.x + sphere.mincoordinate.x) / 2, (sphere.maxcoordinate.y + sphere.mincoordinate.y) / 2, (sphere.maxcoordinate.z + sphere.mincoordinate.z) / 2 };
-	sphere.radius = (float)(sqrt(pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2));
+	sphere.radius = (float)(sqrt(pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2)));
 }
 
 void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, float offsetZ, float roughness, float metallic)
@@ -1095,11 +1095,6 @@ void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, fl
 		instanceBuffer = std::make_unique<Buffer>(device, sizeof(InstanceData), instanceCount, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	}
 
-	std::random_device rd;
-	std::mt19937 gen(rd());
-
-	std::uniform_int_distribution<float> dist(0, 1000);
-
 	instanceData.resize(instanceCount);
 
 	for (float i = 0; i < instanceCount; i++)
@@ -1107,9 +1102,9 @@ void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, fl
 		//auto rotate = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>() / instanceCount), { 0.f, 0.f, 1.f });
 		//glm::vec4 tmp{ offsetX, 0.f, offsetZ, 1};
 		//instanceData[i].pos = glm::vec3(rotate * tmp);
-		instanceData[i].pos.x = dist(gen);
-		instanceData[i].pos.y = dist(gen);
-		instanceData[i].pos.z = dist(gen);
+		instanceData[i].pos.x = 0;
+		instanceData[i].pos.y = 0;
+		instanceData[i].pos.z = 0;
 		instanceData[i].radius = sphere.radius;
 		instanceData[i].r = 0.5f;
 		instanceData[i].g = 0.5f;

@@ -17,7 +17,9 @@ namespace jhb {
 		void AddGameObject(const GameObject&);
 
 		void GetGameObject(unsigned int);
-	private:
+
+
+	public:
 		jhb::GameObject::Map gameObjects;
 	private:
 		static GameObjectManager* objectManager;

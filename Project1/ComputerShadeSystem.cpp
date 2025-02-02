@@ -1,12 +1,18 @@
 #include "ComputerShadeSystem.h"
 #include "SwapChain.h"
 #include "Model.h"
+#include "GameObjectManager.h"
 
-jhb::ComputerShadeSystem::ComputerShadeSystem(Device& device)
+jhb::ComputerShadeSystem::ComputerShadeSystem(Device& device):
+	device(device)
 {
 	computeCommandBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 	createPipeLineLayoutAndPipeline();
 	BuildComputeCommandBuffer();
+}
+
+jhb::ComputerShadeSystem::~ComputerShadeSystem()
+{
 }
 
 void jhb::ComputerShadeSystem::createPipeLineLayoutAndPipeline()
@@ -82,7 +88,7 @@ void jhb::ComputerShadeSystem::BuildComputeCommandBuffer()
 				computeCommandBuffers[i],
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_FLAGS_NONE,
+				VK_DEPENDENCY_BY_REGION_BIT,
 				0, nullptr,
 				1, &buffer_barrier,
 				0, nullptr);
@@ -102,7 +108,7 @@ void jhb::ComputerShadeSystem::BuildComputeCommandBuffer()
 				computeCommandBuffers[i],
 				VK_PIPELINE_STAGE_TRANSFER_BIT,
 				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_FLAGS_NONE,
+				VK_DEPENDENCY_BY_REGION_BIT,
 				1, &memoryBarrier,
 				0, nullptr,
 				0, nullptr);
@@ -110,10 +116,10 @@ void jhb::ComputerShadeSystem::BuildComputeCommandBuffer()
 	}
 }
 
-void jhb::ComputerShadeSystem::SetupDescriptor(const GameObject::Map& gameObjs)
+void jhb::ComputerShadeSystem::SetupDescriptor()
 {
 	std::vector<Model::InstanceData> instanceDatas;
-	for (auto& gameObj : gameObjs)
+	for (auto& gameObj : GameObjectManager::GetSingleton().gameObjects)
 	{
 		if (gameObj.first == 0)
 		{
@@ -134,7 +140,7 @@ void jhb::ComputerShadeSystem::SetupDescriptor(const GameObject::Map& gameObjs)
 		device.copyBuffer(stagingBuffer.getBuffer(), instanceBuffer->getBuffer(), instanceBuffer->getBufferSize());
 		stagingBuffer.unmap();
 	}
-
+	
 	for (int i = 0; i < jhb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		{
@@ -149,7 +155,7 @@ void jhb::ComputerShadeSystem::SetupDescriptor(const GameObject::Map& gameObjs)
 			Buffer stagingBuffer{
 			device,
 			ojectCount,
-			ojectCount * sizeof(VkDrawIndexedIndirectCommand),
+			ojectCount * (uint32_t)sizeof(VkDrawIndexedIndirectCommand),
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 			};
@@ -177,9 +183,9 @@ void jhb::ComputerShadeSystem::SetupDescriptor(const GameObject::Map& gameObjs)
 	discriptorPool[0] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT * 3).build(); // Indirect command
 
 
-	computeDescriptorSetLayout = std::make_unique<jhb::DescriptorSetLayout>(DescriptorSetLayout::Builder(device).addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT).
+	computeDescriptorSetLayout =DescriptorSetLayout::Builder(device).addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT).
 		addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT).
-		addBinding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT));
+		addBinding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT).build();
 
 
 
