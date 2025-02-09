@@ -24,6 +24,7 @@ namespace jhb {
 		createLightingPipelineAndPipelinelayout({descSetlayouts[0], descSetlayouts[2], descSetlayouts[3] }); // second subapss¿ë
 		createSkyboxPipelineAndPipelinelayout({ descSetlayouts[0], descSetlayouts[4]});
 		createDamagedHelmets();
+		createSponze();
 		createFloor();
 		createSkybox();
 	}
@@ -377,7 +378,19 @@ namespace jhb {
 		{
 			throw std::runtime_error("failed to create offscreen RenderPass!");
 		}
-	} 
+	}
+	void DeferedPBRRenderSystem::createSponze()
+	{
+		auto sponzaModel = loadGLTFFile("Models/sponza/Sponza01.gltf");
+		auto sponza = GameObject::createGameObject();
+		sponza.transform.translation = { 0.f, 0.f, 0.f };
+		sponza.transform.scale = { 1.f, 1.f, 1.f };
+		sponza.transform.rotation = { -glm::radians(90.f), 0.f, 0.f };
+		sponzaModel->instanceCount += 1;
+		sponza.setId(id++);
+		GameObjectManager::GetSingleton().AddGameObject(sponza);
+	}
+
 
 	std::vector<VkDescriptorSetLayout> DeferedPBRRenderSystem::initializeOffScreenDescriptor()
 	{
