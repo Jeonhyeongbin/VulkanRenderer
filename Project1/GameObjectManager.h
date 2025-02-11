@@ -14,7 +14,7 @@ namespace jhb {
 			return *objectManager;
 		}
 
-		void AddGameObject(const GameObject&);
+		void AddGameObject(GameObject&&);
 
 		void GetGameObject(unsigned int);
 

@@ -1,6 +1,8 @@
 #include "GameObjectManager.h"
 
-void jhb::GameObjectManager::AddGameObject(const jhb::GameObject& gameObject)
+jhb::GameObjectManager* jhb::GameObjectManager::objectManager = nullptr;
+
+void jhb::GameObjectManager::AddGameObject(jhb::GameObject&& gameObject)
 {
 	gameObjects.emplace(gameObject.getId(), std::move(gameObject));
 }

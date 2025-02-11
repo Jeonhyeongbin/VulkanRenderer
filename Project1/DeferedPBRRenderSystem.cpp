@@ -388,7 +388,7 @@ namespace jhb {
 		sponza.transform.rotation = { -glm::radians(90.f), 0.f, 0.f };
 		sponzaModel->instanceCount += 1;
 		sponza.setId(id++);
-		GameObjectManager::GetSingleton().AddGameObject(sponza);
+		GameObjectManager::GetSingleton().AddGameObject(std::move(sponza));
 	}
 
 
@@ -510,7 +510,7 @@ namespace jhb {
 			helmet.transform.rotation = { -glm::radians(90.f), 0.f, 0.f };
 			helmetModel->instanceCount += 1;
 			helmet.setId(id++);
-			GameObjectManager::GetSingleton().AddGameObject(helmet);
+			GameObjectManager::GetSingleton().AddGameObject(std::move(helmet));
 		}
 	}
 
