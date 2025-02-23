@@ -124,7 +124,6 @@ namespace jhb {
 			float roughness = 0.0f;
 			float metallic = 0.0f;
 			float r, g, b;
-			float radius;
 		};
 
 		Model(Device& device);

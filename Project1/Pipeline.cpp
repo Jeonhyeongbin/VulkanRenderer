@@ -269,15 +269,22 @@ namespace jhb {
 		struct MaterialSpecializationData {
 			VkBool32 alphaMask;
 			float alphaMaskCutoff;
+			VkBool32 isMetallicRoughness;
 		} materialSpecializationData;
 
 		materialSpecializationData.alphaMask = material.alphaMode == "MASK";
 		materialSpecializationData.alphaMaskCutoff = material.alphaCutOff;
+		materialSpecializationData.isMetallicRoughness = false;
+		if (material.metallicRoughnessTextureIndex > 0) // if 0, then it has not metalliroughness
+		{
+			materialSpecializationData.isMetallicRoughness = true;
+		}
 
 		// POI: Constant fragment shader material parameters will be set using specialization constants
 		std::vector<VkSpecializationMapEntry> specializationMapEntries = {
 			{0, offsetof(MaterialSpecializationData, alphaMask), sizeof(MaterialSpecializationData::alphaMask)},
 			{1, offsetof(MaterialSpecializationData, alphaMaskCutoff), sizeof(MaterialSpecializationData::alphaMaskCutoff)},
+			{2, offsetof(MaterialSpecializationData, isMetallicRoughness), sizeof(MaterialSpecializationData::isMetallicRoughness)},
 		};
 		VkSpecializationInfo specializationInfo = { specializationMapEntries.size(), specializationMapEntries.data(), sizeof(materialSpecializationData), &materialSpecializationData };
 		shaderStages[1].pSpecializationInfo = &specializationInfo;

@@ -21,6 +21,7 @@ layout (set = 2, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
 
 layout (constant_id = 0) const bool ALPHA_MASK = false;
 layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
+layout (constant_id = 2) const bool isMetallicRoughness = false;
 
 #define NEAR_PLANE 0.1f
 #define FAR_PLANE 1024
@@ -55,19 +56,24 @@ vec3 calculateNormal(vec3 inNormal)
 	vec2 st2 = dFdy(fraguv);
 
 	vec3 T = normalize(q1 * st2.t- q2 * st1.t);
-	vec3 B = -normalize(cross(N, T));
+	vec3 B = normalize(cross(N, T));
 	mat3 TBN = mat3(T, B, N);
 
 	return normalize(TBN * tangentNormal);
 }
 
 void main() {
+	outAlbedo.rgb = texture(samplerColorMap, fraguv).rgb;
+	if (ALPHA_MASK) {
+		if (outAlbedo.a < ALPHA_MASK_CUTOFF) {
+			discard;
+		}
+	}
+
 	outPosition = vec4(fragPosWorld, 1.0);
 
 	vec3 N = normalize(fragNormalWorld);
-	outNormal = vec4(N, 1.0);
-
-	outAlbedo.rgb = texture(samplerColorMap, fraguv).rgb;
+	outNormal = vec4(calculateNormal(N),1.0);
 
 	// Store linearized depth in alpha component
 	outPosition.a = linearDepth(gl_FragCoord.z);

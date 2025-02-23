@@ -36,6 +36,7 @@ layout(set=1, binding = 0) uniform GlobalUbo{
 
 layout (constant_id = 0) const bool ALPHA_MASK = false;
 layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
+layout (constant_id = 2) const bool isMetallicRoughness = true;
 
 layout (location = 0) out vec4 outColor;
 
@@ -146,10 +147,16 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 void main() {
 	vec3 cameraPosWorld = ubo.invView[3].xyz;
 	vec3 fragPosWorld = subpassLoad(inputPosition).rgb;
-	float metallic = subpassLoad(inputMaterial).b;
-	float roughness = subpassLoad(inputMaterial).g;
+	float metallic = 0;
+	float roughness = 1;
 	float occulsion = subpassLoad(inputMaterial).r;
 	vec3 N = subpassLoad(inputNormal).rgb;
+
+	if(isMetallicRoughness)
+	{
+		metallic=subpassLoad(inputMaterial).b;
+		float roughness = subpassLoad(inputMaterial).g;
+	}
 
 	vec3 V = normalize(cameraPosWorld - fragPosWorld);
 	vec3 R = reflect(-V, N);
@@ -164,7 +171,7 @@ void main() {
 	else{
 	F0 = mix(F0, albedo.rgb, metallic);
 
-		if (ALPHA_MASK) {
+	if (ALPHA_MASK) {
 		if (albedo.a < ALPHA_MASK_CUTOFF) {
 			discard;
 		}
@@ -191,7 +198,9 @@ void main() {
 	// Ambient part
 	vec3 kD = 1.0 - F;
 	kD *= 1.0 - roughness;
-	vec3 ambient = (kD * diffuse + specular) * occulsion;
+	//vec3 ambient = (kD * diffuse + specular) * occulsion;
+	vec3 ambient = (kD * diffuse + specular);
+	
 
 	vec3 color = ambient + Lo;
 
@@ -208,8 +217,8 @@ void main() {
 
 	// Check if fragment is in shadow
     float shadow = (dist <= sampledDist + EPSILON) ? 1.0 : SHADOW_OPACITY;
-	vec4 emission = vec4(SRGBtoLINEAR(subpassLoad(inputEmmisive)).rgb,1);
-	outColor = vec4(color, 1.0) + emission;
+	//vec4 emission = vec4(SRGBtoLINEAR(subpassLoad(inputEmmisive)).rgb,1);
+	outColor = vec4(color, 1.0);
 	outColor *= shadow;
 	}
 }

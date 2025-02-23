@@ -560,7 +560,7 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 	if (inputNode.translation.size() == 3) {
 		inverseRootModelMatrix = glm::translate(inverseRootModelMatrix, -glm::vec3(*inputNode.translation.data()));
 	}
-	if (inputNode.rotation.size() == 4) {
+	if (inputNode.rotation.size() == 4) { 
 		glm::quat q = glm::quat{ glm::mat4(*inputNode.rotation.data()) };
 		inverseRootModelMatrix *= glm::transpose(glm::mat4(q));
 	}
@@ -703,7 +703,7 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix =  node->matrix* pickedObjectRotationMatrix;
+		glm::mat4 nodeMatrix =  node->matrix* pickedObjectRotationMatrix *rootModelMatrix;
 		Node* currentParent = node->parent;
 		while (currentParent) {
 			nodeMatrix = currentParent->matrix * nodeMatrix;
@@ -1105,7 +1105,6 @@ void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, fl
 		instanceData[i].pos.x = 0;
 		instanceData[i].pos.y = 0;
 		instanceData[i].pos.z = 0;
-		instanceData[i].radius = sphere.radius;
 		instanceData[i].r = 0.5f;
 		instanceData[i].g = 0.5f;
 		instanceData[i].b = 0.5f;

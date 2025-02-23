@@ -57,7 +57,7 @@ namespace jhb {
 	{
 	}
 
-	void ImguiRenderSystem::newFrame(GameObject& floor)
+	void ImguiRenderSystem::newFrame()
 	{
 		// Start the Dear ImGui frame
 		ImGui::CreateContext();
@@ -82,8 +82,6 @@ namespace jhb {
 		ImGui::End();
 
 		ImGui::Render();
-
-		floor.model->updateInstanceBuffer(1, 0, 0, roughness, metalic);
 	}
 
 	void ImguiRenderSystem::recreateFrameBuffer(const Device& device, const SwapChain& swapchain, VkExtent2D extent)

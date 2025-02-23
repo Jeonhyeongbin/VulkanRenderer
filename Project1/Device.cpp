@@ -673,7 +673,15 @@ namespace jhb {
 
 	void Device::endSingleComputeCommands(VkCommandBuffer commandBuffer)
 	{
+		//// Wait for fence to ensure that compute buffer writes have finished
+		//vkWaitForFences(logicalDevice, 1, &F, VK_TRUE, UINT64_MAX);
+		//vkResetFences(logicalDevice, 1, &compute.fence);
 
+		//VkSubmitInfo computeSubmitInfo = vks::initializers::submitInfo();
+		//computeSubmitInfo.commandBufferCount = 1;
+		//computeSubmitInfo.pCommandBuffers = &compute.commandBuffer;
+		//computeSubmitInfo.signalSemaphoreCount = 1;
+		//computeSubmitInfo.pSignalSemaphores = &compute.semaphore;
 	}
 
 	Device::QueueFamilyIndexes Device::findQueueFamilies(VkPhysicalDevice device) {

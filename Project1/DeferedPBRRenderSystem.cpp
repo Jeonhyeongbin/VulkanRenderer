@@ -23,9 +23,9 @@ namespace jhb {
 		// 쉐도우용 descriptor set layout 3개 필요.
 		createLightingPipelineAndPipelinelayout({descSetlayouts[0], descSetlayouts[2], descSetlayouts[3] }); // second subapss용
 		createSkyboxPipelineAndPipelinelayout({ descSetlayouts[0], descSetlayouts[4]});
-		createDamagedHelmets();
+		//createDamagedHelmets();
 		createSponze();
-		createFloor();
+		//createFloor();
 		createSkybox();
 	}
 
@@ -381,13 +381,16 @@ namespace jhb {
 	}
 	void DeferedPBRRenderSystem::createSponze()
 	{
-		auto sponzaModel = loadGLTFFile("Models/sponza/Sponza01.gltf");
+		auto sponzaModel = loadGLTFFile("Models/sponza/Sponza.gltf");
 		auto sponza = GameObject::createGameObject();
 		sponza.transform.translation = { 0.f, 0.f, 0.f };
-		sponza.transform.scale = { 1.f, 1.f, 1.f };
-		sponza.transform.rotation = { -glm::radians(90.f), 0.f, 0.f };
+		sponza.transform.scale = { 10.f, 10.f, 10.f };
+		sponza.transform.rotation = { glm::radians(180.f),0.f, 0.f };
 		sponzaModel->instanceCount += 1;
+		sponzaModel->rootModelMatrix = sponza.transform.mat4();
 		sponza.setId(id++);
+		sponza.model = sponzaModel;
+		sponzaModel->updateInstanceBuffer(1,0,0);
 		GameObjectManager::GetSingleton().AddGameObject(std::move(sponza));
 	}
 
@@ -470,9 +473,9 @@ namespace jhb {
 
 		model->createVertexBuffer(vertexBuffer);
 		model->createIndexBuffer(indexBuffer);
-		model->createObjectSphere(vertexBuffer);
-		model->updateInstanceBuffer(300, 2.5f, 2.5f);
-		model->createObjectSphere(vertexBuffer);
+		//model->createObjectSphere(vertexBuffer);
+		//model->updateInstanceBuffer(300, 2.5f, 2.5f);
+		//model->createObjectSphere(vertexBuffer);
 
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthTestEnable = true;
@@ -507,7 +510,7 @@ namespace jhb {
 			auto helmet = GameObject::createGameObject();
 			helmet.transform.translation = { 0.f, 0.f, 0.f };
 			helmet.transform.scale = { 1.f, 1.f, 1.f };
-			helmet.transform.rotation = { -glm::radians(90.f), 0.f, 0.f };
+			helmet.transform.rotation = { 0,-glm::radians(90.f), 0.f };
 			helmetModel->instanceCount += 1;
 			helmet.setId(id++);
 			GameObjectManager::GetSingleton().AddGameObject(std::move(helmet));
@@ -600,7 +603,7 @@ namespace jhb {
 		skyBox.transform.translation = { 0.f, 0.f, 0.f };
 		skyBox.transform.scale = { 10.f, 10.f ,10.f };
 		skyBox.setId(id++);
-		pbrObjects.emplace(skyBox.getId(), std::move(skyBox));
+		GameObjectManager::GetSingleton().AddGameObject(std::move(skyBox));
 	}
 
 	void DeferedPBRRenderSystem::createVertexAttributeAndBindingDesc(PipelineConfigInfo& pipelineConfig)
@@ -616,7 +619,7 @@ namespace jhb {
 
 		pipelineConfig.bindingDescriptions.push_back(bindingdesc);
 
-		std::vector<VkVertexInputAttributeDescription> attrdesc(9);
+		std::vector<VkVertexInputAttributeDescription> attrdesc(8);
 
 		attrdesc[0].binding = 1;
 		attrdesc[0].location = 5;
@@ -653,10 +656,6 @@ namespace jhb {
 		attrdesc[7].location = 12;
 		attrdesc[7].format = VK_FORMAT_R32_SFLOAT;
 		attrdesc[7].offset = offsetof(Model::InstanceData, Model::InstanceData::b);
-		attrdesc[8].binding = 1;
-		attrdesc[8].location = 12;
-		attrdesc[8].format = VK_FORMAT_R32_SFLOAT;
-		attrdesc[8].offset = offsetof(Model::InstanceData, Model::InstanceData::radius);
 
 		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
 	}
@@ -786,7 +785,7 @@ namespace jhb {
 
 	void DeferedPBRRenderSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
-		for (auto& kv : pbrObjects)
+		for (auto& kv : GameObjectManager::GetSingleton().gameObjects)
 		{
 			auto& obj = kv.second;
 
@@ -797,13 +796,13 @@ namespace jhb {
 
 			obj.model->bind(frameInfo.commandBuffer);
 
-			if (kv.first == 1)
+			//if (kv.first == 1)
 			{
 				auto modelmat = kv.second.transform.mat4();
 				vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelmat);
 			}
 
-			if (kv.first == 2)
+			if (kv.first == 1)
 			{
 				vkCmdBindDescriptorSets(
 					frameInfo.commandBuffer,
