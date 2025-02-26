@@ -58,13 +58,14 @@ vec3 calculateNormal(vec3 inNormal)
 	vec3 T = normalize(q1 * st2.t- q2 * st1.t);
 	vec3 B = normalize(cross(N, T));
 	mat3 TBN = mat3(T, B, N);
-
-	return normalize(TBN * tangentNormal);
+	N = TBN*N;
+	return vec3(N*0.5 +0.5);
 }
 
 void main() {
 	outAlbedo.rgb = texture(samplerColorMap, fraguv).rgb;
 	if (ALPHA_MASK) {
+		outNormal=vec4(normalize(fragNormalWorld)*0.5 +0.5, 0);
 		if (outAlbedo.a < ALPHA_MASK_CUTOFF) {
 			discard;
 		}
@@ -73,7 +74,7 @@ void main() {
 	outPosition = vec4(fragPosWorld, 1.0);
 
 	vec3 N = normalize(fragNormalWorld);
-	outNormal = vec4(calculateNormal(N),1.0);
+	outNormal = vec4(calculateNormal(N),0);
 
 	// Store linearized depth in alpha component
 	outPosition.a = linearDepth(gl_FragCoord.z);

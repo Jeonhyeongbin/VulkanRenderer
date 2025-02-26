@@ -150,7 +150,7 @@ void main() {
 	float metallic = 0;
 	float roughness = 1;
 	float occulsion = subpassLoad(inputMaterial).r;
-	vec3 N = subpassLoad(inputNormal).rgb;
+	vec3 N = subpassLoad(inputNormal).rgb*2.0-1;
 
 	if(isMetallicRoughness)
 	{

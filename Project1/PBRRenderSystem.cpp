@@ -180,9 +180,9 @@ namespace jhb {
 		model->path = filename.substr(0, pos);
 
 		if (fileLoaded) {
-			model->loadImages(glTFInput);
 			model->loadMaterials(glTFInput);
 			model->loadTextures(glTFInput);
+			model->loadImages(glTFInput);
 			const tinygltf::Scene& scene = glTFInput.scenes[0];
 			for (size_t i = 0; i < scene.nodes.size(); i++) {
 				const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];

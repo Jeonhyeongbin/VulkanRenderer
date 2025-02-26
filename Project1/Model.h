@@ -134,7 +134,7 @@ namespace jhb {
 		Model& operator=(const Model&) = delete;
 
 		Image& getTexture(int idx) {
-			return images[idx];
+			return images[textures[idx].imageIndex];
 		}
 
 		//static std::unique_ptr<Model> createModelFromFile(Device& device, const std::string& Modelfilepath, const std::string& texturefilepath);
@@ -194,7 +194,7 @@ namespace jhb {
 		std::vector<Material> materials;
 		std::vector<Node*> nodes;
 		std::vector<Image> images{ Image{} };
-		std::vector<Texture> textures;
+		std::vector<Texture> textures{ Texture{} };
 		std::string path;
 
 	public:
