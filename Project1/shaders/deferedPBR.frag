@@ -150,7 +150,7 @@ void main() {
 	float metallic = 0;
 	float roughness = 1;
 	float occulsion = subpassLoad(inputMaterial).r;
-	vec3 N = subpassLoad(inputNormal).rgb*2.0-1;
+	vec3 N = subpassLoad(inputNormal).rgb;
 
 	if(isMetallicRoughness)
 	{
@@ -171,11 +171,6 @@ void main() {
 	else{
 	F0 = mix(F0, albedo.rgb, metallic);
 
-	if (ALPHA_MASK) {
-		if (albedo.a < ALPHA_MASK_CUTOFF) {
-			discard;
-		}
-	}
 	vec3 occlusionMaterialRoughness = subpassLoad(inputMaterial).rgb;
 	vec3 Lo = vec3(0.0);
 	for(int i = 0; i < ubo.pointLights.length(); i++) {

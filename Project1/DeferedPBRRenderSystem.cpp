@@ -384,7 +384,7 @@ namespace jhb {
 		auto sponzaModel = loadGLTFFile("Models/sponza/Sponza.gltf");
 		auto sponza = GameObject::createGameObject();
 		sponza.transform.translation = { 0.f, 0.f, 0.f };
-		sponza.transform.scale = { 10.f, 10.f, 10.f };
+		sponza.transform.scale = { 2.f, 2.f, 2.f };
 		sponza.transform.rotation = { glm::radians(180.f),0.f, 0.f };
 		sponzaModel->instanceCount += 1;
 		sponzaModel->rootModelMatrix = sponza.transform.mat4();

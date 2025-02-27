@@ -45,36 +45,25 @@ layout (location = 3) out vec4 outAlbedo;
 layout (location = 4) out vec4 outMaterial;
 layout (location = 5) out vec4 outEmmisive;
 
-vec3 calculateNormal(vec3 inNormal)
+vec3 calculateNormal()
 {
-	vec3 tangentNormal = texture(samplerNormalMap, fraguv).xyz * 2.0 - 1.0;
-
 	vec3 N = normalize(fragNormalWorld);
-	vec3 q1 = dFdx(fragPosWorld);
-	vec3 q2 = dFdy(fragPosWorld);
-	vec2 st1 = dFdx(fraguv);
-	vec2 st2 = dFdy(fraguv);
-
-	vec3 T = normalize(q1 * st2.t- q2 * st1.t);
-	vec3 B = normalize(cross(N, T));
+	vec3 T = normalize(fragtangent.xyz);
+	vec3 B = -cross(N, T);
 	mat3 TBN = mat3(T, B, N);
-	N = TBN*N;
-	return vec3(N*0.5 +0.5);
+	return TBN*normalize(texture(samplerNormalMap, fraguv).xyz);
 }
 
 void main() {
-	outAlbedo.rgb = texture(samplerColorMap, fraguv).rgb;
+	outAlbedo = texture(samplerColorMap, fraguv) * vec4(fragColor, 1.0);
 	if (ALPHA_MASK) {
-		outNormal=vec4(normalize(fragNormalWorld)*0.5 +0.5, 0);
 		if (outAlbedo.a < ALPHA_MASK_CUTOFF) {
 			discard;
 		}
 	}
 
 	outPosition = vec4(fragPosWorld, 1.0);
-
-	vec3 N = normalize(fragNormalWorld);
-	outNormal = vec4(calculateNormal(N),0);
+	outNormal = vec4(calculateNormal(),0);
 
 	// Store linearized depth in alpha component
 	outPosition.a = linearDepth(gl_FragCoord.z);

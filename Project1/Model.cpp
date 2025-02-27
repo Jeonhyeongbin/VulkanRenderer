@@ -993,10 +993,10 @@ void jhb::Image::loadKTXTexture(Device& device, const std::string& filepath, VkI
 	vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
 	samplerInfo.anisotropyEnable = VK_FALSE;
 	samplerInfo.maxAnisotropy = 0;
-	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
 	samplerInfo.unnormalizedCoordinates = VK_FALSE;
 	samplerInfo.compareEnable = VK_FALSE;
-	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	samplerInfo.compareOp = VK_COMPARE_OP_NEVER;
 
 	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	samplerInfo.mipLodBias = 0.0f;
