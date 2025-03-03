@@ -161,7 +161,7 @@ namespace jhb {
 		globalPools[2] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 3).build();	// prefiter, brud, irradiane
 
 		// for gltf model color map and normal map and emissive, occlusion, metallicRoughness Textures
-		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT*25).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 5*25).build();
+		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT*35).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 10*25).build();
 
 		// for picking object index storage
 		globalPools[4] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
@@ -330,7 +330,7 @@ namespace jhb {
 		if (window.GetMousePressed() == true && window.objectId <0)
 		{
 			renderer.beginSwapChainRenderPass(commandBuffer, mousePickingRenderSystem->pickingRenderpass, mousePickingRenderSystem->offscreenFrameBuffer[frameIndex], window.getExtent());
-			mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, deferedPbrRenderSystem->pbrObjects, { globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex] }, frameIndex, uboPickingIndexBuffer[frameIndex].get());
+			mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer,  {globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex]}, frameIndex, uboPickingIndexBuffer[frameIndex].get());
 			renderer.endSwapChainRenderPass(commandBuffer);
 
 			// check object id from a pixel whicch located in mouse pointer coordinate
@@ -357,13 +357,31 @@ namespace jhb {
 		// picking only apply to pbrobjects
 		if (window.objectId > 0)
 		{
-			auto& pickedObject = deferedPbrRenderSystem->pbrObjects[window.objectId - 1];
+			auto& pickedObject = GameObjectManager::GetSingleton().gameObjects[window.objectId - 1];
 			{
-				if (pickedObject.model && pickedObject.getId()!=2)
+				if (pickedObject.model && pickedObject.getId()>= 2)
 				{
 					// should transfer rotation axis to object space;
-					pickedObject.model->pickedObjectRotationMatrix *= glm::rotate(glm::mat4{1.f}, (float)((px - x)*(0.001)), glm::vec3{0, 0, 1});
+					uint32_t obj_first_id = pickedObject.model->firstid;
+					pickedObject.transform.rotation = glm::rotate(glm::mat4{ 1.f }, (float)((px - x) * (0.001)), glm::vec3{ 1, 0, 0 }) * glm::vec4(pickedObject.transform.rotation, 1);
 					px = x, py = y;
+
+					std::vector<glm::vec3> tmplist(pickedObject.model->instanceCount);
+					for (int i = 0; i < pickedObject.model->instanceCount; i++)
+					{
+						tmplist[i] = GameObjectManager::GetSingleton().gameObjects[obj_first_id + i].transform.translation;
+					}
+
+					std::vector<glm::vec3> tmprot(pickedObject.model->instanceCount);
+					for (int i = 0; i < pickedObject.model->instanceCount; i++)
+					{
+						tmprot[i] = GameObjectManager::GetSingleton().gameObjects[obj_first_id + i].transform.rotation;
+					}
+
+					tmprot[pickedObject.getId() - pickedObject.model->firstid] = pickedObject.transform.rotation;
+					{
+						pickedObject.model->updateInstanceBuffer(pickedObject.model->instanceCount, tmplist, tmprot);
+					}
 				}
 			}
 			return true;

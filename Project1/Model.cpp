@@ -753,7 +753,7 @@ void jhb::Model::drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pip
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix =  pickedObjectRotationMatrix * node->matrix;
+		glm::mat4 nodeMatrix =  node->matrix* pickedObjectRotationMatrix *rootModelMatrix;
 		Node* currentParent = node->parent;
 		while (currentParent) {
 			nodeMatrix = currentParent->matrix * nodeMatrix;
@@ -851,9 +851,9 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 	samplerInfo.magFilter = VK_FILTER_LINEAR;
 	samplerInfo.minFilter = VK_FILTER_LINEAR;
 
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
 
 	VkPhysicalDeviceProperties properties{};
 	vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
@@ -1087,35 +1087,36 @@ void jhb::Model::createObjectSphere(const std::vector<Vertex> vertices)
 	sphere.radius = (float)(sqrt(pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2)));
 }
 
-void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, float offsetZ, float roughness, float metallic)
+void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& rotations, float roughness, float metallic)
 {
 	instanceCount = _instanceCount;
 	if (instanceBuffer == nullptr)
 	{
-		instanceBuffer = std::make_unique<Buffer>(device, sizeof(InstanceData), instanceCount, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		instanceBuffer = std::make_unique<Buffer>(device, sizeof(InstanceData), instanceCount, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT , VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		instanceBuffer->map();
 	}
 
 	instanceData.resize(instanceCount);
 
 	for (float i = 0; i < instanceCount; i++)
 	{
-		//auto rotate = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>() / instanceCount), { 0.f, 0.f, 1.f });
-		//glm::vec4 tmp{ offsetX, 0.f, offsetZ, 1};
-		//instanceData[i].pos = glm::vec3(rotate * tmp);
-		instanceData[i].pos.x = 0;
-		instanceData[i].pos.y = 0;
-		instanceData[i].pos.z = 0;
-		instanceData[i].r = 0.5f;
-		instanceData[i].g = 0.5f;
-		instanceData[i].b = 0.5f;
-		instanceData[i].roughness = roughness;
-		instanceData[i].metallic = metallic;
+		instanceData[i].r = i; // this is instance id offset
+	}
+	for (int i = 0; i < positions.size(); i++)
+	{
+		instanceData[i].pos = positions[i];
+	}
+	for (int i = 0; i < rotations.size(); i++)
+	{
+		instanceData[i].rot = rotations[i];
 	}
 
-	Buffer stagingBuffer(device, sizeof(InstanceData), 64, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	stagingBuffer.map();
-	stagingBuffer.writeToBuffer(instanceData.data(), instanceBuffer->getBufferSize(), 0);
 
-	device.copyBuffer(stagingBuffer.getBuffer(), instanceBuffer->getBuffer(), instanceBuffer->getBufferSize());
-	stagingBuffer.unmap();
+
+	//Buffer stagingBuffer(device, sizeof(InstanceData), 64, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	instanceBuffer->writeToBuffer(instanceData.data(), instanceBuffer->getBufferSize(), 0);
+	instanceBuffer->flush();
+
+	//device.copyBuffer(stagingBuffer.getBuffer(), instanceBuffer->getBuffer(), instanceBuffer->getBufferSize());
+	//stagingBuffer.unmap();
 }

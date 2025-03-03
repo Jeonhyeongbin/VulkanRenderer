@@ -22,6 +22,8 @@ layout (set = 2, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
 layout (constant_id = 0) const bool ALPHA_MASK = false;
 layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
 layout (constant_id = 2) const bool isMetallicRoughness = false;
+layout (constant_id = 3) const bool isEmissive = false;
+layout (constant_id = 4) const bool isOcclusion = false;
 
 #define NEAR_PLANE 0.1f
 #define FAR_PLANE 1024
@@ -49,9 +51,9 @@ vec3 calculateNormal()
 {
 	vec3 N = normalize(fragNormalWorld);
 	vec3 T = normalize(fragtangent.xyz);
-	vec3 B = -cross(N, T);
+	vec3 B = cross(N, T)*fragtangent.w;
 	mat3 TBN = mat3(T, B, N);
-	return TBN*normalize(texture(samplerNormalMap, fraguv).xyz);
+	return TBN*normalize(texture(samplerNormalMap, fraguv).xyz*2-1);
 }
 
 void main() {
@@ -67,7 +69,16 @@ void main() {
 
 	// Store linearized depth in alpha component
 	outPosition.a = linearDepth(gl_FragCoord.z);
-	outMaterial.gb = texture(samplerMetallicRoughnessMap, fraguv).gb;
+
+	if(isMetallicRoughness)
+	{
+		outMaterial.gb = texture(samplerMetallicRoughnessMap, fraguv).gb;
+	}
+	else{
+		outMaterial.b = 0;
+		outMaterial.g = 1;
+	}
+	
 	outMaterial.r = texture(samplerOcclusionMap, fraguv).r;
 	outEmmisive.rgb = texture(samplerEmissiveMap , fraguv).rgb;
 

@@ -2,6 +2,7 @@
 #include "JHBApplication.h"
 #include "Model.h"
 #include "Pipeline.h"
+#include "GameObjectManager.h"
 
 jhb::MousePickingRenderSystem::MousePickingRenderSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag)
 	: BaseRenderSystem(device, globalSetLayOut, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(gltfPushConstantData)} })
@@ -36,7 +37,7 @@ jhb::MousePickingRenderSystem::~MousePickingRenderSystem()
 
 }
 
-void jhb::MousePickingRenderSystem::renderMousePickedObjToOffscreen(VkCommandBuffer cmd, jhb::GameObject::Map& gameObjects, const std::vector<VkDescriptorSet>& descriptorsets,
+void jhb::MousePickingRenderSystem::renderMousePickedObjToOffscreen(VkCommandBuffer cmd, const std::vector<VkDescriptorSet>& descriptorsets,
 	int frameIndex, Buffer* pickingUbo)
 {
 	vkCmdBindDescriptorSets(
@@ -49,7 +50,7 @@ void jhb::MousePickingRenderSystem::renderMousePickedObjToOffscreen(VkCommandBuf
 	);
 
 	// update object id per object
-	for (auto& kv : gameObjects)
+	for (auto& kv : GameObjectManager::GetSingleton().gameObjects)
 	{
 		auto& obj = kv.second;
 
@@ -58,7 +59,7 @@ void jhb::MousePickingRenderSystem::renderMousePickedObjToOffscreen(VkCommandBuf
 			continue;
 		}
 
-		if (kv.first == 0)
+		if (kv.first == 2)
 		{
 			obj.model->bind(cmd);
 			if (pickingUbo)

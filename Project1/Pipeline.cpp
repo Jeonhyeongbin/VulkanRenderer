@@ -85,7 +85,7 @@ namespace jhb {
 		configInfo.depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 		configInfo.depthStencilInfo.depthTestEnable = configInfo.depthStencilInfo.depthTestEnable;
 		configInfo.depthStencilInfo.depthWriteEnable = configInfo.depthStencilInfo.depthWriteEnable;
-		configInfo.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS;
+		configInfo.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 		configInfo.depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
 		configInfo.depthStencilInfo.minDepthBounds = 0.0f;  // Optional
 		configInfo.depthStencilInfo.maxDepthBounds = 1.0f;  // Optional
@@ -270,14 +270,26 @@ namespace jhb {
 			VkBool32 alphaMask;
 			float alphaMaskCutoff;
 			VkBool32 isMetallicRoughness;
+			VkBool32 isEmissive;
+			VkBool32 isOcculsion;
 		} materialSpecializationData;
 
 		materialSpecializationData.alphaMask = material.alphaMode == "MASK";
 		materialSpecializationData.alphaMaskCutoff = material.alphaCutOff;
 		materialSpecializationData.isMetallicRoughness = false;
+		materialSpecializationData.isEmissive= false;
+		materialSpecializationData.isOcculsion = false;
 		if (material.metallicRoughnessTextureIndex > 0) // if 0, then it has not metalliroughness
 		{
 			materialSpecializationData.isMetallicRoughness = true;
+		}
+		if (material.emissiveTextureIndex > 0) // if 0, then it has not metalliroughness
+		{
+			materialSpecializationData.isEmissive = true;
+		}
+		if (material.occlusionTextureIndex > 0) // if 0, then it has not metalliroughness
+		{
+			materialSpecializationData.isOcculsion = true;
 		}
 
 		// POI: Constant fragment shader material parameters will be set using specialization constants
@@ -285,6 +297,8 @@ namespace jhb {
 			{0, offsetof(MaterialSpecializationData, alphaMask), sizeof(MaterialSpecializationData::alphaMask)},
 			{1, offsetof(MaterialSpecializationData, alphaMaskCutoff), sizeof(MaterialSpecializationData::alphaMaskCutoff)},
 			{2, offsetof(MaterialSpecializationData, isMetallicRoughness), sizeof(MaterialSpecializationData::isMetallicRoughness)},
+			{3, offsetof(MaterialSpecializationData, isEmissive), sizeof(MaterialSpecializationData::isEmissive)},
+			{3, offsetof(MaterialSpecializationData, isOcculsion), sizeof(MaterialSpecializationData::isOcculsion)},
 		};
 		VkSpecializationInfo specializationInfo = { specializationMapEntries.size(), specializationMapEntries.data(), sizeof(materialSpecializationData), &materialSpecializationData };
 		shaderStages[1].pSpecializationInfo = &specializationInfo;

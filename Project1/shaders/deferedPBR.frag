@@ -4,7 +4,7 @@
 layout (location = 0) in vec2 fraguv;
 
 #define EPSILON 0.15
-#define SHADOW_OPACITY 0.5
+#define SHADOW_OPACITY 0.1
 
 layout (set = 0, input_attachment_index = 0, binding = 0) uniform subpassInput inputPosition;
 layout (set = 0, input_attachment_index = 1, binding = 1) uniform subpassInput inputNormal;
@@ -35,8 +35,10 @@ layout(set=1, binding = 0) uniform GlobalUbo{
 } ubo;
 
 layout (constant_id = 0) const bool ALPHA_MASK = false;
-layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
+layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.3f;
 layout (constant_id = 2) const bool isMetallicRoughness = true;
+layout (constant_id = 3) const bool isEmissive = false;
+layout (constant_id = 4) const bool isOcclusion = false;
 
 layout (location = 0) out vec4 outColor;
 
@@ -146,17 +148,18 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 
 void main() {
 	vec3 cameraPosWorld = ubo.invView[3].xyz;
-	vec3 fragPosWorld = subpassLoad(inputPosition).rgb;
-	float metallic = 0;
-	float roughness = 1;
+	vec3 occlusionMaterialRoughness = subpassLoad(inputMaterial).rgb;
+	vec3 fragPosWorld = subpassLoad(inputPosition).xyz;
+	float metallic = occlusionMaterialRoughness.b;
+	float roughness = occlusionMaterialRoughness.g;
 	float occulsion = subpassLoad(inputMaterial).r;
-	vec3 N = subpassLoad(inputNormal).rgb;
+	vec3 N = subpassLoad(inputNormal).xyz;
 
-	if(isMetallicRoughness)
-	{
-		metallic=subpassLoad(inputMaterial).b;
-		float roughness = subpassLoad(inputMaterial).g;
-	}
+	// if(isMetallicRoughness)
+	// {
+	// 	metallic=subpassLoad(inputMaterial).b;
+	// 	roughness = subpassLoad(inputMaterial).g;
+	// }
 
 	vec3 V = normalize(cameraPosWorld - fragPosWorld);
 	vec3 R = reflect(-V, N);
@@ -171,7 +174,7 @@ void main() {
 	else{
 	F0 = mix(F0, albedo.rgb, metallic);
 
-	vec3 occlusionMaterialRoughness = subpassLoad(inputMaterial).rgb;
+
 	vec3 Lo = vec3(0.0);
 	for(int i = 0; i < ubo.pointLights.length(); i++) {
 		vec3 L = normalize(ubo.pointLights[i].position.xyz - fragPosWorld);
@@ -194,7 +197,11 @@ void main() {
 	vec3 kD = 1.0 - F;
 	kD *= 1.0 - roughness;
 	//vec3 ambient = (kD * diffuse + specular) * occulsion;
-	vec3 ambient = (kD * diffuse + specular);
+	if(isOcclusion==false)
+	{
+		occulsion=1.f;
+	}
+	vec3 ambient = (kD * diffuse + specular) * occulsion;
 	
 
 	vec3 color = ambient + Lo;
@@ -207,12 +214,18 @@ void main() {
 
 	// Shadow
 	vec3 lightVec = fragPosWorld - ubo.pointLights[0].position.xyz;
-    float sampledDist = texture(shadowMap, lightVec).r;
-    float dist = length(lightVec);
+	float dist = length(lightVec);
+	lightVec=normalize(lightVec);
+    float sampledDist = texture(shadowMap, lightVec).r; 
+    
 
 	// Check if fragment is in shadow
-    float shadow = (dist <= sampledDist + EPSILON) ? 1.0 : SHADOW_OPACITY;
-	//vec4 emission = vec4(SRGBtoLINEAR(subpassLoad(inputEmmisive)).rgb,1);
+    float shadow = (dist - EPSILON <= sampledDist) ? 1.0 : SHADOW_OPACITY;
+	if(isEmissive)
+	{
+		vec3 emission = SRGBtoLINEAR(subpassLoad(inputEmmisive)).rgb;
+		color+=emission;
+	}
 	outColor = vec4(color, 1.0);
 	outColor *= shadow;
 	}

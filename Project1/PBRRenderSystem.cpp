@@ -210,7 +210,7 @@ namespace jhb {
 		model->createVertexBuffer(vertexBuffer);
 		model->createIndexBuffer(indexBuffer);
 		model->createObjectSphere(vertexBuffer);
-		model->updateInstanceBuffer(6, 2.5f, 2.5f);
+		//model->updateInstanceBuffer(6, 2.5f, 2.5f);
 		return model;
 	}
 
@@ -322,7 +322,7 @@ namespace jhb {
 		floor.setId(id++);
 		floor.model->createPipelineForModel("shaders/pbr.vert.spv",
 			"shaders/pbrnotexture.frag.spv", pipelineconfigInfo);
-		floor.model->updateInstanceBuffer(1, 0.f ,0.f,0,0);
+		//floor.model->updateInstanceBuffer(1, 0.f ,0.f,0,0);
 
 		pbrObjects.emplace(floor.getId(), std::move(floor));
 		//this is not gltf model, so using different pipeline 

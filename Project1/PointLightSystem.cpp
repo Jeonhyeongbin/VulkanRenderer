@@ -27,13 +27,13 @@ namespace jhb {
 		pipelineConfig.bindingDescriptions.clear();
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
-		pipelineConfig.multisampleInfo.rasterizationSamples = device.msaaSamples;
 		pipeline = std::make_unique<Pipeline>(
 			device,
 			vert,
 			frag,
 			pipelineConfig);
 	}
+
 
 
 	void PointLightSystem::update(FrameInfo& frameInfo, GlobalUbo& ubo)
@@ -103,7 +103,7 @@ namespace jhb {
 			pointLight.color = lightColors[i];
 			pointLight.pointLight->lightIntensity = 10.f;
 			auto rotateLight = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>() / lightColors.size()), { 0.f, -1.f, 0.f });
-			pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(0.f, -0.5f, 0.f, 1.f));
+			pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(0.f, -10.5f, 0.f, 1.f));
 			pointLight.setId(currentId++);
 			lightObjects.emplace(pointLight.getId(), std::move(pointLight));
 		}

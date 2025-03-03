@@ -62,8 +62,8 @@ namespace jhb {
 		void createRenderPass(VkFormat);
 		void createSponze();
 		void createDamagedHelmets();
-		void createFloor();
 		void createSkybox();
+		void createFloor();
 
 		void createVertexAttributeAndBindingDesc(PipelineConfigInfo&);
 		void createLightingPipelineAndPipelinelayout(const std::vector<VkDescriptorSetLayout>&);

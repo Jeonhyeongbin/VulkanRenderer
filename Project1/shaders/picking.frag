@@ -18,5 +18,5 @@ layout(push_constant) uniform fragmentPushConstants {
 } u_pushConstants;
 
 void main() {
-	outColor = uvec3(u_pushConstants.objId);
+	outColor = uvec3(u_pushConstants.objId+fr);
 }

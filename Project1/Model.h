@@ -164,7 +164,7 @@ namespace jhb {
 		void PickingPhasedrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex, VkPipeline pipeline);
 		void calculateTangent(glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3, glm::vec3 pos1, glm::vec3 pos2, glm::vec3 pos3, glm::vec4& tangent);
 		void createObjectSphere(const std::vector<Vertex> vertices);
-		void updateInstanceBuffer(uint32_t _instanceCount, float offsetX, float offsetZ, float roughness =0, float metallic=0);
+		void updateInstanceBuffer(uint32_t _instanceCount, const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& rotations, float roughness =0, float metallic=0);
 
 	public:
 		// only for no gftl model
@@ -187,6 +187,8 @@ namespace jhb {
 
 	public:
 		uint32_t instanceCount = 1;
+		uint32_t firstid = 0;
+
 		std::unique_ptr<Buffer> instanceBuffer = nullptr;
 		std::vector<InstanceData> instanceData;
 
