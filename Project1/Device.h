@@ -42,6 +42,7 @@ namespace jhb {
 		struct QueueFamilyIndexes {
 			std::optional<uint32_t> graphicsFamily;
 			std::optional<uint32_t> presentFamily;
+			std::optional<uint32_t> computeFamily;
 		};
 
 	public:
@@ -60,6 +61,7 @@ namespace jhb {
 		VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
 		VkSurfaceKHR getSurface() const { return surface; }
 		VkQueue getGraphicsQueue() const { return graphicsQueue; }
+		VkQueue getComputeQueue() const { return ComputeQueue;	}
 		VkQueue getPresentQueue() const { return presentQueue; }
 		VkCommandPool getCommnadPool() { return commandPool; }
 
@@ -97,6 +99,10 @@ namespace jhb {
 		VkCommandBuffer beginSingleTimeCommands();
 		void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
+		// computeCommand
+		VkCommandBuffer beginSingleComputeCommands();
+		void endSingleComputeCommands(VkCommandBuffer commandBuffer);
+
 
 		QueueFamilyIndexes findQueueFamilies(VkPhysicalDevice device);
 		std::vector<const char*> getRequiredExtensions();
@@ -121,6 +127,7 @@ namespace jhb {
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 		VkQueue graphicsQueue; // queues are automatically create with logical device, you must create explictly handle to interface
 		VkQueue presentQueue;
+		VkQueue ComputeQueue;
 		VkSwapchainKHR swapChain;
 		VkDebugUtilsMessengerEXT debugMessenger;
 		VkCommandPool commandPool;
@@ -140,5 +147,6 @@ namespace jhb {
 #endif
 		public:
 			VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_8_BIT;
+			VkPhysicalDeviceFeatures features;
 	};
 }

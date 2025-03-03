@@ -21,6 +21,9 @@ layout (set = 2, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
 
 layout (constant_id = 0) const bool ALPHA_MASK = false;
 layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
+layout (constant_id = 2) const bool isMetallicRoughness = false;
+layout (constant_id = 3) const bool isEmissive = false;
+layout (constant_id = 4) const bool isOcclusion = false;
 
 #define NEAR_PLANE 0.1f
 #define FAR_PLANE 1024
@@ -44,34 +47,38 @@ layout (location = 3) out vec4 outAlbedo;
 layout (location = 4) out vec4 outMaterial;
 layout (location = 5) out vec4 outEmmisive;
 
-vec3 calculateNormal(vec3 inNormal)
+vec3 calculateNormal()
 {
-	vec3 tangentNormal = texture(samplerNormalMap, fraguv).xyz * 2.0 - 1.0;
-
 	vec3 N = normalize(fragNormalWorld);
-	vec3 q1 = dFdx(fragPosWorld);
-	vec3 q2 = dFdy(fragPosWorld);
-	vec2 st1 = dFdx(fraguv);
-	vec2 st2 = dFdy(fraguv);
-
-	vec3 T = normalize(q1 * st2.t- q2 * st1.t);
-	vec3 B = -normalize(cross(N, T));
+	vec3 T = normalize(fragtangent.xyz);
+	vec3 B = cross(N, T)*fragtangent.w;
 	mat3 TBN = mat3(T, B, N);
-
-	return normalize(TBN * tangentNormal);
+	return TBN*normalize(texture(samplerNormalMap, fraguv).xyz*2-1);
 }
 
 void main() {
+	outAlbedo = texture(samplerColorMap, fraguv) * vec4(fragColor, 1.0);
+	if (ALPHA_MASK) {
+		if (outAlbedo.a < ALPHA_MASK_CUTOFF) {
+			discard;
+		}
+	}
+
 	outPosition = vec4(fragPosWorld, 1.0);
-
-	vec3 N = normalize(fragNormalWorld);
-	outNormal = vec4(N, 1.0);
-
-	outAlbedo.rgb = texture(samplerColorMap, fraguv).rgb;
+	outNormal = vec4(calculateNormal(),0);
 
 	// Store linearized depth in alpha component
 	outPosition.a = linearDepth(gl_FragCoord.z);
-	outMaterial.gb = texture(samplerMetallicRoughnessMap, fraguv).gb;
+
+	if(isMetallicRoughness)
+	{
+		outMaterial.gb = texture(samplerMetallicRoughnessMap, fraguv).gb;
+	}
+	else{
+		outMaterial.b = 0;
+		outMaterial.g = 1;
+	}
+	
 	outMaterial.r = texture(samplerOcclusionMap, fraguv).r;
 	outEmmisive.rgb = texture(samplerEmissiveMap , fraguv).rgb;
 

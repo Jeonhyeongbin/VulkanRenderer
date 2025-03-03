@@ -1,6 +1,7 @@
 #include "ShadowRenderSystem.h"
 #include <memory>
 #include <array>
+#include "GameObjectManager.h"
 
 namespace jhb {
 	ShadowRenderSystem::ShadowRenderSystem(Device& device, const std::string& vert, const std::string& frag)
@@ -37,12 +38,17 @@ namespace jhb {
 
 		pipelineConfig.bindingDescriptions.push_back(bindingdesc);
 
-		std::vector<VkVertexInputAttributeDescription> attrdesc(1);
+		std::vector<VkVertexInputAttributeDescription> attrdesc(2);
 
 		attrdesc[0].binding = 1;
 		attrdesc[0].location = 5;
 		attrdesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attrdesc[0].offset = offsetof(Model::InstanceData, Model::InstanceData::pos);
+
+		attrdesc[1].binding = 1;
+		attrdesc[1].location = 6;
+		attrdesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attrdesc[1].offset = offsetof(Model::InstanceData, Model::InstanceData::rot);
 
 		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
 
@@ -66,6 +72,7 @@ namespace jhb {
 			}, VK_IMAGE_TILING_OPTIMAL,
 			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
+		// depth image create
 		VkImageCreateInfo imageCIa{};
 		imageCIa.imageType = VK_IMAGE_TYPE_2D;
 		imageCIa.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -77,7 +84,7 @@ namespace jhb {
 		imageCIa.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		imageCIa.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-		device.createImageWithInfo(imageCIa, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offScreen.image, offScreen.memory);
+		device.createImageWithInfo(imageCIa, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offScreenDepth.image, offScreenDepth.memory);
 		// Image view
 		VkImageViewCreateInfo viewCIa{};
 		viewCIa.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -89,20 +96,20 @@ namespace jhb {
 		viewCIa.subresourceRange.baseMipLevel = 0;
 		viewCIa.subresourceRange.levelCount = 1;
 		viewCIa.subresourceRange.layerCount = 1;
-		viewCIa.image = offScreen.image;
-		if (vkCreateImageView(device.getLogicalDevice(), &viewCIa, nullptr, &offScreen.view))
+		viewCIa.image = offScreenDepth.image;
+		if (vkCreateImageView(device.getLogicalDevice(), &viewCIa, nullptr, &offScreenDepth.view))
 		{
 			throw std::runtime_error("failed to create ImageView!");
 		}
 
 		VkCommandBuffer cmd = device.beginSingleTimeCommands();
 
-		device.transitionImageLayout(cmd, offScreen.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+		device.transitionImageLayout(cmd, offScreenDepth.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 		device.endSingleTimeCommands(cmd);
 
 		VkImageView attachments[2];
-		attachments[1] = offScreen.view;
+		attachments[1] = offScreenDepth.view;
 
 		VkFramebufferCreateInfo fbufCreateInfo{};
 		fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -245,6 +252,7 @@ namespace jhb {
 
 		viewCIa.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		viewCIa.subresourceRange.layerCount = 1;
+		viewCIa.image = shadowMap.image;
 		for (uint32_t i = 0; i < 6; i++)
 		{
 			viewCIa.subresourceRange.baseArrayLayer = i;
@@ -332,7 +340,7 @@ namespace jhb {
 
 			// Update view matrix via push constant
 
-			glm::mat4 viewMatrix = glm::mat4{ 1.f };
+			glm::mat4 viewMatrix = glm::mat4(1);
 			switch (faceIndex)
 			{
 			case 0: // POSITIVE_X
@@ -364,18 +372,13 @@ namespace jhb {
 			//vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
 			offscreenBuffer.lightView = viewMatrix;
-			for (auto& obj : gameObjs)
+			for (auto& obj : GameObjectManager::GetSingleton().gameObjects)
 			{
 				// Update shader push constant block
 				// Contains current face view matrix
-				uint32_t instanceCount = 1;
 				offscreenBuffer.modelMat = obj.second.transform.mat4();
 				VkBuffer instance = nullptr;
-				if (obj.first == 0) // if damaged helmet
-				{
-					offscreenBuffer.modelMat = glm::mat4{ 1.f };
-				}
-				if (obj.first == 2)
+				if (obj.first == 1)
 				{
 					//  must skybox cube model excluded
 					continue;

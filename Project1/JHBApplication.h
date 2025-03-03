@@ -65,6 +65,7 @@ namespace jhb {
 		VkSampler Sampler;
 		VkDeviceMemory fontMemory;
 
+		std::unique_ptr<class ComputerShadeSystem> computeShaderSystem;
 		std::unique_ptr<class ImguiRenderSystem> imguiRenderSystem;
 		std::unique_ptr<class MousePickingRenderSystem> mousePickingRenderSystem;
 		std::unique_ptr<class ShadowRenderSystem> shadowMapRenderSystem;
@@ -74,7 +75,10 @@ namespace jhb {
 		std::unique_ptr<class SkyBoxRenderSystem> skyboxRenderSystem;
 		std::unique_ptr<class DeferedPBRRenderSystem> deferedPbrRenderSystem;
 
+		class Scene* GlobalScene;
+
 	private:
 		double px, py, pz;
+		bool isComputeFrustumCulling;
 	};
 }

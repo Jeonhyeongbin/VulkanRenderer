@@ -114,8 +114,8 @@ namespace jhb {
 		VkSubmitInfo submitInfo = {};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-		VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
-		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame], computeSemaphores[currentFrame]};
+		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
@@ -150,6 +150,28 @@ namespace jhb {
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
 		return result;
+	}
+
+	VkResult SwapChain::submitComputeCommandBuffers(const VkCommandBuffer* buffers)
+	{
+		vkWaitForFences(device.getLogicalDevice(), 1, &computeFences[currentFrame], VK_TRUE, UINT64_MAX);
+		vkResetFences(device.getLogicalDevice(), 1, &computeFences[currentFrame]);
+
+		VkSubmitInfo submitInfo = {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = buffers;
+
+		VkSemaphore signalSemaphores[] = { computeSemaphores[currentFrame] };
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores = signalSemaphores;
+
+		VkResult ret = vkQueueSubmit(device.getComputeQueue(), 1, &submitInfo, nullptr);
+		if (ret != VK_SUCCESS) {
+			throw std::runtime_error("failed to submit draw command buffer!");
+		}
+		return ret;
 	}
 
 	void SwapChain::createSwapChain()
@@ -391,6 +413,10 @@ namespace jhb {
 		inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 		imagesInFlight.resize(swapChainImages.size(), VK_NULL_HANDLE);
 
+
+		computeFences.resize(MAX_FRAMES_IN_FLIGHT);
+		computeSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+
 		VkSemaphoreCreateInfo semaphoreInfo = {};
 		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -403,10 +429,15 @@ namespace jhb {
 				VK_SUCCESS || 
 				vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) !=
 				VK_SUCCESS ||
-				vkCreateFence(device.getLogicalDevice(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
+				vkCreateFence(device.getLogicalDevice(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS
+				|| vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr, &computeSemaphores[i]) !=
+				VK_SUCCESS
+				|| vkCreateFence(device.getLogicalDevice(), &fenceInfo, nullptr, &computeFences[i]) != VK_SUCCESS
+				) {
 				throw std::runtime_error("failed to create synchronization objects for a frame!");
 			}
 		}
+
 	}
 
 	void SwapChain::createColorResources()

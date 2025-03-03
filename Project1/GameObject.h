@@ -29,7 +29,9 @@ namespace jhb {
 
     class GameObject {
     public:
+        // 프리미티브 id, 인스턴스 id 분리
         using id_t = unsigned int;
+        
         using Map = std::unordered_map<id_t, GameObject>;
 
         static GameObject createGameObject() {
@@ -47,7 +49,7 @@ namespace jhb {
         GameObject(GameObject&&) = default;
         GameObject& operator=(GameObject&&) = default;
 
-        id_t getId() { return id; }
+        id_t getId() const { return id; }
         void setId(uint32_t _id) { id = _id; }
 
         std::unique_ptr<PointLightComponent> pointLight = nullptr;

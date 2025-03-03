@@ -54,7 +54,7 @@ namespace jhb {
 		std::shared_ptr<Model> cube = std::make_unique<Model>(device);
 		cube->createVertexBuffer(vertices);
 		cube->createIndexBuffer(indices);
-		cube->getTexture(0).loadKTXTexture(device, "Texture/pisa_cube.ktx", VK_IMAGE_VIEW_TYPE_CUBE, 6);
+//		cube->getTexture(0).loadKTXTexture(device, "Texture/pisa_cube.ktx", VK_IMAGE_VIEW_TYPE_CUBE, 6);
 		skyBox = GameObject::createGameObject();
 		skyBox.model = cube;
 		skyBox.transform.translation = { 0.f, 0.f, 0.f };

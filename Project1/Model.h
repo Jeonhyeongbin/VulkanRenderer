@@ -37,7 +37,7 @@ namespace jhb {
 	};
 
 	struct Sphere {
-		glm::vec4 center;
+		glm::vec3 center;
 		float radius;
 
 		glm::vec4 mincoordinate{glm::vec3{(std::numeric_limits<float>::max)()}, 1};
@@ -134,12 +134,13 @@ namespace jhb {
 		Model& operator=(const Model&) = delete;
 
 		Image& getTexture(int idx) {
-			return images[idx];
+			return images[textures[idx].imageIndex];
 		}
 
 		//static std::unique_ptr<Model> createModelFromFile(Device& device, const std::string& Modelfilepath, const std::string& texturefilepath);
 		void draw(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, int frameIndex);
 		void drawNoTexture(VkCommandBuffer buffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, int frameIndex);
+		void drawIndirect(VkCommandBuffer commandBuffer, const Buffer& indirectCommandBuffer, VkPipelineLayout pipelineLayout, int frameIndex);
 
 		void drawInPickPhase(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, VkPipeline pipeline, int frameIndex);
 		void bind(VkCommandBuffer buffer);
@@ -156,17 +157,19 @@ namespace jhb {
 		void loadMaterials(tinygltf::Model& input);
 		void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
 		void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
+		void buildIndriectNode(Node* node, std::vector<VkDrawIndexedIndirectCommand>& indirectCommandsBuffer);
 		void drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, Node* node);
+		void buildIndirectCommand(std::vector<VkDrawIndexedIndirectCommand>& indirectCommandBuffer);
 
 		void PickingPhasedrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex, VkPipeline pipeline);
 		void calculateTangent(glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3, glm::vec3 pos1, glm::vec3 pos2, glm::vec3 pos3, glm::vec4& tangent);
 		void createObjectSphere(const std::vector<Vertex> vertices);
-		void updateInstanceBuffer(uint32_t _instanceCount, float offsetX, float offsetZ, float roughness =0, float metallic=0);
+		void updateInstanceBuffer(uint32_t _instanceCount, const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& rotations, float roughness =0, float metallic=0);
 
 	public:
 		// only for no gftl model
 		std::unique_ptr<class Pipeline> noTexturePipeline = nullptr;
-		glm::mat4 modelMatrix;
+	public:
 
 	private:
 		Device& device;
@@ -184,13 +187,16 @@ namespace jhb {
 
 	public:
 		uint32_t instanceCount = 1;
+		uint32_t firstid = 0;
+
 		std::unique_ptr<Buffer> instanceBuffer = nullptr;
+		std::vector<InstanceData> instanceData;
 
 	public:
 		std::vector<Material> materials;
 		std::vector<Node*> nodes;
 		std::vector<Image> images{ Image{} };
-		std::vector<Texture> textures;
+		std::vector<Texture> textures{ Texture{} };
 		std::string path;
 
 	public:

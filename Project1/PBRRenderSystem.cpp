@@ -180,9 +180,9 @@ namespace jhb {
 		model->path = filename.substr(0, pos);
 
 		if (fileLoaded) {
-			model->loadImages(glTFInput);
 			model->loadMaterials(glTFInput);
 			model->loadTextures(glTFInput);
+			model->loadImages(glTFInput);
 			const tinygltf::Scene& scene = glTFInput.scenes[0];
 			for (size_t i = 0; i < scene.nodes.size(); i++) {
 				const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
@@ -210,7 +210,7 @@ namespace jhb {
 		model->createVertexBuffer(vertexBuffer);
 		model->createIndexBuffer(indexBuffer);
 		model->createObjectSphere(vertexBuffer);
-		model->updateInstanceBuffer(6, 2.5f, 2.5f);
+		//model->updateInstanceBuffer(6, 2.5f, 2.5f);
 		return model;
 	}
 
@@ -247,7 +247,6 @@ namespace jhb {
 		helmet.transform.scale = { 1.f, 1.f, 1.f };
 		helmet.transform.rotation = { -glm::radians(90.f), 0.f, 0.f};
 		helmet.model = loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf");
-		helmet.model->modelMatrix = helmet.transform.mat4();
 		helmet.setId(id++);
 		pbrObjects.emplace(helmet.getId(), std::move(helmet));
 	}
@@ -323,7 +322,7 @@ namespace jhb {
 		floor.setId(id++);
 		floor.model->createPipelineForModel("shaders/pbr.vert.spv",
 			"shaders/pbrnotexture.frag.spv", pipelineconfigInfo);
-		floor.model->updateInstanceBuffer(1, 0.f ,0.f,0,0);
+		//floor.model->updateInstanceBuffer(1, 0.f ,0.f,0,0);
 
 		pbrObjects.emplace(floor.getId(), std::move(floor));
 		//this is not gltf model, so using different pipeline 

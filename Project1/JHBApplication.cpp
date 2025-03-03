@@ -12,6 +12,9 @@
 #include "MousePickingRenderSystem.h"
 #include "ShadowRenderSystem.h"
 #include "DeferedPBRRenderSystem.h"
+#include "ComputerShadeSystem.h"
+#include "GameObjectManager.h"
+#include "Scene.h"
 
 #define _USE_MATH_DEFINESimgui
 #include <math.h>
@@ -26,6 +29,9 @@ namespace jhb {
 		globalDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		pbrResourceDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		pickingObjUboDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
+		//computeShaderSystem = std::make_unique<ComputerShadeSystem>(device);
+		GlobalScene = new jhb::Scene();
 
 		init();
 	}
@@ -49,6 +55,9 @@ namespace jhb {
 		window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
 		float aspect = renderer.getAspectRatio();
 		window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
+		
+		//computeShaderSystem->SetupDescriptor(deferedPbrRenderSystem->pbrObjects);
+
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
 			glfwPollEvents(); //may block
@@ -71,6 +80,8 @@ namespace jhb {
 			}
 
 			int frameIndex = renderer.getFrameIndex();
+			//renderer.excuteComputeDispatch(&(computeShaderSystem->computeCommandBuffers[frameIndex]));
+
 			FrameInfo frameInfo{
 				frameIndex,
 				frameTime,
@@ -93,7 +104,10 @@ namespace jhb {
 			ubo.pointLights[0].color.g = 40.f;
 			ubo.pointLights[0].color.b = 40.f;
 			ubo.pointLights[0].color.a = 30.f;
-				
+			
+			//computeShaderSystem->UpdateUniform(frameIndex, ubo.view, ubo.projection);
+			
+
 			pointLightSystem->update(frameInfo, ubo);
 			uboBuffers[frameIndex]->writeToBuffer(&ubo); // wrtie to using frame buffer index
 			uboBuffers[frameIndex]->flush(); //not using coherent_bit flag, so must to flush memory manually
@@ -117,7 +131,7 @@ namespace jhb {
 			// this is why beginFram and beginswapchian renderpass are not combined;
 			// because main application control over this multiple render pass like reflections, shadows, post-processing effects
 
-			shadowMapRenderSystem->updateShadowMap(commandBuffer, deferedPbrRenderSystem->pbrObjects, frameIndex);
+			shadowMapRenderSystem->updateShadowMap(commandBuffer, GameObjectManager::GetSingleton().gameObjects, frameIndex);
 
 			renderer.beginSwapChainRenderPass(commandBuffer, deferedPbrRenderSystem->getRenderPass(), deferedPbrRenderSystem->getFrameBuffer(frameIndex), window.getExtent(), 8);
 			/*
@@ -128,7 +142,7 @@ namespace jhb {
 			renderer.endSwapChainRenderPass(commandBuffer);
 		
 			renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass, imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
-			imguiRenderSystem->newFrame(deferedPbrRenderSystem->pbrObjects[1]);
+			imguiRenderSystem->newFrame();
 			ImDrawData* draw_data = ImGui::GetDrawData();
 			ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
 			renderer.endSwapChainRenderPass(commandBuffer);
@@ -147,7 +161,7 @@ namespace jhb {
 		globalPools[2] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 3).build();	// prefiter, brud, irradiane
 
 		// for gltf model color map and normal map and emissive, occlusion, metallicRoughness Textures
-		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 5).build();
+		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT*35).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 10*25).build();
 
 		// for picking object index storage
 		globalPools[4] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
@@ -248,8 +262,8 @@ namespace jhb {
 
 		VkDescriptorImageInfo skyBoximageInfo{};
 		skyBoximageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		skyBoximageInfo.imageView = deferedPbrRenderSystem->pbrObjects[2].model->getTexture(0).view;
-		skyBoximageInfo.sampler = deferedPbrRenderSystem->pbrObjects[2].model->getTexture(0).sampler;
+		skyBoximageInfo.imageView = GameObjectManager::GetSingleton().gameObjects[1].model->getTexture(0).view;
+		skyBoximageInfo.sampler = GameObjectManager::GetSingleton().gameObjects[1].model->getTexture(0).sampler;
 
 		for (int i = 0; i < CubeBoxDescriptorSets.size(); i++)
 		{
@@ -283,17 +297,20 @@ namespace jhb {
 
 		// for gltf color map and normal map and emissive, occlusion, metallicRoughness Textures
 		// this time, only need damaged helmet materials info
-		auto gltfModel = deferedPbrRenderSystem->pbrObjects[0].model;
-		for (auto& material : gltfModel->materials)
+		auto& gltfModels = GameObjectManager::GetSingleton().gameObjects;
+		for (auto& gltfModel : gltfModels)
 		{
-			std::vector<VkDescriptorImageInfo> imageinfos = { gltfModel->getTexture(material.baseColorTextureIndex).descriptor, gltfModel->getTexture(material.normalTextureIndex).descriptor
-			,gltfModel->getTexture(material.occlusionTextureIndex).descriptor, gltfModel->getTexture(material.emissiveTextureIndex).descriptor, gltfModel->getTexture(material.metallicRoughnessTextureIndex).descriptor
-			};
-			for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
+			for (auto& material : gltfModel.second.model->materials)
 			{
-				DescriptorWriter(*descSetLayouts[3], *globalPools[3]).writeImage(0, &imageinfos[0]).writeImage(1, &imageinfos[1])
-					.writeImage(2, &imageinfos[2]).writeImage(3, &imageinfos[3]).writeImage(4, &imageinfos[4])
-					.build(material.descriptorSets[i]);
+				std::vector<VkDescriptorImageInfo> imageinfos = { gltfModel.second.model->getTexture(material.baseColorTextureIndex).descriptor, gltfModel.second.model->getTexture(material.normalTextureIndex).descriptor
+				,gltfModel.second.model->getTexture(material.occlusionTextureIndex).descriptor, gltfModel.second.model->getTexture(material.emissiveTextureIndex).descriptor, gltfModel.second.model->getTexture(material.metallicRoughnessTextureIndex).descriptor
+				};
+				for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
+				{
+					DescriptorWriter(*descSetLayouts[3], *globalPools[3]).writeImage(0, &imageinfos[0]).writeImage(1, &imageinfos[1])
+						.writeImage(2, &imageinfos[2]).writeImage(3, &imageinfos[3]).writeImage(4, &imageinfos[4])
+						.build(material.descriptorSets[i]);
+				}
 			}
 		}
 
@@ -313,7 +330,7 @@ namespace jhb {
 		if (window.GetMousePressed() == true && window.objectId <0)
 		{
 			renderer.beginSwapChainRenderPass(commandBuffer, mousePickingRenderSystem->pickingRenderpass, mousePickingRenderSystem->offscreenFrameBuffer[frameIndex], window.getExtent());
-			mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer, deferedPbrRenderSystem->pbrObjects, { globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex] }, frameIndex, uboPickingIndexBuffer[frameIndex].get());
+			mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer,  {globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex]}, frameIndex, uboPickingIndexBuffer[frameIndex].get());
 			renderer.endSwapChainRenderPass(commandBuffer);
 
 			// check object id from a pixel whicch located in mouse pointer coordinate
@@ -340,13 +357,31 @@ namespace jhb {
 		// picking only apply to pbrobjects
 		if (window.objectId > 0)
 		{
-			auto& pickedObject = deferedPbrRenderSystem->pbrObjects[window.objectId - 1];
+			auto& pickedObject = GameObjectManager::GetSingleton().gameObjects[window.objectId - 1];
 			{
-				if (pickedObject.model && pickedObject.getId()!=2)
+				if (pickedObject.model && pickedObject.getId()>= 2)
 				{
 					// should transfer rotation axis to object space;
-					pickedObject.model->pickedObjectRotationMatrix *= glm::rotate(glm::mat4{1.f}, (float)((px - x)*(0.001)), glm::vec3{0, 0, 1});
+					uint32_t obj_first_id = pickedObject.model->firstid;
+					pickedObject.transform.rotation = glm::rotate(glm::mat4{ 1.f }, (float)((px - x) * (0.001)), glm::vec3{ 1, 0, 0 }) * glm::vec4(pickedObject.transform.rotation, 1);
 					px = x, py = y;
+
+					std::vector<glm::vec3> tmplist(pickedObject.model->instanceCount);
+					for (int i = 0; i < pickedObject.model->instanceCount; i++)
+					{
+						tmplist[i] = GameObjectManager::GetSingleton().gameObjects[obj_first_id + i].transform.translation;
+					}
+
+					std::vector<glm::vec3> tmprot(pickedObject.model->instanceCount);
+					for (int i = 0; i < pickedObject.model->instanceCount; i++)
+					{
+						tmprot[i] = GameObjectManager::GetSingleton().gameObjects[obj_first_id + i].transform.rotation;
+					}
+
+					tmprot[pickedObject.getId() - pickedObject.model->firstid] = pickedObject.transform.rotation;
+					{
+						pickedObject.model->updateInstanceBuffer(pickedObject.model->instanceCount, tmplist, tmprot);
+					}
 				}
 			}
 			return true;

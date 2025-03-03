@@ -6,22 +6,9 @@
 - 그런 후 Project1/ShaderCompile.bat를 실행하여 쉐이더를 한번 컴파일해 줘야합니다.
 - vs2022에서만 빌드 및 실행이 가능합니다.
 
-# Entry Point
-- Project1/Main.cpp
-```C++
-int main()
-{
-try {
-	// swapchain, framebuffer, color, depth attachment are to fixed with window size
-	// every time window resize, you must create new swapcahin and others...
-	jhb::JHBApplication app;
-	app.Run();
-}
-}
-```
 
 # Feature
-![실행 결과](./image.png)
+![실행 결과](./image2.png)(./image.png)
 
 - Instancing
 - PBR-IBL
@@ -30,6 +17,10 @@ try {
 - Omnidirectional-shadowMapping
 - KTX(Khronos Texture) texture storage Format을 사용하였습니다.
 - gtlf 2.0 format with tinygltf [tinygltf](https://github.com/syoyo/tinygltf).
+
+# InProgress
+- GPUT based Culling and LOD
+- SSAO
 
 
 # 조작법

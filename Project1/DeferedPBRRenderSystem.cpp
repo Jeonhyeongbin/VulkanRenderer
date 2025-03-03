@@ -2,6 +2,7 @@
 #include <memory>
 #include <array>
 #include "SwapChain.h"
+#include "GameObjectManager.h"
 
 namespace jhb {
 	uint32_t DeferedPBRRenderSystem::id = 0;
@@ -15,16 +16,18 @@ namespace jhb {
 		createFrameBuffers(swapchainImageViews);
 		initializeOffScreenDescriptor();
 
-		BaseRenderSystem::createPipeLineLayout({ descSetlayouts[0],descSetlayouts[1], descSetlayouts[1] }, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)} });
+		BaseRenderSystem::createPipeLineLayout({ descSetlayouts[0],descSetlayouts[1], descSetlayouts[1] }, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, 2*sizeof(glm::mat4)} });
 		createPipeline(nullptr, "shaders/deferedoffscreen.vert.spv",
 			"shaders/deferedoffscreen.frag.spv");
 		// 두번째 subpass는 pbr을 해야하기 때문에 pbrresource용 descriptorsetlayout을 두번째 subpass용 pipelinelayout에 묶어 주어야함. 이 때도 유니폼 버퍼가 필요하고(light 위치), pbr 이미지용 descriptor set layout, 
 		// 쉐도우용 descriptor set layout 3개 필요.
 		createLightingPipelineAndPipelinelayout({descSetlayouts[0], descSetlayouts[2], descSetlayouts[3] }); // second subapss용
 		createSkyboxPipelineAndPipelinelayout({ descSetlayouts[0], descSetlayouts[4]});
-		createDamagedHelmet();
-		createFloor();
+
+		createSponze();
+		//createFloor();
 		createSkybox();
+		createDamagedHelmets();
 	}
 
 	DeferedPBRRenderSystem::~DeferedPBRRenderSystem()
@@ -376,7 +379,23 @@ namespace jhb {
 		{
 			throw std::runtime_error("failed to create offscreen RenderPass!");
 		}
-	} 
+	}
+	void DeferedPBRRenderSystem::createSponze()
+	{
+		auto sponzaModel = loadGLTFFile("Models/sponza/Sponza.gltf");
+		auto sponza = GameObject::createGameObject();
+		sponza.transform.translation = { 0.f, 0.f, 0.f };
+		sponza.transform.scale = { 2.f, 2.f, 2.f };
+		sponza.transform.rotation = { glm::radians(180.f),0.f, 0.f };
+		sponzaModel->instanceCount += 1;
+		sponzaModel->rootModelMatrix = sponza.transform.mat4();
+		sponzaModel->updateInstanceBuffer(1, { sponza.transform.translation }, { sponza.transform.translation });
+		sponza.setId(id++);
+		sponza.model = sponzaModel;
+
+		GameObjectManager::GetSingleton().AddGameObject(std::move(sponza));
+	}
+
 
 	std::vector<VkDescriptorSetLayout> DeferedPBRRenderSystem::initializeOffScreenDescriptor()
 	{
@@ -456,8 +475,9 @@ namespace jhb {
 
 		model->createVertexBuffer(vertexBuffer);
 		model->createIndexBuffer(indexBuffer);
-		model->createObjectSphere(vertexBuffer);
-		model->updateInstanceBuffer(6, 2.5f, 2.5f);
+		//model->createObjectSphere(vertexBuffer);
+		//model->updateInstanceBuffer(300, 2.5f, 2.5f);
+		//model->createObjectSphere(vertexBuffer);
 
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthTestEnable = true;
@@ -484,16 +504,31 @@ namespace jhb {
 		return model;
 	}
 
-	void DeferedPBRRenderSystem::createDamagedHelmet()
+	void DeferedPBRRenderSystem::createDamagedHelmets()
 	{
-		auto helmet = GameObject::createGameObject();
-		helmet.transform.translation = { 0.f, 0.f, 0.f };
-		helmet.transform.scale = { 1.f, 1.f, 1.f };
-		helmet.transform.rotation = { -glm::radians(90.f), 0.f, 0.f };
-		helmet.model = loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf");
-		helmet.model->modelMatrix = helmet.transform.mat4();
-		helmet.setId(id++);
-		pbrObjects.emplace(helmet.getId(), std::move(helmet));
+		auto helmetModel = loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf"); \
+		helmetModel->firstid = id;
+		std::vector<glm::vec3> tmppos;
+		std::vector<glm::vec3> tmprot;
+		uint32_t firstid = id;
+		for (int i = 0; i< 6; i++)
+		{
+			auto helmet = GameObject::createGameObject();
+			helmet.transform.translation = { 0.f, 0.f, 0.f };
+			helmet.transform.rotation = { 0,0, glm::radians(90.f) };
+			auto rotate = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>() / 6), { 0.f, 1.f, 0.f });
+			glm::vec4 tmp{ 2, -1.5, 2, 1};
+			tmppos.push_back(glm::vec3(rotate*tmp));
+			helmet.transform.translation = glm::vec3(rotate * tmp);
+			tmprot.push_back(helmet.transform.rotation);
+
+			helmetModel->instanceCount += 1;
+			helmet.setId(id++);
+			helmet.model = helmetModel;
+			GameObjectManager::GetSingleton().AddGameObject(std::move(helmet));
+		}
+		helmetModel->updateInstanceBuffer(6, tmppos, tmprot);
+
 	}
 
 	void DeferedPBRRenderSystem::createFloor()
@@ -507,7 +542,6 @@ namespace jhb {
 		floor.transform.rotation = { 0.f, 0.f, 0.f };
 
 		floor.setId(id++);
-		floor.model->updateInstanceBuffer(1, 0.f, 0.f, 0, 0);
 
 		PipelineConfigInfo pipelineConfig{};
 		pipelineConfig.depthStencilInfo.depthTestEnable = true;
@@ -582,7 +616,7 @@ namespace jhb {
 		skyBox.transform.translation = { 0.f, 0.f, 0.f };
 		skyBox.transform.scale = { 10.f, 10.f ,10.f };
 		skyBox.setId(id++);
-		pbrObjects.emplace(skyBox.getId(), std::move(skyBox));
+		GameObjectManager::GetSingleton().AddGameObject(std::move(skyBox));
 	}
 
 	void DeferedPBRRenderSystem::createVertexAttributeAndBindingDesc(PipelineConfigInfo& pipelineConfig)
@@ -764,10 +798,13 @@ namespace jhb {
 
 	void DeferedPBRRenderSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
-		for (auto& kv : pbrObjects)
+		for (auto& kv : GameObjectManager::GetSingleton().gameObjects)
 		{
 			auto& obj = kv.second;
-
+			if (kv.first > 2) // higer than 2 no need to draw cause of instance drawing
+			{
+				break;
+			}
 			if (obj.model == nullptr)
 			{
 				continue;
@@ -775,13 +812,10 @@ namespace jhb {
 
 			obj.model->bind(frameInfo.commandBuffer);
 
-			if (kv.first == 1)
-			{
-				auto modelmat = kv.second.transform.mat4();
-				vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelmat);
-			}
+			
 
-			if (kv.first == 2)
+
+			if (kv.first == 1)
 			{
 				vkCmdBindDescriptorSets(
 					frameInfo.commandBuffer,
@@ -804,6 +838,7 @@ namespace jhb {
 				obj.model->draw(frameInfo.commandBuffer, skyboxPipelinelayout, frameInfo.frameIndex);
 				continue;
 			}
+			
 			vkCmdBindDescriptorSets(
 				frameInfo.commandBuffer,
 				VK_PIPELINE_BIND_POINT_GRAPHICS,

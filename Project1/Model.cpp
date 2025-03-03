@@ -21,6 +21,7 @@
 #include <ktxvulkan.h>
 #include "BaseRenderSystem.h"
 #include "Pipeline.h"
+#include <random>
 
 namespace std{
 	template <>
@@ -39,7 +40,7 @@ jhb::Model::Model(Device& _device) : device{ _device }
 {
 }
 
-jhb::Model::Model(Device& _device, glm::mat4 modelMatrix) : device{ _device }, modelMatrix{modelMatrix}
+jhb::Model::Model(Device& _device, glm::mat4 modelMatrix) : device{ _device }
 {
 	//createVertexBuffer(builder->vertices);
 	//createIndexBuffer(builder->indices);
@@ -68,6 +69,45 @@ void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLa
 		}
 		else {
 			vkCmdDraw(commandBuffer, vertexCount, instanceCount, 0, 0);
+		}
+	}
+}
+
+void jhb::Model::drawIndirect(VkCommandBuffer commandBuffer, const Buffer& indirectCommandBuffer, VkPipelineLayout pipelineLayout, int frameIndex)
+{
+	if (!nodes.empty())
+	{
+		for (auto& node : nodes) {
+			drawNode(commandBuffer, pipelineLayout, node, frameIndex);
+		}
+	}
+	else {
+		if (noTexturePipeline)
+		{
+			noTexturePipeline->bind(commandBuffer);
+		}
+		if (hasIndexBuffer)
+		{
+			vkCmdDrawIndexedIndirect(commandBuffer, indirectCommandBuffer.getBuffer(),0 , 1, sizeof(VkDrawIndirectCommand));
+		}
+		//else {
+		//	vkCmdDraw(commandBuffer, vertexCount, instanceCount, 0, 0);
+		//}
+	}
+}
+
+void jhb::Model::buildIndirectCommand(std::vector<VkDrawIndexedIndirectCommand>& indirectCommandBuffer)
+{
+	if (!nodes.empty())
+	{
+		for (auto& node : nodes) {
+			buildIndriectNode(node, indirectCommandBuffer);
+		}
+	}
+	else {
+		if (hasIndexBuffer)
+		{
+			indirectCommandBuffer.push_back(VkDrawIndexedIndirectCommand{ indexCount, instanceCount, 0,0,0 });
 		}
 	}
 }
@@ -520,7 +560,7 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 	if (inputNode.translation.size() == 3) {
 		inverseRootModelMatrix = glm::translate(inverseRootModelMatrix, -glm::vec3(*inputNode.translation.data()));
 	}
-	if (inputNode.rotation.size() == 4) {
+	if (inputNode.rotation.size() == 4) { 
 		glm::quat q = glm::quat{ glm::mat4(*inputNode.rotation.data()) };
 		inverseRootModelMatrix *= glm::transpose(glm::mat4(q));
 	}
@@ -530,8 +570,7 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 	if (inputNode.matrix.size() == 16) {
 		inverseRootModelMatrix = glm::inverse(glm::mat4(*inputNode.matrix.data()));
 	}
-	inverseRootModelMatrix = glm::inverse(modelMatrix);
-	rootModelMatrix = modelMatrix * node->matrix;
+	rootModelMatrix = node->matrix;
 	// Load node's children
 	if (inputNode.children.size() > 0) {
 		for (size_t i = 0; i < inputNode.children.size(); i++) {
@@ -664,7 +703,7 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix = modelMatrix  * node->matrix* pickedObjectRotationMatrix;
+		glm::mat4 nodeMatrix =  node->matrix* pickedObjectRotationMatrix *rootModelMatrix;
 		Node* currentParent = node->parent;
 		while (currentParent) {
 			nodeMatrix = currentParent->matrix * nodeMatrix;
@@ -688,6 +727,24 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 	
 }
 
+void jhb::Model::buildIndriectNode(Node* node, std::vector<VkDrawIndexedIndirectCommand>& indirectCommandsBuffer)
+{
+	if (!node->visible) {
+		return;
+	}
+	if (node->mesh.primitives.size() > 0) {
+		for (Primitive& primitive : node->mesh.primitives) {
+			if (primitive.indexCount > 0) {
+				indirectCommandsBuffer.push_back(VkDrawIndexedIndirectCommand{primitive.indexCount, instanceCount, primitive.firstIndex});
+				//vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount, primitive.firstIndex, 0, 0);
+			}
+		}
+	}
+	for (auto& child : node->children) {
+		buildIndriectNode(child, indirectCommandsBuffer);
+	}
+}
+
 void jhb::Model::drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, Node* node)
 {
 	if (!node->visible) {
@@ -696,7 +753,7 @@ void jhb::Model::drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pip
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix = modelMatrix * pickedObjectRotationMatrix * node->matrix;
+		glm::mat4 nodeMatrix =  node->matrix* pickedObjectRotationMatrix *rootModelMatrix;
 		Node* currentParent = node->parent;
 		while (currentParent) {
 			nodeMatrix = currentParent->matrix * nodeMatrix;
@@ -794,9 +851,9 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 	samplerInfo.magFilter = VK_FILTER_LINEAR;
 	samplerInfo.minFilter = VK_FILTER_LINEAR;
 
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
 
 	VkPhysicalDeviceProperties properties{};
 	vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
@@ -936,10 +993,10 @@ void jhb::Image::loadKTXTexture(Device& device, const std::string& filepath, VkI
 	vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
 	samplerInfo.anisotropyEnable = VK_FALSE;
 	samplerInfo.maxAnisotropy = 0;
-	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
 	samplerInfo.unnormalizedCoordinates = VK_FALSE;
 	samplerInfo.compareEnable = VK_FALSE;
-	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	samplerInfo.compareOp = VK_COMPARE_OP_NEVER;
 
 	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	samplerInfo.mipLodBias = 0.0f;
@@ -961,7 +1018,7 @@ void jhb::Model::PickingPhasedrawNode(VkCommandBuffer commandBuffer, VkPipelineL
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix = modelMatrix * node->matrix;
+		glm::mat4 nodeMatrix = node->matrix;
 		Node* currentParent = node->parent;
 		
 		while (currentParent) {
@@ -1024,35 +1081,42 @@ void jhb::Model::createObjectSphere(const std::vector<Vertex> vertices)
 		if (vertex.position.z > sphere.maxcoordinate.z)
 			sphere.maxcoordinate.z = vertex.position.z;
 	}
+
+	// todo : 구의 중심과 반지름 구하기.
+	sphere.center = { (sphere.maxcoordinate.x + sphere.mincoordinate.x) / 2, (sphere.maxcoordinate.y + sphere.mincoordinate.y) / 2, (sphere.maxcoordinate.z + sphere.mincoordinate.z) / 2 };
+	sphere.radius = (float)(sqrt(pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2)));
 }
 
-void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, float offsetX, float offsetZ, float roughness, float metallic)
+void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& rotations, float roughness, float metallic)
 {
 	instanceCount = _instanceCount;
 	if (instanceBuffer == nullptr)
 	{
-		instanceBuffer = std::make_unique<Buffer>(device, sizeof(InstanceData), instanceCount, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		instanceBuffer = std::make_unique<Buffer>(device, sizeof(InstanceData), instanceCount, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT , VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		instanceBuffer->map();
 	}
 
-	std::vector<InstanceData> instanceData;
 	instanceData.resize(instanceCount);
 
 	for (float i = 0; i < instanceCount; i++)
 	{
-		auto rotate = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>() / instanceCount), { 0.f, 0.f, 1.f });
-		glm::vec4 tmp{ offsetX, 0.f, offsetZ, 1};
-		instanceData[i].pos = glm::vec3(rotate * tmp);
-		instanceData[i].r = 0.5f;
-		instanceData[i].g = 0.5f;
-		instanceData[i].b = 0.5f;
-		instanceData[i].roughness = roughness;
-		instanceData[i].metallic = metallic;
+		instanceData[i].r = i; // this is instance id offset
+	}
+	for (int i = 0; i < positions.size(); i++)
+	{
+		instanceData[i].pos = positions[i];
+	}
+	for (int i = 0; i < rotations.size(); i++)
+	{
+		instanceData[i].rot = rotations[i];
 	}
 
-	Buffer stagingBuffer(device, sizeof(InstanceData), 64, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	stagingBuffer.map();
-	stagingBuffer.writeToBuffer(instanceData.data(), instanceBuffer->getBufferSize(), 0);
 
-	device.copyBuffer(stagingBuffer.getBuffer(), instanceBuffer->getBuffer(), instanceBuffer->getBufferSize());
-	stagingBuffer.unmap();
+
+	//Buffer stagingBuffer(device, sizeof(InstanceData), 64, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	instanceBuffer->writeToBuffer(instanceData.data(), instanceBuffer->getBufferSize(), 0);
+	instanceBuffer->flush();
+
+	//device.copyBuffer(stagingBuffer.getBuffer(), instanceBuffer->getBuffer(), instanceBuffer->getBufferSize());
+	//stagingBuffer.unmap();
 }

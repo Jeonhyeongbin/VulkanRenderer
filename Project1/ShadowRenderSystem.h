@@ -63,7 +63,8 @@ namespace jhb {
 
 	private:
 		Texture shadowMap;
-		Texture offScreen;
+		Texture offScreenDepth;
+		Texture offScreenImage;
 
 		std::array<VkImageView, 6> shadowmapCubeFaces;
 		std::vector<VkFramebuffer> FramebuffersPerCubeFaces{6};

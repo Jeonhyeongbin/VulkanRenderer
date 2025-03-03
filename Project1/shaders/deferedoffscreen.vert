@@ -45,15 +45,43 @@ layout(push_constant) uniform Push{
 } push;
 
 void main(){
+		mat3 mx, my, mz;
+	
+	// rotate around x
+	float s = sin(instanceRot.x );
+	float c = cos(instanceRot.x);
+
+	mx[0] = vec3(c, s, 0.0);
+	mx[1] = vec3(-s, c, 0.0);
+	mx[2] = vec3(0.0, 0.0, 1.0);
+	
+	// rotate around y
+	s = sin(instanceRot.y);
+	c = cos(instanceRot.y);
+
+	my[0] = vec3(c, 0.0, s);
+	my[1] = vec3(0.0, 1.0, 0.0);
+	my[2] = vec3(-s, 0.0, c);
+	
+	// rot around z
+	s = sin(instanceRot.z);
+	c = cos(instanceRot.z);	
+	
+	mz[0] = vec3(1.0, 0.0, 0.0);
+	mz[1] = vec3(0.0, c, s);
+	mz[2] = vec3(0.0, -s, c);
+	
+	mat3 rotMat = mz * my * mx;
+
 	fragroughness = roughness;
 	fragmetallic = metallic;
 	fr = r;
 	fg = g;
 	fb = b;
-	vec4 positionWorld = push.model * vec4(position + instancePos, 1.0);
+	vec4 positionWorld = push.model* vec4(position*rotMat + instancePos, 1.0);
 	gl_Position =  ubo.projection * ubo.view * positionWorld;
 	fraguv = uv;
-	fragNormalWorld = normalize(transpose(inverse(mat3(push.model))) * normal);
+	fragNormalWorld = normalize(transpose(mat3(push.model)) * normal);
 	fragTangent = vec4(normalize(mat3(push.model)* tangent.xyz), tangent.w);
 	fragPosWorld = positionWorld.xyz;
 	fragColor = color;

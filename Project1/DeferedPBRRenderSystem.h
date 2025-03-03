@@ -60,10 +60,10 @@ namespace jhb {
 			VkImageUsageFlagBits usage,
 			Texture* attachment, VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT);
 		void createRenderPass(VkFormat);
-
-		void createDamagedHelmet();
-		void createFloor();
+		void createSponze();
+		void createDamagedHelmets();
 		void createSkybox();
+		void createFloor();
 
 		void createVertexAttributeAndBindingDesc(PipelineConfigInfo&);
 		void createLightingPipelineAndPipelinelayout(const std::vector<VkDescriptorSetLayout>&);

@@ -237,6 +237,7 @@ namespace jhb {
 		setupDebugMessenger();
 		createSurface();
 		pickPhysicalDevice();
+		vkGetPhysicalDeviceFeatures(physicalDevice, &features);
 		createLogicalDevice();
 		createCommandPool();
 	}
@@ -665,6 +666,24 @@ namespace jhb {
 		vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
 	}
 
+	VkCommandBuffer Device::beginSingleComputeCommands()
+	{
+		return VkCommandBuffer();
+	}
+
+	void Device::endSingleComputeCommands(VkCommandBuffer commandBuffer)
+	{
+		//// Wait for fence to ensure that compute buffer writes have finished
+		//vkWaitForFences(logicalDevice, 1, &F, VK_TRUE, UINT64_MAX);
+		//vkResetFences(logicalDevice, 1, &compute.fence);
+
+		//VkSubmitInfo computeSubmitInfo = vks::initializers::submitInfo();
+		//computeSubmitInfo.commandBufferCount = 1;
+		//computeSubmitInfo.pCommandBuffers = &compute.commandBuffer;
+		//computeSubmitInfo.signalSemaphoreCount = 1;
+		//computeSubmitInfo.pSignalSemaphores = &compute.semaphore;
+	}
+
 	Device::QueueFamilyIndexes Device::findQueueFamilies(VkPhysicalDevice device) {
 		QueueFamilyIndexes QueueFamilyIndexes;
 
@@ -676,13 +695,19 @@ namespace jhb {
 
 		int i = 0;
 		for (const auto& queueFamily : queueFamilies) {
-			if (QueueFamilyIndexes.graphicsFamily.has_value() || QueueFamilyIndexes.presentFamily.has_value())
+			if (QueueFamilyIndexes.graphicsFamily.has_value() && QueueFamilyIndexes.presentFamily.has_value() && QueueFamilyIndexes.computeFamily.has_value())
 			{
 				break;
 			}
 
 			if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 				QueueFamilyIndexes.graphicsFamily = i;
+			}
+
+			// only compute queue family
+			if ((queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) && ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)==0))
+			{
+				QueueFamilyIndexes.computeFamily = i;
 			}
 
 			VkBool32 presentSupport = false;
@@ -694,6 +719,15 @@ namespace jhb {
 			}
 
 			i++;
+		}
+
+		// 만약 Compute queue family만이 없다면 graphic queue를 compute queue 로 사용
+		for (const auto& queueFamily : queueFamilies) {
+			if (!QueueFamilyIndexes.computeFamily.has_value())
+			{
+				QueueFamilyIndexes.computeFamily = QueueFamilyIndexes.graphicsFamily;
+				break;
+			}
 		}
 
 		return QueueFamilyIndexes;

@@ -27,7 +27,7 @@ namespace jhb {
 		ImguiRenderSystem(const ImguiRenderSystem&) = delete;
 		ImguiRenderSystem(ImguiRenderSystem&&) = delete;
 		ImguiRenderSystem& operator=(const ImguiRenderSystem&) = delete;
-		void newFrame(GameObject& floor);
+		void newFrame();
 		void recreateFrameBuffer(const Device& device, const SwapChain& swapchain, VkExtent2D extent);
 
 	public:

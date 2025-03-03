@@ -14,7 +14,7 @@ namespace jhb {
 		MousePickingRenderSystem& operator=(const MousePickingRenderSystem&) = delete;
 
 	public:
-		void renderMousePickedObjToOffscreen(VkCommandBuffer cmd, jhb::GameObject::Map& gameObjects, const std::vector<VkDescriptorSet>& descriptorsets,
+		void renderMousePickedObjToOffscreen(VkCommandBuffer cmd,  const std::vector<VkDescriptorSet>& descriptorsets,
 			int frameIndex, Buffer* pickingUbo
 		);
 
