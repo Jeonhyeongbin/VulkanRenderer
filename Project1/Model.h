@@ -103,7 +103,7 @@ namespace jhb {
 		VkDescriptorImageInfo descriptor;
 		VkSampler             sampler;
 
-		void loadTexture2D(Device& device, const std::string& filepath);
+		void loadTexture2D(Device& device, const std::string& filepath, VkSamplerAddressMode samplerMode);
 		void loadKTXTexture(Device& device, const std::string& filepath, VkImageViewType imgViewType = VK_IMAGE_VIEW_TYPE_2D, int arrayCount = 1);
 		void generateMipmap(Device& device, VkImage image, int miplevels, uint32_t width, uint32_t height);
 		void updateDescriptor();
@@ -152,7 +152,7 @@ namespace jhb {
 
 	public:
 		void loadModel(const std::string& filepath);
-		void loadImages(tinygltf::Model& input);
+		void loadImages(tinygltf::Model& input, VkSamplerAddressMode samplerMode);
 		void loadTextures(tinygltf::Model& input);
 		void loadMaterials(tinygltf::Model& input);
 		void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);

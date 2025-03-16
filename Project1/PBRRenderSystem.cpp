@@ -182,7 +182,7 @@ namespace jhb {
 		if (fileLoaded) {
 			model->loadMaterials(glTFInput);
 			model->loadTextures(glTFInput);
-			model->loadImages(glTFInput);
+			model->loadImages(glTFInput, VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT);
 			const tinygltf::Scene& scene = glTFInput.scenes[0];
 			for (size_t i = 0; i < scene.nodes.size(); i++) {
 				const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];

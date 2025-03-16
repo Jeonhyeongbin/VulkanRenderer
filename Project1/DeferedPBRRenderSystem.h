@@ -71,7 +71,7 @@ namespace jhb {
 		void removeVkResources();
 
 		std::vector<VkDescriptorSetLayout> initializeOffScreenDescriptor();
-		std::shared_ptr<Model> loadGLTFFile(const std::string& filename);
+		std::shared_ptr<Model> loadGLTFFile(const std::string& filename, VkSamplerAddressMode samplerMode = VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT);
 
 	private:
 		std::unique_ptr<Pipeline> lightingPipeline = nullptr; // pipeline for second subpass

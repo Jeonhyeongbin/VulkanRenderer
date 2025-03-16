@@ -51,7 +51,7 @@ vec3 calculateNormal()
 {
 	vec3 N = normalize(fragNormalWorld);
 	vec3 T = normalize(fragtangent.xyz);
-	vec3 B = cross(N, T)*fragtangent.w;
+	vec3 B = cross(N, T);
 	mat3 TBN = mat3(T, B, N);
 	return TBN*normalize(texture(samplerNormalMap, fraguv).xyz*2-1);
 }
@@ -65,7 +65,7 @@ void main() {
 	}
 
 	outPosition = vec4(fragPosWorld, 1.0);
-	outNormal = vec4(calculateNormal(),0);
+	outNormal = vec4(calculateNormal()*0.5+0.5,0);
 
 	// Store linearized depth in alpha component
 	outPosition.a = linearDepth(gl_FragCoord.z);
@@ -75,13 +75,16 @@ void main() {
 		outMaterial.gb = texture(samplerMetallicRoughnessMap, fraguv).gb;
 	}
 	else{
-		outMaterial.b = 0;
-		outMaterial.g = 1;
+		outMaterial.b = 1;
+		outMaterial.g = 0;
 	}
 	
 	outMaterial.r = texture(samplerOcclusionMap, fraguv).r;
-	outEmmisive.rgb = texture(samplerEmissiveMap , fraguv).rgb;
 
+	if(isEmissive)
+	{
+		outEmmisive.rgb = texture(samplerEmissiveMap , fraguv).rgb;
+	}
 	// Write color attachments to avoid undefined behaviour (validation error)
 	outColor = vec4(0.0);
 }

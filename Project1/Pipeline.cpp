@@ -298,7 +298,7 @@ namespace jhb {
 			{1, offsetof(MaterialSpecializationData, alphaMaskCutoff), sizeof(MaterialSpecializationData::alphaMaskCutoff)},
 			{2, offsetof(MaterialSpecializationData, isMetallicRoughness), sizeof(MaterialSpecializationData::isMetallicRoughness)},
 			{3, offsetof(MaterialSpecializationData, isEmissive), sizeof(MaterialSpecializationData::isEmissive)},
-			{3, offsetof(MaterialSpecializationData, isOcculsion), sizeof(MaterialSpecializationData::isOcculsion)},
+			{4, offsetof(MaterialSpecializationData, isOcculsion), sizeof(MaterialSpecializationData::isOcculsion)},
 		};
 		VkSpecializationInfo specializationInfo = { specializationMapEntries.size(), specializationMapEntries.data(), sizeof(materialSpecializationData), &materialSpecializationData };
 		shaderStages[1].pSpecializationInfo = &specializationInfo;

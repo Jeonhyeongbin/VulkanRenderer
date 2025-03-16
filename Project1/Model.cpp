@@ -342,7 +342,6 @@ void jhb::Model::loadModel(const std::string& filepath)
 					attr.colors[3 * index.vertex_index + 2],
 				};
 			}
-			// wavefrontfile doesn't support color value in vertex buffer but tinyobjloader can parse that
 
 			if (index.normal_index >= 0)
 			{
@@ -375,7 +374,7 @@ void jhb::Model::loadModel(const std::string& filepath)
 	createIndexBuffer(indices);
 }
 
-void jhb::Model::loadImages(tinygltf::Model& input)
+void jhb::Model::loadImages(tinygltf::Model& input, VkSamplerAddressMode samplerMode)
 {
 	images.resize(input.images.size());
 	for (size_t i = 0; i < input.images.size(); i++) {
@@ -394,7 +393,7 @@ void jhb::Model::loadImages(tinygltf::Model& input)
 		}
 		else
 		{
-			images[i].loadTexture2D(device, path + "/" + glTFImage.uri);
+			images[i].loadTexture2D(device, path + "/" + glTFImage.uri, samplerMode);
 		}
 	}
 }
@@ -595,7 +594,8 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 
 				const float* positionBuffer = nullptr;
 				const float* normalsBuffer = nullptr;
-				const float* texCoordsBuffer = nullptr;
+				const float* texCoordsBuffer1 = nullptr;
+				const float* texCoordsBuffer2 = nullptr;
 				const float* tangentsBuffer = nullptr;
 				size_t vertexCount = 0;
 
@@ -618,7 +618,12 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 				if (glTFPrimitive.attributes.find("TEXCOORD_0") != glTFPrimitive.attributes.end()) {
 					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("TEXCOORD_0")->second];
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
-					texCoordsBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+					texCoordsBuffer1 = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+				}
+				if (glTFPrimitive.attributes.find("TEXCOORD_1") != glTFPrimitive.attributes.end()) {
+					const tinygltf::Accessor& uvAccessor = input.accessors[glTFPrimitive.attributes.find("TEXCOORD_1")->second];
+					const tinygltf::BufferView& uvView = input.bufferViews[uvAccessor.bufferView];
+					texCoordsBuffer2 = reinterpret_cast<const float*>(&(input.buffers[uvView.buffer].data[uvAccessor.byteOffset + uvView.byteOffset]));
 				}
 				// POI: This sample uses normal mapping, so we also need to load the tangents from the glTF file
 				if (glTFPrimitive.attributes.find("TANGENT") != glTFPrimitive.attributes.end()) {
@@ -634,7 +639,7 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 					Vertex vert{};
 					vert.position = glm::vec4(glm::vec3(positionBuffer[3*v], positionBuffer[3*v+1], positionBuffer[3*v+2]), 1.0f);
 					vert.normal = glm::normalize(glm::vec3(normalsBuffer ? glm::vec3(normalsBuffer[3 * v], normalsBuffer[3 * v + 1], normalsBuffer[3 * v + 2]) : glm::vec3(0.0f)));
-					vert.uv = texCoordsBuffer ? glm::vec2(texCoordsBuffer[v * 2], texCoordsBuffer[v * 2 + 1]) : glm::vec3(0.0f);
+					vert.uv = texCoordsBuffer1 ? glm::vec2(texCoordsBuffer1[v * 2], texCoordsBuffer1[v * 2 + 1]) : glm::vec3(0.0f);
 					vert.color = glm::vec3(1.f);
 					vert.tangent = tangentsBuffer ? glm::vec4(tangentsBuffer[v * 4], tangentsBuffer[v * 4 + 1], tangentsBuffer[v * 4 + 2], tangentsBuffer[v * 4 + 3]) : glm::vec4(0.0f);
 					vertexBuffer.push_back(vert);
@@ -703,7 +708,7 @@ void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix =  node->matrix* pickedObjectRotationMatrix *rootModelMatrix;
+		glm::mat4 nodeMatrix =  node->matrix *rootModelMatrix;
 		Node* currentParent = node->parent;
 		while (currentParent) {
 			nodeMatrix = currentParent->matrix * nodeMatrix;
@@ -753,7 +758,7 @@ void jhb::Model::drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pip
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix =  node->matrix* pickedObjectRotationMatrix *rootModelMatrix;
+		glm::mat4 nodeMatrix =  node->matrix * rootModelMatrix;
 		Node* currentParent = node->parent;
 		while (currentParent) {
 			nodeMatrix = currentParent->matrix * nodeMatrix;
@@ -775,7 +780,7 @@ void jhb::Model::drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pip
 	}
 }
 
-void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
+void jhb::Image::loadTexture2D(Device& device, const std::string& filepath, VkSamplerAddressMode samplerMode)
 {
 	int texWidth, texHeight, texChannels;
 
@@ -851,9 +856,9 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath)
 	samplerInfo.magFilter = VK_FILTER_LINEAR;
 	samplerInfo.minFilter = VK_FILTER_LINEAR;
 
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+	samplerInfo.addressModeU = samplerMode;
+	samplerInfo.addressModeV = samplerMode;
+	samplerInfo.addressModeW = samplerMode;
 
 	VkPhysicalDeviceProperties properties{};
 	vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
@@ -985,9 +990,9 @@ void jhb::Image::loadKTXTexture(Device& device, const std::string& filepath, VkI
 	samplerInfo.magFilter = VK_FILTER_LINEAR;
 	samplerInfo.minFilter = VK_FILTER_LINEAR;
 
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
 
 	VkPhysicalDeviceProperties properties{};
 	vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);

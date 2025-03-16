@@ -153,7 +153,7 @@ void main() {
 	float metallic = occlusionMaterialRoughness.b;
 	float roughness = occlusionMaterialRoughness.g;
 	float occulsion = subpassLoad(inputMaterial).r;
-	vec3 N = subpassLoad(inputNormal).xyz;
+	vec3 N = normalize(subpassLoad(inputNormal).xyz*2-1);
 
 	// if(isMetallicRoughness)
 	// {
@@ -167,11 +167,7 @@ void main() {
 	vec3 F0 = vec3(0.04);
 
 	vec4 albedo = subpassLoad(inputAlbedo);
-	if(albedo.a == -1)
-	{
-		outColor = vec4(albedo.rgb, 1);
-	}
-	else{
+
 	F0 = mix(F0, albedo.rgb, metallic);
 
 
@@ -228,5 +224,4 @@ void main() {
 	}
 	outColor = vec4(color, 1.0);
 	outColor *= shadow;
-	}
 }

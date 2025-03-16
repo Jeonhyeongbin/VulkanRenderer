@@ -428,7 +428,7 @@ namespace jhb {
 		return { gbufferDescriptorSetLayout->getDescriptorSetLayout() };
 	}
 
-	std::shared_ptr<Model> DeferedPBRRenderSystem::loadGLTFFile(const std::string& filename)
+	std::shared_ptr<Model> DeferedPBRRenderSystem::loadGLTFFile(const std::string& filename, VkSamplerAddressMode samplerMode)
 	{
 		tinygltf::Model glTFInput;
 		tinygltf::TinyGLTF gltfContext;
@@ -446,7 +446,7 @@ namespace jhb {
 		model->path = filename.substr(0, pos);
 
 		if (fileLoaded) {
-			model->loadImages(glTFInput);
+			model->loadImages(glTFInput, samplerMode);
 			model->loadMaterials(glTFInput);
 			model->loadTextures(glTFInput);
 			const tinygltf::Scene& scene = glTFInput.scenes[0];
@@ -506,7 +506,7 @@ namespace jhb {
 
 	void DeferedPBRRenderSystem::createDamagedHelmets()
 	{
-		auto helmetModel = loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf"); \
+		auto helmetModel = loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf", VK_SAMPLER_ADDRESS_MODE_REPEAT);
 		helmetModel->firstid = id;
 		std::vector<glm::vec3> tmppos;
 		std::vector<glm::vec3> tmprot;

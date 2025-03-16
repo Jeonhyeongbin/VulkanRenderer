@@ -79,11 +79,13 @@ void main(){
 	fg = g;
 	fb = b;
 	vec4 positionWorld = push.model* vec4(position*rotMat + instancePos, 1.0);
-	gl_Position =  ubo.projection * ubo.view * positionWorld;
+
 	fraguv = uv;
 	fragNormalWorld = normalize(transpose(mat3(push.model)) * normal);
 	fragTangent = vec4(normalize(mat3(push.model)* tangent.xyz), tangent.w);
 	fragPosWorld = positionWorld.xyz;
 	fragColor = color;
 	outlightpos = ubo.pointLights[0].position.xyz;
+
+	gl_Position =  ubo.projection * ubo.view * positionWorld;
 }

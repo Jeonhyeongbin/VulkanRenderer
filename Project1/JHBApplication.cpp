@@ -46,6 +46,7 @@ namespace jhb {
 	void JHBApplication::Run()
 	{	
 		auto viewerObject = GameObject::createGameObject();
+		viewerObject.transform.translation.y = -5.5f;
 		viewerObject.transform.translation.z = -2.5f;
 		InputController cameraController{device.getWindow().GetGLFWwindow(), viewerObject};
 		double x, y;
@@ -300,6 +301,7 @@ namespace jhb {
 		auto& gltfModels = GameObjectManager::GetSingleton().gameObjects;
 		for (auto& gltfModel : gltfModels)
 		{
+			uint32_t id = gltfModel.first;
 			for (auto& material : gltfModel.second.model->materials)
 			{
 				std::vector<VkDescriptorImageInfo> imageinfos = { gltfModel.second.model->getTexture(material.baseColorTextureIndex).descriptor, gltfModel.second.model->getTexture(material.normalTextureIndex).descriptor

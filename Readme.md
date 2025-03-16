@@ -2,9 +2,7 @@
 - vulkan api를 사용한 미니 렌더러입니다.
 
 # 세팅
-- vulkanSDK(https://vulkan.lunarg.com/sdk/home#windows)를 다운받아 설치 해주세요.
-- 그런 후 Project1/ShaderCompile.bat를 실행하여 쉐이더를 한번 컴파일해 줘야합니다.
-- vs2022에서만 빌드 및 실행이 가능합니다.
+- BuildProject1.bat를 실행해주세요.
 
 
 # Feature
