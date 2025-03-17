@@ -81,8 +81,8 @@ void main(){
 	vec4 positionWorld = push.model* vec4(position*rotMat + instancePos, 1.0);
 
 	fraguv = uv;
-	fragNormalWorld = transpose(mat3(inverse(push.model))) * normalize(normal);
-	fragTangent = vec4(transpose(mat3(inverse(push.model)))* normalize(tangent.xyz), 0);
+	fragNormalWorld = normalize(transpose(inverse(mat3(push.model))) * normalize(normal * rotMat));
+	fragTangent = normalize(vec4(transpose(inverse(mat3(push.model)))* normalize(tangent.xyz* rotMat), 0));
 	fragPosWorld = positionWorld.xyz;
 	fragColor = color;
 	outlightpos = ubo.pointLights[0].position.xyz;

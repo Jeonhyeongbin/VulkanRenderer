@@ -80,32 +80,14 @@ vec3 F_Schlick(float cosTheta, vec3 F0)
 {
 	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
-vec3 F_SchlickR(float cosTheta, vec3 F0, float roughness)
-{
-	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
-}
 
-vec3 prefilteredReflection(vec3 R, float roughness)
-{
-	const float MAX_REFLECTION_LOD = 5; // todo: param/const
-	float lod = roughness * MAX_REFLECTION_LOD;
-	float lodf = floor(lod);
-	float lodc = ceil(lod);
-	vec3 a = textureLod(prefilteredMap, R, lodf).rgb;
-	vec3 b = textureLod(prefilteredMap, R, lodc).rgb;
-	return mix(a, b, lod - lodf);
-}
-
-vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float roughness, vec4 LColor, vec4 albedo)
+vec3 SpecularAndDiffuseContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float roughness, vec4 LColor, vec4 albedo)
 {
 	// Precalculate vectors and dot products
 	vec3 H = normalize (V + L);
 	float dotNH = clamp(dot(N, H), 0.0, 1.0);
-	float dotNV = clamp(dot(N, V), 0.0, 1.0);
-	float dotNL = clamp(dot(N, L), 0.0, 1.0);
-
-	// Light color fixed
-	vec3 lightColor = ubo.pointLights[0].color.xyz;
+	float dotNV = clamp(abs(dot(N, V)), 0.001, 1.0);
+	float dotNL = clamp(dot(N, L), 0.001, 1.0);
 
 	vec3 color = vec3(0.0);
 
@@ -120,12 +102,35 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 		float G = G_SchlicksmithGGX(dotNL, dotNV, roughness);
 		// F = Fresnel factor (Reflectance depending on angle of incidence)
 		vec3 F = F_Schlick(dotNV, F0);
-		vec3 spec = D * F * G / (4.0 * dotNL * dotNV + 0.001);
-		vec3 kD = (vec3(1.0) - F) * (1.0 - metallic);
-		color += (kD * albedo.rgb / PI + spec) * radiance* dotNL;
+		vec3 spec = D * F * G / (4.0 * dotNL * dotNV);
+		vec3 diffuse = ((albedo.rgb) * (vec3(1.0)-F0) * (1.0 - metallic))/PI;
+		diffuse*=(1.0 - F);
+		color += (diffuse + spec) * radiance* dotNL;
 	}
 
 	return color;
+}
+
+vec3 getIBLContribution(vec3 V, vec3 N, vec3 R,float roughness, float metallic, vec3 baseColor)
+{
+	vec3 f0 = vec3(0.04);
+
+	vec3 diffuseColor = baseColor.rgb * (vec3(1.0) - f0);
+	vec3 specularColor = mix(f0, baseColor.rgb, metallic); 
+
+	// hard coding mip levels. need to dynamic data using ubo.
+	float lod = roughness * 7;
+
+	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+
+	vec3 specularLight = textureLod(prefilteredMap, R, lod).rgb; // same as reflection
+	vec3 diffuseLight = texture(samplerIrradiance, N).rgb; // same as irradiance
+
+	// Specular reflectance
+	vec3 specular = specularLight * (specularColor * brdf.x + brdf.y);
+	vec3 diffuse = diffuseLight * diffuseColor;
+
+	return specular + diffuse;
 }
 
 void main() {
@@ -135,14 +140,8 @@ void main() {
 	float metallic = occlusionMaterialRoughness.b;
 	float roughness = occlusionMaterialRoughness.g;
 	float occulsion = subpassLoad(inputMaterial).r;
+
 	vec3 N = normalize(subpassLoad(inputNormal).xyz*2-1);
-
-	// if(isMetallicRoughness)
-	// {
-	// 	metallic=subpassLoad(inputMaterial).b;
-	// 	roughness = subpassLoad(inputMaterial).g;
-	// }
-
 	vec3 V = normalize(cameraPosWorld - fragPosWorld);
 	vec3 R = reflect(-V, N);
 
@@ -155,30 +154,13 @@ void main() {
 
 	vec3 Lo = vec3(0.0);
 
+	// per light
 	vec3 L = normalize(ubo.pointLights[0].position.xyz - fragPosWorld);
-	Lo += specularContribution(L, V, N, F0, metallic, roughness, ubo.pointLights[0].color, albedo);
+	Lo += SpecularAndDiffuseContribution(L, V, N, F0, metallic, roughness, ubo.pointLights[0].color, albedo);
 
+	vec3 iblColor = getIBLContribution(V, N, R, roughness, metallic, albedo.rgb);
 
-	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
-	vec3 reflection = prefilteredReflection(R, roughness).rgb;
-	vec3 irradiance = texture(samplerIrradiance, N).rgb;
-
-	// Diffuse based on irradiance
-	vec3 diffuse = irradiance * albedo.rgb;
-
-	vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, roughness);
-
-	// Specular reflectance
-	vec3 specular = reflection * (F * brdf.x + brdf.y);
-
-	// Ambient part
-	vec3 kD = 1.0 - F;
-	kD *= 1.0 - roughness;
-	//vec3 ambient = (kD * diffuse + specular) * occulsion;
-	vec3 ambient = (kD * diffuse + specular) * occulsion;
-	
-
-	vec3 color = ambient + Lo;
+	vec3 color = iblColor+ Lo;
 
 	// Tone mapping
 	color = Uncharted2Tonemap(color * ubo.exposure);
@@ -192,9 +174,11 @@ void main() {
 	lightVec=normalize(lightVec);
     float sampledDist = texture(shadowMap, lightVec).r; 
     
-
 	// Check if fragment is in shadow
     float shadow = (dist - EPSILON <= sampledDist) ? 1.0 : SHADOW_OPACITY;
+
+	const float u_OcclusionStrength = 1.0f;
+	color = mix( color, color * occulsion, u_OcclusionStrength);
 
 	vec3 emission = SRGBtoLINEAR(subpassLoad(inputEmmisive)).rgb;
 	color+=emission;

@@ -53,7 +53,9 @@ vec3 calculateNormal()
 	vec3 T = normalize(fragtangent.xyz);
 	vec3 B = cross(N, T);
 	mat3 TBN = mat3(T, B, N);
-	return normalize(TBN*(texture(samplerNormalMap, fraguv).xyz*2-1));
+
+	vec3 normaltext =normalize(texture(samplerNormalMap, fraguv).xyz*2.0 - 1.0);
+	return TBN*normaltext;
 }
 
 void main() {
@@ -65,7 +67,7 @@ void main() {
 	}
 
 	outPosition = vec4(fragPosWorld, 1.0);
-	outNormal = vec4(calculateNormal()*0.5+0.5,0);
+	outNormal = vec4(normalize(calculateNormal())*0.5+0.5,0);
 
 	// Store linearized depth in alpha component
 	outPosition.a = linearDepth(gl_FragCoord.z);
@@ -75,8 +77,8 @@ void main() {
 		outMaterial.gb = texture(samplerMetallicRoughnessMap, fraguv).gb;
 	}
 	else{
-		outMaterial.b = 1;
-		outMaterial.g = 0;
+		outMaterial.b = 0;
+		outMaterial.g = 1;
 	}
 	
 	outMaterial.r=1;
