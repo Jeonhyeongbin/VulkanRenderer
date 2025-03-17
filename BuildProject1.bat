@@ -4,6 +4,8 @@ setlocal enabledelayedexpansion
 @echo off
 set LOGFILE=%~dp0BuildProject_log.txt
 
+echo. > "%LOGFILE%"
+
 net session >nul 2>&1
 if %errorLevel% neq 0 (
     powershell -Command "Start-Process cmd -ArgumentList '/c \"%~f0\"' -Verb RunAs"

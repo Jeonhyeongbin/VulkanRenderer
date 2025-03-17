@@ -53,7 +53,7 @@ vec3 calculateNormal()
 	vec3 T = normalize(fragtangent.xyz);
 	vec3 B = cross(N, T);
 	mat3 TBN = mat3(T, B, N);
-	return TBN*normalize(texture(samplerNormalMap, fraguv).xyz*2-1);
+	return normalize(TBN*(texture(samplerNormalMap, fraguv).xyz*2-1));
 }
 
 void main() {
@@ -79,12 +79,18 @@ void main() {
 		outMaterial.g = 0;
 	}
 	
-	outMaterial.r = texture(samplerOcclusionMap, fraguv).r;
+	outMaterial.r=1;
+	if(isOcclusion)
+	{
+		outMaterial.r = texture(samplerOcclusionMap, fraguv).r;
+	}
 
+	outEmmisive.rgb = vec3(0);
 	if(isEmissive)
 	{
 		outEmmisive.rgb = texture(samplerEmissiveMap , fraguv).rgb;
 	}
+	
 	// Write color attachments to avoid undefined behaviour (validation error)
 	outColor = vec4(0.0);
 }
