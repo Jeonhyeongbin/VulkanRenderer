@@ -241,7 +241,7 @@ namespace jhb {
 		VkGraphicsPipelineCreateInfo pipelineInfo = {};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipelineInfo.stageCount = 2;
-		pipelineInfo.pStages = shaderStages;
+
 		pipelineInfo.pVertexInputState = &vertexInputInfo;
 		pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;
 		pipelineInfo.pViewportState = &configInfo.viewportInfo;
@@ -302,6 +302,8 @@ namespace jhb {
 		};
 		VkSpecializationInfo specializationInfo = { specializationMapEntries.size(), specializationMapEntries.data(), sizeof(materialSpecializationData), &materialSpecializationData };
 		shaderStages[1].pSpecializationInfo = &specializationInfo;
+
+		pipelineInfo.pStages = shaderStages;
 
 		// For double sided materials, culling will be disabled
 		configInfo.rasterizationInfo.cullMode = material.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_NONE;

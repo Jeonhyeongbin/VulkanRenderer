@@ -34,12 +34,6 @@ layout(set=1, binding = 0) uniform GlobalUbo{
 	float gamma;
 } ubo;
 
-layout (constant_id = 0) const bool ALPHA_MASK = false;
-layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.3f;
-layout (constant_id = 2) const bool isMetallicRoughness = true;
-layout (constant_id = 3) const bool isEmissive = false;
-layout (constant_id = 4) const bool isOcclusion = false;
-
 layout (location = 0) out vec4 outColor;
 
 #define PI 3.1415926535897932384626433832795
@@ -134,18 +128,6 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 	return color;
 }
 
-// vec3 calculateNormal()
-// {
-// 	vec3 tangentNormal = texture(samplerNormalMap, fraguv).xyz;
-
-// 	vec3 N = normalize(fragNormalWorld);
-// 	vec3 T = normalize(fragtangent.xyz);
-// 	vec3 B = normalize(cross(N, T));
-// 	mat3 TBN = mat3(T, B, N);
-
-// 	return normalize(TBN * tangentNormal);
-// }
-
 void main() {
 	vec3 cameraPosWorld = ubo.invView[3].xyz;
 	vec3 occlusionMaterialRoughness = subpassLoad(inputMaterial).rgb;
@@ -172,10 +154,10 @@ void main() {
 
 
 	vec3 Lo = vec3(0.0);
-	for(int i = 0; i < ubo.pointLights.length(); i++) {
-		vec3 L = normalize(ubo.pointLights[i].position.xyz - fragPosWorld);
-		Lo += specularContribution(L, V, N, F0, metallic, roughness, ubo.pointLights[i].color, albedo);
-	}
+
+	vec3 L = normalize(ubo.pointLights[0].position.xyz - fragPosWorld);
+	Lo += specularContribution(L, V, N, F0, metallic, roughness, ubo.pointLights[0].color, albedo);
+
 
 	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
 	vec3 reflection = prefilteredReflection(R, roughness).rgb;
@@ -193,10 +175,6 @@ void main() {
 	vec3 kD = 1.0 - F;
 	kD *= 1.0 - roughness;
 	//vec3 ambient = (kD * diffuse + specular) * occulsion;
-	if(isOcclusion==false)
-	{
-		occulsion=1.f;
-	}
 	vec3 ambient = (kD * diffuse + specular) * occulsion;
 	
 
@@ -217,11 +195,10 @@ void main() {
 
 	// Check if fragment is in shadow
     float shadow = (dist - EPSILON <= sampledDist) ? 1.0 : SHADOW_OPACITY;
-	if(isEmissive)
-	{
-		vec3 emission = SRGBtoLINEAR(subpassLoad(inputEmmisive)).rgb;
-		color+=emission;
-	}
+
+	vec3 emission = SRGBtoLINEAR(subpassLoad(inputEmmisive)).rgb;
+	color+=emission;
+
 	outColor = vec4(color, 1.0);
 	outColor *= shadow;
 }

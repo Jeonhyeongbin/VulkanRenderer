@@ -4,6 +4,7 @@ build/**
 **/.env
 **/.obj
 *.spv
+*.txt
 
 # Build results
 [Dd]ebug/
