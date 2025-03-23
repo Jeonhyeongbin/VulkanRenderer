@@ -172,10 +172,22 @@ void main() {
 	vec3 lightVec = fragPosWorld - ubo.pointLights[0].position.xyz;
 	float dist = length(lightVec);
 	lightVec=normalize(lightVec);
-    float sampledDist = texture(shadowMap, lightVec).r; 
-    
+
+    float shadow = 0.f;
+	int range =1;
 	// Check if fragment is in shadow
-    float shadow = (dist - EPSILON <= sampledDist) ? 1.0 : SHADOW_OPACITY;
+	for (int x = -range; x <= range; x++)
+	{
+		for (int y = -range; y <= range; y++)
+		{
+			for (int z = -range; z <= range; z++)
+			{
+				float sampledDist = texture(shadowMap, normalize(lightVec + vec3(x,y, z) *(0.01))).r; 
+				shadow += (dist - EPSILON <= sampledDist ) ? 1.0 : SHADOW_OPACITY;
+			}
+		}
+	}
+	shadow /=27;
 
 	const float u_OcclusionStrength = 1.0f;
 	color = mix( color, color * occulsion, u_OcclusionStrength);
