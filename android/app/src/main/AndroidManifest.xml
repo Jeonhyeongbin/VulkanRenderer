@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.jhb.vulkanrenderer">
+
+    <!-- Vulkan 지원 여부 선언 (API 24+) -->
+    <uses-feature android:name="android.hardware.vulkan.version"
+        android:version="0x400000"
+        android:required="true" />
+    <uses-feature android:name="android.hardware.vulkan.level"
+        android:version="0"
+        android:required="false" />
+
+    <application
+        android:allowBackup="false"
+        android:label="VulkanRenderer"
+        android:hasCode="false">
+
+        <activity
+            android:name="android.app.NativeActivity"
+            android:label="VulkanRenderer"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="true">
+
+            <!-- NativeActivity에 사용할 .so 파일 이름 -->
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="vulkan-renderer" />
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

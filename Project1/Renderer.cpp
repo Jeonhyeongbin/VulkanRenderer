@@ -47,7 +47,9 @@ namespace jhb {
 		while (extent.width == 0 || extent.height == 0)
 		{
 			extent = window.getExtent();
+#ifndef ANDROID
 			glfwWaitEvents();
+#endif
 		}
 
 		vkDeviceWaitIdle(device.getLogicalDevice()); // wait until current swapchain is no longer being used

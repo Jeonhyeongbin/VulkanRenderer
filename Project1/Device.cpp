@@ -1,5 +1,6 @@
 #include "Device.h"
 #include "SwapChain.h"
+#ifndef ANDROID
 #include "External/Imgui/imgui_impl_glfw.h"
 #include "External/Imgui/imgui_impl_vulkan.h"
 
@@ -8,6 +9,7 @@ void OninitVulkanImguiSuccess(VkResult result)
 	//if(result == VK_SUCCESS)
 	//std::cout <<  "vulkan imgui init success!" << std::endl;
 }
+#endif
 
 namespace jhb {
 	Device::Device(Window& window) : window(window)
@@ -23,6 +25,7 @@ namespace jhb {
 
 	void Device::initImgui()
 	{
+#ifndef ANDROID
 		ImGui::CreateContext();
 		VkDescriptorPool descriptorPool;
 		VkDescriptorPoolSize pool_sizes[] =
@@ -81,7 +84,7 @@ namespace jhb {
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		dependency.srcAccessMask = 0;  // or VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		
+
 		VkRenderPassCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		info.attachmentCount = 1;
@@ -95,6 +98,7 @@ namespace jhb {
 		}
 		init_info.RenderPass = imguiRenderPass;
 		ImGui_ImplVulkan_Init(&init_info);
+#endif // !ANDROID
 	}
 
 	uint32_t Device::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
@@ -126,11 +130,17 @@ namespace jhb {
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.apiVersion = VK_API_VERSION_1_0;
 
+#ifdef ANDROID
+		std::vector<const char*> extensions = {
+			VK_KHR_SURFACE_EXTENSION_NAME,
+			VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
+		};
+#else
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions;
-
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+#endif
 
 		if (enableValidationLayers) {
 			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -276,6 +286,16 @@ namespace jhb {
 
 	void Device::createSurface()
 	{
+#ifdef ANDROID
+		VkAndroidSurfaceCreateInfoKHR createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+		createInfo.window = window.GetNativeWindow();
+
+		if (vkCreateAndroidSurfaceKHR(instance, &createInfo, nullptr, &surface) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create Android window surface!");
+		}
+#else
 		VkWin32SurfaceCreateInfoKHR createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 		createInfo.hwnd = glfwGetWin32Window(&window.GetGLFWwindow());
@@ -285,6 +305,7 @@ namespace jhb {
 		{
 			throw std::runtime_error("failed to create window surface!");
 		}
+#endif
 	}
 
 	void Device::createLogicalDevice()
@@ -721,7 +742,7 @@ namespace jhb {
 			i++;
 		}
 
-		// ¸¸¾à Compute queue family¸¸ÀÌ ¾ø´Ù¸é graphic queue¸¦ compute queue ·Î »ç¿ë
+		// ï¿½ï¿½ï¿½ï¿½ Compute queue familyï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ù¸ï¿½ graphic queueï¿½ï¿½ compute queue ï¿½ï¿½ ï¿½ï¿½ï¿½
 		for (const auto& queueFamily : queueFamilies) {
 			if (!QueueFamilyIndexes.computeFamily.has_value())
 			{
@@ -735,11 +756,17 @@ namespace jhb {
 
 	std::vector<const char*> Device::getRequiredExtensions()
 	{
+#ifdef ANDROID
+		std::vector<const char*> extensions = {
+			VK_KHR_SURFACE_EXTENSION_NAME,
+			VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
+		};
+#else
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions;
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
 		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+#endif
 
 		if (enableValidationLayers) {
 			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);

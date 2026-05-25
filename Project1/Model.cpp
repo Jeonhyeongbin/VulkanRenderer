@@ -22,6 +22,7 @@
 #include "BaseRenderSystem.h"
 #include "Pipeline.h"
 #include <random>
+#include <algorithm>
 
 namespace std{
 	template <>
@@ -789,7 +790,7 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath, VkSa
 
 	auto pixels = stbi_load(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 	VkDeviceSize imageSize = texWidth * texHeight * 4; // 4byte per pixel
-	int mipleves = static_cast<uint32_t>(floor(log2(max(texWidth, texHeight))) + 1.0);
+	int mipleves = static_cast<uint32_t>(floor(log2(std::max(texWidth, texHeight))) + 1.0);
 	if (!pixels) {
 		throw std::runtime_error("failed to load texture image!");
 	}
@@ -1087,7 +1088,7 @@ void jhb::Model::createObjectSphere(const std::vector<Vertex> vertices)
 			sphere.maxcoordinate.z = vertex.position.z;
 	}
 
-	// todo : ±¸ÀÇ Áß½É°ú ¹ÝÁö¸§ ±¸ÇÏ±â.
+	// todo : ï¿½ï¿½ï¿½ï¿½ ï¿½ß½É°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï±ï¿½.
 	sphere.center = { (sphere.maxcoordinate.x + sphere.mincoordinate.x) / 2, (sphere.maxcoordinate.y + sphere.mincoordinate.y) / 2, (sphere.maxcoordinate.z + sphere.mincoordinate.z) / 2 };
 	sphere.radius = (float)(sqrt(pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2)));
 }

@@ -15,6 +15,10 @@
 #include "Descriptors.h"
 #include "FrameInfo.h"
 
+#ifdef ANDROID
+#include <android_native_app_glue.h>
+#endif
+
 #include <stdint.h>
 #include <chrono>
 #include <array>
@@ -30,6 +34,16 @@ namespace jhb {
 		JHBApplication& operator=(const JHBApplication&) = delete;
 
 		void Run();
+
+#ifdef ANDROID
+		void setAndroidApp(struct android_app* app)
+		{
+			androidApp = app;
+			window.SetNativeWindow(app->window);
+		}
+		// Main.cpp의 handleInputEvent에서 터치를 InputController로 전달하기 위한 포인터
+		class InputController* inputController = nullptr;
+#endif
 
 	private:
 		void init();
@@ -66,7 +80,9 @@ namespace jhb {
 		VkDeviceMemory fontMemory;
 
 		std::unique_ptr<class ComputerShadeSystem> computeShaderSystem;
+#ifndef ANDROID
 		std::unique_ptr<class ImguiRenderSystem> imguiRenderSystem;
+#endif
 		std::unique_ptr<class MousePickingRenderSystem> mousePickingRenderSystem;
 		std::unique_ptr<class ShadowRenderSystem> shadowMapRenderSystem;
 		std::unique_ptr<class PBRRendererSystem> pbrRenderSystem;
@@ -80,5 +96,10 @@ namespace jhb {
 	private:
 		double px, py, pz;
 		bool isComputeFrustumCulling;
+
+#ifdef ANDROID
+		struct android_app* androidApp = nullptr;
+		bool androidAppRunning = true;
+#endif
 	};
 }
