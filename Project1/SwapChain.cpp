@@ -532,7 +532,12 @@ namespace jhb {
 		}
 		else {
 			int width, height;
+#ifdef ANDROID
+			width  = static_cast<int>(device.getWindow().getExtent().width);
+			height = static_cast<int>(device.getWindow().getExtent().height);
+#else
 			glfwGetFramebufferSize(&device.getWindow().GetGLFWwindow(), &width, &height);
+#endif
 
 			VkExtent2D actualExtent = {
 				static_cast<uint32_t>(width),

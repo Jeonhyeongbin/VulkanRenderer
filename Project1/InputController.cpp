@@ -1,8 +1,15 @@
 #include "InputController.h"
-#include "External/Imgui/imgui_impl_glfw.h"
 #include "Window.h"
+#ifndef ANDROID
+#include "External/Imgui/imgui_impl_glfw.h"
+#endif
+#include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
+#include <limits>
 
-glm::vec3  jhb::InputController::move(GLFWwindow* window, float dt, GameObject& gameObject)
+#ifndef ANDROID
+
+glm::vec3 jhb::InputController::move(GLFWwindow* window, float dt, GameObject& gameObject)
 {
 	const float cameraSpeed = 0.1f;
 	glm::vec3 rotate{ 0 };
@@ -28,7 +35,7 @@ glm::vec3  jhb::InputController::move(GLFWwindow* window, float dt, GameObject& 
 	forwardDir.y = glm::sin(pitch);
 	forwardDir.z = glm::sin(yaw) * glm::cos(pitch);
 	const glm::vec3 upDir = { 0, -1, 0 };
-	const glm::vec3 rightDir =glm::normalize(glm::cross(forwardDir, upDir));
+	const glm::vec3 rightDir = glm::normalize(glm::cross(forwardDir, upDir));
 
 	glm::vec3 moveDir{0.f};
 	if (glfwGetKey(window, keys.moveForward) == GLFW_PRESS) moveDir += forwardDir * cameraSpeed;
@@ -54,7 +61,7 @@ void jhb::InputController::OnButtonPressed(GLFWwindow* window, int button, int a
 		return;
 	}
 
-	if (button == GLFW_MOUSE_BUTTON_RIGHT|| button == GLFW_MOUSE_BUTTON_LEFT)
+	if (button == GLFW_MOUSE_BUTTON_RIGHT || button == GLFW_MOUSE_BUTTON_LEFT)
 	{
 		auto tmpwindow = (Window*)glfwGetWindowUserPointer(window);
 		if (action == GLFW_PRESS)
@@ -71,5 +78,40 @@ void jhb::InputController::OnButtonPressed(GLFWwindow* window, int button, int a
 		}
 	}
 }
+
+#else // ANDROID
+
+glm::vec3 jhb::InputController::move(float dt, GameObject& gameObject)
+{
+	// 오른쪽 드래그 → 카메라 회전 (touchDelta 사용)
+	glm::vec3 rotate{ 0 };
+	rotate.y += touchDeltaX * 0.5f;
+	rotate.x += touchDeltaY * 0.5f;
+
+	if (glm::dot(rotate, rotate) > std::numeric_limits<float>::epsilon())
+	{
+		gameObject.transform.rotation += lookSpeed * dt * glm::normalize(rotate);
+	}
+
+	// 각도 제한 (기존 PC 코드와 동일)
+	auto limitAngle = 1.f;
+	gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -limitAngle, limitAngle);
+	gameObject.transform.rotation.y = glm::mod(gameObject.transform.rotation.y, glm::two_pi<float>());
+
+	float yaw   = gameObject.transform.rotation.y;
+	float pitch = gameObject.transform.rotation.x;
+	glm::vec3 forwardDir(0);
+	forwardDir.x = glm::cos(yaw) * glm::cos(pitch);
+	forwardDir.y = glm::sin(pitch);
+	forwardDir.z = glm::sin(yaw) * glm::cos(pitch);
+
+	// 매 프레임 델타 초기화 (누적 방지)
+	touchDeltaX = 0.f;
+	touchDeltaY = 0.f;
+
+	return forwardDir;
+}
+
+#endif // ANDROID
 
 

@@ -1,6 +1,14 @@
 #pragma once
+
+#ifdef ANDROID
+#include <android/native_window.h>
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_android.h>
+#else
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#endif
+
 #include <string>
 #include <glm/glm.hpp>
 #include "Camera.h"
@@ -26,11 +34,21 @@ namespace jhb {
 		Window(const Window&) = delete;
 		Window& operator=(const Window&) = delete;
 
-		// void creatWindowSurface(VkInstance instance, VkSurfaceKHR* surface);
-		GLFWwindow& GetGLFWwindow()
+#ifdef ANDROID
+		ANativeWindow* GetNativeWindow() { return window; }
+		void SetNativeWindow(ANativeWindow* nativeWindow)
 		{
-			return *window;
+			window = nativeWindow;
+			if (window) {
+				width = ANativeWindow_getWidth(window);
+				height = ANativeWindow_getHeight(window);
+				framebufferResized = true;
+			}
 		}
+#else
+		GLFWwindow& GetGLFWwindow() { return *window; }
+#endif
+
 		void SetMouseButtonPress(bool _isMouseButtonPressed)
 		{
 			isMousePressed = _isMouseButtonPressed;
@@ -52,19 +70,25 @@ namespace jhb {
 		void mouseMove(float x, float y, float dt, GameObject& camera);
 		Camera* getCamera() { return camera.get(); }
 	private:
+#ifndef ANDROID
 		static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 		static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 		void initWindow();
+#endif
 
 		int width;
 		int height;
 
 		bool framebufferResized = false;
 		bool isMousePressed = false;
-		
+
 		glm::vec2 prevPos{0.f};
 		std::string windowName;
+#ifdef ANDROID
+		ANativeWindow* window = nullptr;
+#else
 		GLFWwindow* window;
+#endif
 		std::unique_ptr<jhb::Camera> camera;
 	public:
 		int objectId = 0;

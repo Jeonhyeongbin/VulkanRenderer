@@ -1,13 +1,17 @@
 #include "JHBApplication.h"
 #include "PBRRenderSystem.h"
 #include "SkyBoxRenderSystem.h"
+#ifndef ANDROID
 #include "ImguiRenderSystem.h"
+#endif
 #include "InputController.h"
 #include "FrameInfo.h"
 #include "Descriptors.h"
 #include "PointLightSystem.h"
 #include "Model.h"
+#ifndef ANDROID
 #include "External/Imgui/imgui.h"
+#endif
 #include "PBRResourceGenerator.h"
 #include "MousePickingRenderSystem.h"
 #include "ShadowRenderSystem.h"
@@ -38,31 +42,58 @@ namespace jhb {
 
 	JHBApplication::~JHBApplication()
 	{
+#ifndef ANDROID
 		ImGui_ImplVulkan_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
 		ImGui::DestroyContext();
+#endif
 	}
 
 	void JHBApplication::Run()
-	{	
+	{
 		auto viewerObject = GameObject::createGameObject();
 		viewerObject.transform.translation.y = -5.5f;
 		viewerObject.transform.translation.z = -2.5f;
+#ifndef ANDROID
 		InputController cameraController{device.getWindow().GetGLFWwindow(), viewerObject};
-		double x, y;
+#else
+		InputController cameraController{viewerObject};
+		inputController = &cameraController; // Main.cpp handleInputEvent에서 사용
+#endif
+		double x = 0, y = 0;
 		auto currentTime = std::chrono::high_resolution_clock::now();
 
+#ifndef ANDROID
 		auto forwardDir = cameraController.move(&window.GetGLFWwindow(), 0, viewerObject);
+#else
+		auto forwardDir = cameraController.move(0, viewerObject);
+#endif
 		window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
 		float aspect = renderer.getAspectRatio();
 		window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
-		
+
 		//computeShaderSystem->SetupDescriptor(deferedPbrRenderSystem->pbrObjects);
 
+#ifdef ANDROID
+		while (androidAppRunning)
+		{
+			// Android 이벤트 처리
+			int events;
+			android_poll_source* source;
+			while (ALooper_pollAll(0, nullptr, &events, (void**)&source) >= 0) {
+				if (source) source->process(androidApp, source);
+			}
+			if (androidApp->destroyRequested) break;
+
+			// 터치 입력에서 커서 위치 업데이트
+			x = cameraController.getTouchX();
+			y = cameraController.getTouchY();
+#else
 		while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
 		{
 			glfwPollEvents(); //may block
 			glfwGetCursorPos(&window.GetGLFWwindow(), &x, &y);
+#endif
 			auto newTime = std::chrono::high_resolution_clock::now();
 			float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
 			currentTime = newTime;
@@ -74,7 +105,9 @@ namespace jhb {
 				mousePickingRenderSystem->createOffscreenFrameBuffers();
 
 				renderer.setWindowExtent(window.getExtent());
+#ifndef ANDROID
 				imguiRenderSystem->recreateFrameBuffer(device, renderer.GetSwapChain(), window.getExtent());
+#endif
 				deferedPbrRenderSystem->createFrameBuffers(renderer.getSwapChainImageViews(), true);
 				window.resetWindowResizedFlag();
 				continue;
@@ -124,7 +157,11 @@ namespace jhb {
 				}
 			}
 
+#ifndef ANDROID
 			auto forwardDir = cameraController.move(&window.GetGLFWwindow(), frameTime, viewerObject);
+#else
+			auto forwardDir = cameraController.move(frameTime, viewerObject);
+#endif
 			window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
 			float aspect = renderer.getAspectRatio();
 			window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
@@ -142,11 +179,13 @@ namespace jhb {
 			deferedPbrRenderSystem->renderGameObjects(frameInfo);
 			renderer.endSwapChainRenderPass(commandBuffer);
 		
+#ifndef ANDROID
 			renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass, imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
 			imguiRenderSystem->newFrame();
 			ImDrawData* draw_data = ImGui::GetDrawData();
 			ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
 			renderer.endSwapChainRenderPass(commandBuffer);
+#endif
 			renderer.endFrame();
 		}
 
@@ -239,7 +278,9 @@ namespace jhb {
 			build());
 
 		mousePickingRenderSystem = std::make_unique<MousePickingRenderSystem>(device, std::vector{ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout() }, "shaders/pbr.vert.spv", "shaders/picking.frag.spv");
+#ifndef ANDROID
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
+#endif
 
 		deferedPbrRenderSystem = std::make_unique<DeferedPBRRenderSystem>(device, std::vector{ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[3]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout()
 		, descSetLayouts[5]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout()}, renderer.getSwapChainImageViews(), renderer.GetSwapChain().getSwapChainImageFormat());

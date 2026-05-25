@@ -300,7 +300,7 @@ namespace jhb {
 			{3, offsetof(MaterialSpecializationData, isEmissive), sizeof(MaterialSpecializationData::isEmissive)},
 			{4, offsetof(MaterialSpecializationData, isOcculsion), sizeof(MaterialSpecializationData::isOcculsion)},
 		};
-		VkSpecializationInfo specializationInfo = { specializationMapEntries.size(), specializationMapEntries.data(), sizeof(materialSpecializationData), &materialSpecializationData };
+		VkSpecializationInfo specializationInfo = { static_cast<uint32_t>(specializationMapEntries.size()), specializationMapEntries.data(), sizeof(materialSpecializationData), &materialSpecializationData };
 		shaderStages[1].pSpecializationInfo = &specializationInfo;
 
 		pipelineInfo.pStages = shaderStages;

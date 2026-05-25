@@ -43,12 +43,12 @@ namespace jhb {
 		attrdesc[0].binding = 1;
 		attrdesc[0].location = 5;
 		attrdesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrdesc[0].offset = offsetof(Model::InstanceData, Model::InstanceData::pos);
+		attrdesc[0].offset = offsetof(Model::InstanceData, pos);
 
 		attrdesc[1].binding = 1;
 		attrdesc[1].location = 6;
 		attrdesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attrdesc[1].offset = offsetof(Model::InstanceData, Model::InstanceData::rot);
+		attrdesc[1].offset = offsetof(Model::InstanceData, rot);
 
 		pipelineConfig.attributeDescriptions.insert(pipelineConfig.attributeDescriptions.end(), attrdesc.begin(), attrdesc.end());
 

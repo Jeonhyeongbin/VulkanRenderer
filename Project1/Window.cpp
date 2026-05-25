@@ -1,25 +1,37 @@
 #include "GameObject.h"
 #include "Window.h"
 #include "InputController.h"
+#ifndef ANDROID
 #include "External/Imgui/imgui_impl_glfw.h"
+#endif
 #include <stdexcept>
 
 jhb::Window::Window(int w, int h, const std::string name) : width{ w }, height{ h }, windowName{ name }
 {
+#ifndef ANDROID
 	initWindow();
+#endif
 	camera = std::make_unique<jhb::Camera>(0.8f);
 }
 
 jhb::Window::~Window()
 {
+#ifdef ANDROID
+	if (window) {
+		ANativeWindow_release(window);
+		window = nullptr;
+	}
+#else
 	glfwDestroyWindow(window);
 	glfwTerminate();
+#endif
 }
 
 void jhb::Window::createWindowSurface(VkInstance instance, VkSurfaceKHR* surface)
 {
 }
 
+#ifndef ANDROID
 void jhb::Window::framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
 	auto windowPtr = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
@@ -55,9 +67,10 @@ void jhb::Window::initWindow()
 	glfwSetWindowUserPointer(window, this);
 	glfwSetScrollCallback(window, scroll_callback);
 
-	// register framebufferResizeCallback, so whenever window resized this callback invoked 
+	// register framebufferResizeCallback, so whenever window resized this callback invoked
 	glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }
+#endif
 
 void jhb::Window::mouseMove(float x, float y, float dt, GameObject& camera)
 {
