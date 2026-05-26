@@ -5,6 +5,7 @@ build/**
 **/.obj
 *.spv
 *.txt
+!CMakeLists.txt
 
 # Build results
 [Dd]ebug/
