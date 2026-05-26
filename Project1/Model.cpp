@@ -1,3 +1,6 @@
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <cmath>  // std::log2 명시적 포함
 
 #include <iostream>
 #include <unordered_map>
