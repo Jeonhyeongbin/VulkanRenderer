@@ -4,7 +4,18 @@
 #include <stdexcept>
 #include <iostream>
 
+#ifdef ANDROID
+#include "AndroidAssets.h"
+#endif
+
 namespace jhb {
+
+#ifdef ANDROID
+void Pipeline::setAssetManager(AAssetManager* mgr)
+{
+	jhb::setAndroidAssetManager(mgr);
+}
+#endif
 	Pipeline::Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo)
 		: device { device }
 	{
@@ -103,7 +114,23 @@ namespace jhb {
 
 	std::vector<char> jhb::Pipeline::readFile(const std::string& filepath)
 	{
-		std::ifstream file{filepath, std::ios::ate | std::ios::binary }; //ate flag : open file and close immdietly , binary flag : read file binary format for prevent unwanted convert from text to binary
+#ifdef ANDROID
+		// Android APK assets는 std::ifstream으로 접근 불가 → AAssetManager 사용
+		AAssetManager* mgr = jhb::getAndroidAssetManager();
+		if (!mgr) {
+			throw std::runtime_error("AAssetManager not set! Call setAndroidAssetManager() before loading shaders.");
+		}
+		AAsset* asset = AAssetManager_open(mgr, filepath.c_str(), AASSET_MODE_BUFFER);
+		if (!asset) {
+			throw std::runtime_error("failed to open file: " + filepath);
+		}
+		size_t fileSize = static_cast<size_t>(AAsset_getLength(asset));
+		std::vector<char> buffer(fileSize);
+		AAsset_read(asset, buffer.data(), fileSize);
+		AAsset_close(asset);
+		return buffer;
+#else
+		std::ifstream file{filepath, std::ios::ate | std::ios::binary };
 
 		if (!file.is_open())
 		{
@@ -118,6 +145,7 @@ namespace jhb {
 
 		file.close();
 		return buffer;
+#endif
 	}
 
 	void jhb::Pipeline::createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo)

@@ -5,6 +5,10 @@
 #include <string>
 #include <vector>
 
+#ifdef ANDROID
+#include <android/asset_manager.h>
+#endif
+
 namespace jhb {
 	struct PipelineConfigInfo {
 		PipelineConfigInfo() = default;
@@ -46,6 +50,9 @@ namespace jhb {
 	
 	public:
 		static std::vector<char> readFile(const std::string& filepath);
+#ifdef ANDROID
+		static void setAssetManager(AAssetManager* mgr);
+#endif
 
 	private:
 		void createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, PipelineConfigInfo& configInfo);

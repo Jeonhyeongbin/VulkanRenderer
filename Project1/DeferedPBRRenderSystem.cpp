@@ -3,6 +3,12 @@
 #include <array>
 #include "SwapChain.h"
 #include "GameObjectManager.h"
+#ifdef ANDROID
+#include "AndroidAssets.h"
+#include <android/log.h>
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  "VulkanRenderer", __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "VulkanRenderer", __VA_ARGS__)
+#endif
 
 namespace jhb {
 	uint32_t DeferedPBRRenderSystem::id = 0;
@@ -11,7 +17,7 @@ namespace jhb {
 		: BaseRenderSystem(device)
 	{
 		assert(descSetlayouts.size() == 5 && "descriptor setlayout size in defered render system less than 5!!!!!!!");
-		// Ã¹¹øÂ° subpass´Â gltf¸ğµ¨ÀÇ ¸ÓÅÍ¸®¾ó¿ë descriptorsetlayoutÀ» Ã¹¹ø¤Š subpass¿ë pipelinelayout¿¡ ¹­¾î ÁÖ¾î¾ßÇÔ. ±×·¯¹Ç·Î uniform buffer ¿Í ÇÔ²² ÃÑ 2°³ÀÇ descriptor set layoutÀÌ ÇÊ¿ä.
+		// Ã¹ï¿½ï¿½Â° subpassï¿½ï¿½ gltfï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Í¸ï¿½ï¿½ï¿½ï¿½ descriptorsetlayoutï¿½ï¿½ Ã¹ï¿½ï¿½ï¿½ï¿½ subpassï¿½ï¿½ pipelinelayoutï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½. ï¿½×·ï¿½ï¿½Ç·ï¿½ uniform buffer ï¿½ï¿½ ï¿½Ô²ï¿½ ï¿½ï¿½ 2ï¿½ï¿½ï¿½ï¿½ descriptor set layoutï¿½ï¿½ ï¿½Ê¿ï¿½.
 		createRenderPass(swapchainFormat);
 		createFrameBuffers(swapchainImageViews);
 		initializeOffScreenDescriptor();
@@ -19,9 +25,9 @@ namespace jhb {
 		BaseRenderSystem::createPipeLineLayout({ descSetlayouts[0],descSetlayouts[1], descSetlayouts[1] }, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, 2*sizeof(glm::mat4)} });
 		createPipeline(nullptr, "shaders/deferedoffscreen.vert.spv",
 			"shaders/deferedoffscreen.frag.spv");
-		// µÎ¹øÂ° subpass´Â pbrÀ» ÇØ¾ßÇÏ±â ¶§¹®¿¡ pbrresource¿ë descriptorsetlayoutÀ» µÎ¹øÂ° subpass¿ë pipelinelayout¿¡ ¹­¾î ÁÖ¾î¾ßÇÔ. ÀÌ ¶§µµ À¯´ÏÆû ¹öÆÛ°¡ ÇÊ¿äÇÏ°í(light À§Ä¡), pbr ÀÌ¹ÌÁö¿ë descriptor set layout, 
-		// ½¦µµ¿ì¿ë descriptor set layout 3°³ ÇÊ¿ä.
-		createLightingPipelineAndPipelinelayout({descSetlayouts[0], descSetlayouts[2], descSetlayouts[3] }); // second subapss¿ë
+		// ï¿½Î¹ï¿½Â° subpassï¿½ï¿½ pbrï¿½ï¿½ ï¿½Ø¾ï¿½ï¿½Ï±ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ pbrresourceï¿½ï¿½ descriptorsetlayoutï¿½ï¿½ ï¿½Î¹ï¿½Â° subpassï¿½ï¿½ pipelinelayoutï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½. ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Û°ï¿½ ï¿½Ê¿ï¿½ï¿½Ï°ï¿½(light ï¿½ï¿½Ä¡), pbr ï¿½Ì¹ï¿½ï¿½ï¿½ï¿½ï¿½ descriptor set layout, 
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ descriptor set layout 3ï¿½ï¿½ ï¿½Ê¿ï¿½.
+		createLightingPipelineAndPipelinelayout({descSetlayouts[0], descSetlayouts[2], descSetlayouts[3] }); // second subapssï¿½ï¿½
 		createSkyboxPipelineAndPipelinelayout({ descSetlayouts[0], descSetlayouts[4]});
 
 		createSponze();
@@ -46,7 +52,7 @@ namespace jhb {
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		createVertexAttributeAndBindingDesc(pipelineConfig);
 
-		// swapchainÀÌ¹ÌÁö´Â »ç¿ëÇÏÁö ¾ÊÁö¸¸ sascha willam Àº È¤½Ã³ª ¸ğ¸£¹Ç·Î color°ªÀÚÃ¼´Â swapchainÂÊ¿¡ ÀúÀå ±×·¯¹Ç·Î ÀÏ´Ü swapchainµµ Æ÷ÇÔÇÏ¿© 5°³°¡ ¾Æ´Ñ 6°³¸¦ colorblendstate¿¡ ÁöÁ¤ÇØÁÖÀÚ
+		// swapchainï¿½Ì¹ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ sascha willam ï¿½ï¿½ È¤ï¿½Ã³ï¿½ ï¿½ğ¸£¹Ç·ï¿½ colorï¿½ï¿½ï¿½ï¿½Ã¼ï¿½ï¿½ swapchainï¿½Ê¿ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½×·ï¿½ï¿½Ç·ï¿½ ï¿½Ï´ï¿½ swapchainï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï¿ï¿½ 5ï¿½ï¿½ï¿½ï¿½ ï¿½Æ´ï¿½ 6ï¿½ï¿½ï¿½ï¿½ colorblendstateï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		std::array<VkPipelineColorBlendAttachmentState, 6> blendAttachmentStates;
 		for (int i = 0; i < blendAttachmentStates.size(); i++)
 		{
@@ -217,6 +223,12 @@ namespace jhb {
 		attachments[7] = ColorResolveAttachment.view;
 
 		frameBuffers.resize(swapchainImageViews.size());
+#ifdef ANDROID
+		LOGI("[DeferedPBR] createFrameBuffers: %zu swapchain images, extent=%ux%u",
+			swapchainImageViews.size(),
+			device.getWindow().getExtent().width,
+			device.getWindow().getExtent().height);
+#endif
 		for (int i = 0; i < swapchainImageViews.size(); i++)
 		{
 			attachments[0] = swapchainImageViews[i];
@@ -434,7 +446,19 @@ namespace jhb {
 		tinygltf::TinyGLTF gltfContext;
 		std::string error, warning;
 
+#ifdef ANDROID
+		jhb::setupGltfAndroidCallbacks(gltfContext);
+#endif
+
 		bool fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, filename);
+
+#ifdef ANDROID
+		if (fileLoaded) {
+			LOGI("[GLTF] Loaded: %s  (meshes=%zu images=%zu)", filename.c_str(), glTFInput.meshes.size(), glTFInput.images.size());
+		} else {
+			LOGE("[GLTF] FAILED to load: %s  error='%s'", filename.c_str(), error.c_str());
+		}
+#endif
 
 		size_t pos = filename.find_last_of('/');
 
@@ -798,12 +822,23 @@ namespace jhb {
 
 	void DeferedPBRRenderSystem::renderGameObjects(FrameInfo& frameInfo)
 	{
+#ifdef ANDROID
+		// ìµœì´ˆ 1íšŒë§Œ ì˜¤ë¸Œì íŠ¸ ìˆ˜ ë¡œê·¸ (ë§¤ í”„ë ˆì„ ì¶œë ¥í•˜ë©´ logcatì´ ë„ˆë¬´ ë§ì•„ì§)
+		static bool firstRender = true;
+		if (firstRender) {
+			firstRender = false;
+			LOGI("[DeferedPBR] renderGameObjects: total objects=%zu", GameObjectManager::GetSingleton().gameObjects.size());
+			for (auto& kv2 : GameObjectManager::GetSingleton().gameObjects) {
+				LOGI("[DeferedPBR]   id=%u model=%s", kv2.first, kv2.second.model ? "OK" : "null");
+			}
+		}
+#endif
 		for (auto& kv : GameObjectManager::GetSingleton().gameObjects)
 		{
 			auto& obj = kv.second;
-			if (kv.first > 2) // higer than 2 no need to draw cause of instance drawing
+			if (kv.first > 2) // higher than 2: drawn via instance buffer, skip individual draw
 			{
-				break;
+				continue; // unordered_mapì´ë¯€ë¡œ break ëŒ€ì‹  continue ì‚¬ìš© (ìˆœì„œ ë³´ì¥ ì•ˆ ë¨)
 			}
 			if (obj.model == nullptr)
 			{

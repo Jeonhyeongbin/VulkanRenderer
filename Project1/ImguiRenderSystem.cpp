@@ -36,7 +36,7 @@ namespace jhb {
 
 		for (uint32_t i = 0; i < framebuffers.size(); i++)
 		{
-			// todo imgui¿ë ÇÁ·¹ÀÓ¹öÆÛ ¸¸µé±â
+			// todo imguiï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ó¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
 			VkImageView attachment[1] = { swapchain.getSwapChianImageView(i) };
 			VkFramebufferCreateInfo info = {};
 			info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -62,7 +62,9 @@ namespace jhb {
 		// Start the Dear ImGui frame
 		ImGui::CreateContext();
 		ImGui_ImplVulkan_NewFrame();
+#ifndef ANDROID
 		ImGui_ImplGlfw_NewFrame();
+#endif
 		ImGui::NewFrame();
 
 		//// Init imGui windows and elements
@@ -92,7 +94,7 @@ namespace jhb {
 
 		for (uint32_t i = 0; i < framebuffers.size(); i++)
 		{
-			// todo imgui¿ë ÇÁ·¹ÀÓ¹öÆÛ ¸¸µé±â
+			// todo imguiï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ó¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
 			VkImageView attachment[1] = { swapchain. getSwapChianImageView(i) };
 			VkFramebufferCreateInfo info = {};
 			info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

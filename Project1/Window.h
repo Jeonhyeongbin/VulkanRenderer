@@ -45,6 +45,16 @@ namespace jhb {
 				framebufferResized = true;
 			}
 		}
+
+		// JHBApplication 멤버 초기화 순서(Window → Device) 때문에
+		// Device 생성 전에 ANativeWindow를 Window에 전달하기 위한 static 메커니즘
+		static void SetPendingNativeWindow(ANativeWindow* nativeWindow)
+		{
+			s_pendingNativeWindow = nativeWindow;
+		}
+	private:
+		static ANativeWindow* s_pendingNativeWindow;
+	public:
 #else
 		GLFWwindow& GetGLFWwindow() { return *window; }
 #endif

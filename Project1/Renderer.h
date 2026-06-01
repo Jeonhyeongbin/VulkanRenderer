@@ -56,6 +56,15 @@ namespace jhb {
 			return currentFrameIndex;
 		}
 
+		// 실제로 획득한 스왑체인 이미지 인덱스를 반환한다.
+		// Android에서는 스왑체인 이미지가 3개일 수 있으므로
+		// 스왑체인 기반 프레임버퍼 선택에는 getFrameIndex() 대신 이 함수를 사용해야 한다.
+		int getImageIndex() const
+		{
+			assert(isFrameStarted && "Cannot get image index when frame not in progress!");
+			return (int)currentImageIndex;
+		}
+
 	private:
 		void createCommandBuffers();
 		void freeCommandBuffers();
@@ -70,8 +79,8 @@ namespace jhb {
 		std::vector<VkCommandBuffer> commandBuffers;
 		std::vector<VkSubpassDependency> dependencies;
 
-		uint32_t currentImageIndex;
-		int currentFrameIndex;
-		bool isFrameStarted;
+		uint32_t currentImageIndex{0};
+		int currentFrameIndex{0};
+		bool isFrameStarted{false};
 	};
 }

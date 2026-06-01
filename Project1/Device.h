@@ -149,7 +149,7 @@ namespace jhb {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 		};
 
-#ifdef NDEBUG
+#if defined(NDEBUG) || defined(ANDROID)
 		const bool enableValidationLayers = false;
 #else
 		const bool enableValidationLayers = true;

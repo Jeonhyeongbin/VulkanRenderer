@@ -15,7 +15,9 @@
 #include "FrameInfo.h"
 #include "External/Imgui/imgui.h"
 #include "External/Imgui/imgui_impl_vulkan.h"
+#ifndef ANDROID
 #include "External/Imgui/imgui_impl_glfw.h"
+#endif
 #include <stdint.h>
 
 namespace jhb {

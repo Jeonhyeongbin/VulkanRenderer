@@ -1,13 +1,9 @@
-build
+# ──────────────────────────────────────────────
+# 빌드 산출물
+# ──────────────────────────────────────────────
+build/
 build/**
-**/.obj
-**/.env
-**/.obj
-*.spv
-*.txt
-!CMakeLists.txt
-
-# Build results
+**/build/
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -22,14 +18,33 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
-
-# Visual Studio 2015/2017 cache/options directory
-.vs/
-
-# Uncomment if you have tasks that create the project's static files in wwwroot
-#wwwroot/
-
-VulkanSDK/
-
-# Visual Studio 2017 auto generated files
+**/.obj
 Generated\ Files/
+
+# ──────────────────────────────────────────────
+# IDE / 에디터 설정 (개인 환경 의존)
+# ──────────────────────────────────────────────
+.vs/
+**/.idea/
+*.user
+*.suo
+
+# ──────────────────────────────────────────────
+# Gradle 캐시 (빌드 시 자동 생성)
+# ──────────────────────────────────────────────
+**/.gradle/
+android/app/src/main/assets/shaders/
+
+# ──────────────────────────────────────────────
+# 개인 로컬 설정 — 절대 커밋 금지
+# SDK 경로, 서명 키 등 PC마다 다름
+# ──────────────────────────────────────────────
+**/local.properties
+**/.env
+*.keystore
+*.jks
+
+# ──────────────────────────────────────────────
+# 기타
+# ──────────────────────────────────────────────
+VulkanSDK/

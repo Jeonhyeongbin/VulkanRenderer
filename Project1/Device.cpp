@@ -1,5 +1,13 @@
 #include "Device.h"
 #include "SwapChain.h"
+#ifdef ANDROID
+#include <android/log.h>
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "VulkanRenderer", __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  "VulkanRenderer", __VA_ARGS__)
+#else
+#define LOGE(...)
+#define LOGI(...)
+#endif
 #ifndef ANDROID
 #include "External/Imgui/imgui_impl_glfw.h"
 #include "External/Imgui/imgui_impl_vulkan.h"
@@ -131,6 +139,16 @@ namespace jhb {
 		appInfo.apiVersion = VK_API_VERSION_1_0;
 
 #ifdef ANDROID
+		// 기기가 지원하는 instance extension 목록 출력 (디버깅)
+		{
+			uint32_t availableExtCount = 0;
+			vkEnumerateInstanceExtensionProperties(nullptr, &availableExtCount, nullptr);
+			std::vector<VkExtensionProperties> availableExts(availableExtCount);
+			vkEnumerateInstanceExtensionProperties(nullptr, &availableExtCount, availableExts.data());
+			LOGI("Available instance extensions (%u):", availableExtCount);
+			for (auto& e : availableExts) LOGI("  %s", e.extensionName);
+		}
+
 		std::vector<const char*> extensions = {
 			VK_KHR_SURFACE_EXTENSION_NAME,
 			VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
@@ -170,8 +188,10 @@ namespace jhb {
 			createInfo.pNext = nullptr;
 		}
 
-		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
+		VkResult instanceResult = vkCreateInstance(&createInfo, nullptr, &instance);
+		if (instanceResult != VK_SUCCESS)
 		{
+			LOGE("vkCreateInstance failed: VkResult = %d", (int)instanceResult);
 			throw std::runtime_error("failed to create instance!!");
 		}
 	}
@@ -792,7 +812,19 @@ namespace jhb {
 			if (isDeviceSuitable(device))
 			{
 				physicalDevice = device;
+#ifdef ANDROID
+				// Android: 발열 감소를 위해 MSAA를 4x 이하로 제한한다.
+				// getMaxUsableSampleCount()는 8x~64x를 반환할 수 있어 GPU 부하가 크다.
+				{
+					VkSampleCountFlagBits maxSupported = getMaxUsableSampleCount();
+					if (maxSupported >= VK_SAMPLE_COUNT_4_BIT)
+						msaaSamples = VK_SAMPLE_COUNT_4_BIT;
+					else
+						msaaSamples = maxSupported;
+				}
+#else
 				msaaSamples = getMaxUsableSampleCount();
+#endif
 				break;
 			}
 		}

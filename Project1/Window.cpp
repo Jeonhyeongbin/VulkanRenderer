@@ -6,9 +6,21 @@
 #endif
 #include <stdexcept>
 
+#ifdef ANDROID
+// JHBApplication 생성 전에 Main.cpp에서 미리 설정해두는 native window
+ANativeWindow* jhb::Window::s_pendingNativeWindow = nullptr;
+#endif
+
 jhb::Window::Window(int w, int h, const std::string name) : width{ w }, height{ h }, windowName{ name }
 {
-#ifndef ANDROID
+#ifdef ANDROID
+	// 생성자 호출 시점에 pending window가 있으면 즉시 적용
+	// (Device 멤버가 이 Window 이후에 초기화되므로 createSurface()가 올바른 포인터를 받게 됨)
+	if (s_pendingNativeWindow) {
+		SetNativeWindow(s_pendingNativeWindow);
+		s_pendingNativeWindow = nullptr;
+	}
+#else
 	initWindow();
 #endif
 	camera = std::make_unique<jhb::Camera>(0.8f);

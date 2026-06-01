@@ -4,6 +4,9 @@
 #include "FrameInfo.h"
 #include <memory>
 #include <array>
+#ifdef ANDROID
+#include "AndroidAssets.h"
+#endif
 
 namespace jhb {
 	uint32_t PBRRendererSystem::id = 0;
@@ -167,6 +170,10 @@ namespace jhb {
 		tinygltf::Model glTFInput;
 		tinygltf::TinyGLTF gltfContext;
 		std::string error, warning;
+
+#ifdef ANDROID
+		jhb::setupGltfAndroidCallbacks(gltfContext);
+#endif
 
 		bool fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, filename);
 

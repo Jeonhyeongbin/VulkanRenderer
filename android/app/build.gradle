@@ -16,7 +16,7 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags "-std=c++17"
-                arguments "-DANDROID_STL=c++_shared"
+                arguments "-DANDROID_STL=c++_static"
             }
         }
 
@@ -38,7 +38,7 @@ android {
 
     externalNativeBuild {
         cmake {
-            path "src/main/cpp/CMakeLists.txt"
+            path "src/main/CMakeLists.txt"
             version "3.22.1"
         }
     }
@@ -50,3 +50,18 @@ android {
         }
     }
 }
+
+// 빌드 시 Project1/shaders/*.spv → assets/shaders/ 자동 복사
+tasks.register('copyShaders', Copy) {
+    from '../../Project1/shaders'
+    into 'src/main/assets/shaders'
+    include '*.spv'
+}
+
+// 빌드 시 Project1/Models → assets/Models/ 자동 복사
+tasks.register('copyModels', Copy) {
+    from '../../Project1/Models'
+    into 'src/main/assets/Models'
+}
+
+tasks.named('preBuild') { dependsOn('copyShaders', 'copyModels') }

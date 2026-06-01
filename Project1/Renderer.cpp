@@ -6,12 +6,22 @@ namespace jhb {
 	Renderer::Renderer(Window& window, Device& device, const std::vector<VkSubpassDependency>& dependencies, bool shouldSwapchainCreate, VkFormat format, int attachmentCount) : window{ window }, device{ device }, dependencies{ dependencies } {
 		recreateSwapChain(dependencies, window.getExtent(), shouldSwapchainCreate, format, attachmentCount);
 		createCommandBuffers();
+#ifdef ANDROID
+		// 스왑체인이 올바른 크기로 생성됐으므로, Window 생성자에서 SetNativeWindow 호출 시
+		// 설정된 framebufferResized 플래그를 초기화한다.
+		// 이 초기화를 하지 않으면 Run() 첫 프레임에서 불필요한 스왑체인 재생성이 일어나고,
+		// "freeAllBuffers: buffers were freed while being dequeued!" 경고 후 SIGSEGV가 발생한다.
+		window.resetWindowResizedFlag();
+#endif
 	}
 
 	Renderer::Renderer(Window& window, Device& device, const std::vector<VkSubpassDependency>& dependencies, VkExtent2D extent, bool shouldSwapchainCreate, VkFormat format, int attachmentCount) : window{ window }, device{ device }, dependencies{ dependencies }, extent{extent}
 	{
 		recreateSwapChain(dependencies, extent, shouldSwapchainCreate, format, attachmentCount);
 		createCommandBuffers();
+#ifdef ANDROID
+		window.resetWindowResizedFlag();
+#endif
 	}
 
 	Renderer::~Renderer()
@@ -37,7 +47,7 @@ namespace jhb {
 
 	void Renderer::freeCommandBuffers()
 	{
-		vkFreeCommandBuffers(device.getLogicalDevice(), device.getCommnadPool(), static_cast<float>(commandBuffers.size()), commandBuffers.data());
+		vkFreeCommandBuffers(device.getLogicalDevice(), device.getCommnadPool(), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 		commandBuffers.clear();
 	}
 
@@ -83,12 +93,28 @@ namespace jhb {
 	{
 		assert(!isFrameStarted && "Can't call beginFrame while already in progress");
 
+		// wasWindowResized()를 acquireNextImage() 보다 먼저 체크한다.
+		// acquireNextImage() 이후에 스왑체인을 파괴하면 Android에서
+		// "freeAllBuffers: N buffers were freed while being dequeued!" 경고가 발생하고
+		// 드라이버 상태가 오염되어 다음 프레임에서 SIGSEGV가 발생할 수 있다.
+		if (window.wasWindowResized())
+		{
+			// 재생성 전에 플래그를 리셋해야 한다.
+			// 리셋하지 않으면 beginFrame이 매 프레임 return nullptr를 반복하는 무한루프에 빠지고
+			// Android에서 "freeAllBuffers: buffers were freed while being dequeued!" + SIGSEGV가 발생한다.
+			window.resetWindowResizedFlag();
+			recreateSwapChain(dependencies, window.getExtent(), true, VK_FORMAT_R16G16B16A16_SFLOAT, 2);
+			return nullptr;
+		}
+
 		auto result = swapChain->acquireNextImage(&currentImageIndex);
 
-		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.wasWindowResized())
+		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
-			// right after window resized
-			recreateSwapChain(dependencies, extent, true, VK_FORMAT_R16G16B16A16_SFLOAT, 2);
+			// OUT_OF_DATE: 이미지가 획득되지 않았으므로 즉시 재생성 가능
+			// window.getExtent()로 최신 크기를 전달하고 플래그도 함께 리셋한다.
+			window.resetWindowResizedFlag();
+			recreateSwapChain(dependencies, window.getExtent(), true, VK_FORMAT_R16G16B16A16_SFLOAT, 2);
 			return nullptr;
 		}
 
@@ -97,6 +123,8 @@ namespace jhb {
 			throw std::runtime_error("failed to acquire swap chain image!");
 		}
 
+		// VK_SUBOPTIMAL_KHR: 이미지는 획득됨 — 이번 프레임을 그대로 진행하고
+		// endFrame()에서 present 후 재생성한다.
 		isFrameStarted = true;
 		auto commandBuffer = getCurrentCommandBuffer();
 
@@ -121,7 +149,7 @@ namespace jhb {
 		auto result = swapChain->submitCommandBuffers(&commandBuffer, &currentImageIndex);
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.wasWindowResized())
 		{
-			//window.resetWindowResizedFlag();
+			window.resetWindowResizedFlag();
 			recreateSwapChain(dependencies, extent, true, VK_FORMAT_R16G16B16A16_SFLOAT, 2);
 		}
 		else if (result != VK_SUCCESS)
@@ -135,7 +163,10 @@ namespace jhb {
 
 	void Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer)
 	{
-		beginSwapChainRenderPass(commandBuffer, swapChain->getRenderPass(), swapChain->getFrameBuffer(currentFrameIndex), swapChain->getSwapChainExtent());
+		// 스왑체인 프레임버퍼는 currentImageIndex(획득한 이미지)로 선택해야 한다.
+		// currentFrameIndex(0 또는 1)를 사용하면 Android처럼 스왑체인 이미지가 3개일 때
+		// 잘못된 프레임버퍼에 렌더링하여 검은 화면이 발생한다.
+		beginSwapChainRenderPass(commandBuffer, swapChain->getRenderPass(), swapChain->getFrameBuffer(currentImageIndex), swapChain->getSwapChainExtent());
 	}
 
 	void Renderer::beginSwapChainRenderPassWithMouseCoordinate(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D _extent, float x, float y)
@@ -219,11 +250,12 @@ namespace jhb {
 		VkViewport viewport{};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(swapChain->getSwapChainExtent().width);
-		viewport.height = static_cast<float>(swapChain->getSwapChainExtent().height);
+		// framebuffer는 _extent 기준으로 생성됐으므로 뷰포트/시저도 _extent로 통일한다.
+		viewport.width = static_cast<float>(_extent.width);
+		viewport.height = static_cast<float>(_extent.height);
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
-		VkRect2D scissor{ {0, 0}, {swapChain->getSwapChainExtent().width, swapChain->getSwapChainExtent().height} };
+		VkRect2D scissor{ {0, 0}, {_extent.width, _extent.height} };
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 		return true;

@@ -24,7 +24,7 @@
             <!-- NativeActivity에 사용할 .so 파일 이름 -->
             <meta-data
                 android:name="android.app.lib_name"
-                android:value="vulkan-renderer" />
+                android:value="VulkanRenderer" />
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

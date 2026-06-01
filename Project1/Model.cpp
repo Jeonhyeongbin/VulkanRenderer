@@ -18,6 +18,12 @@
 
 #include "Utils.hpp"
 #include "Model.h"
+#ifdef ANDROID
+#include "AndroidAssets.h"
+#include <android/log.h>
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  "VulkanRenderer", __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "VulkanRenderer", __VA_ARGS__)
+#endif
 #include "Device.h"
 #include "JHBApplication.h"
 #include <ktx.h>
@@ -791,7 +797,23 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath, VkSa
 	if (filepath.size() <= 0)
 		return;
 
+#ifdef ANDROID
+	// Android: APK assets는 stbi_load()로 직접 열 수 없음 → AAssetManager로 읽어서 메모리에서 디코딩
+	AAssetManager* mgr = jhb::getAndroidAssetManager();
+	AAsset* asset = AAssetManager_open(mgr, filepath.c_str(), AASSET_MODE_BUFFER);
+	if (!asset) {
+		throw std::runtime_error("failed to open texture asset: " + filepath);
+	}
+	size_t fileSize = static_cast<size_t>(AAsset_getLength(asset));
+	std::vector<uint8_t> fileData(fileSize);
+	AAsset_read(asset, fileData.data(), fileSize);
+	AAsset_close(asset);
+	auto pixels = stbi_load_from_memory(fileData.data(), static_cast<int>(fileSize),
+	                                    &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+#else
 	auto pixels = stbi_load(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+#endif
+
 	VkDeviceSize imageSize = texWidth * texHeight * 4; // 4byte per pixel
 	int mipleves = static_cast<uint32_t>(floor(log2(std::max(texWidth, texHeight))) + 1.0);
 	if (!pixels) {
@@ -890,133 +912,196 @@ void jhb::Image::loadKTXTexture(Device& device, const std::string& filepath, VkI
 	if (filepath.size() <= 0)
 		return;
 
-	ktxTexture* ktxTexture;
-	ktxResult result = ktxTexture_CreateFromNamedFile(filepath.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxTexture);
+	ktxTexture* ktxTex;
+
+#ifdef ANDROID
+	// Android: APK assets에서 AAssetManager로 파일을 읽은 뒤 메모리로 KTX 생성
+	try {
+		AAssetManager* mgr = jhb::getAndroidAssetManager();
+		if (!mgr) {
+			LOGE("[KTX] AAssetManager is null, skipping: %s", filepath.c_str());
+			return;
+		}
+
+		AAsset* asset = AAssetManager_open(mgr, filepath.c_str(), AASSET_MODE_BUFFER);
+		if (!asset) {
+			LOGE("[KTX] AAssetManager_open failed: %s", filepath.c_str());
+			return;
+		}
+
+		size_t fileSize = static_cast<size_t>(AAsset_getLength(asset));
+		LOGI("[KTX] Loading %s (%zu bytes)", filepath.c_str(), fileSize);
+		std::vector<uint8_t> fileBuffer(fileSize);
+		AAsset_read(asset, fileBuffer.data(), fileSize);
+		AAsset_close(asset);
+
+		ktxResult result = ktxTexture_CreateFromMemory(
+			fileBuffer.data(), fileBuffer.size(),
+			KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxTex);
+		if (result != KTX_SUCCESS) {
+			LOGE("[KTX] ktxTexture_CreateFromMemory failed: result=%d, file=%s", result, filepath.c_str());
+			return;
+		}
+		LOGI("[KTX] Loaded OK: %dx%d mips=%d file=%s",
+			ktxTex->baseWidth, ktxTex->baseHeight, ktxTex->numLevels, filepath.c_str());
+	}
+	catch (const std::exception& e) {
+		LOGE("[KTX] Exception during load: %s (file=%s)", e.what(), filepath.c_str());
+		return;
+	}
+	catch (...) {
+		LOGE("[KTX] Unknown exception during load (file=%s)", filepath.c_str());
+		return;
+	}
+
+#else
+	ktxResult result = ktxTexture_CreateFromNamedFile(
+		filepath.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxTex);
 	assert(result == KTX_SUCCESS);
+#endif
 
-	uint32_t width = ktxTexture->baseWidth;
-	uint32_t height = ktxTexture->baseHeight;
-	uint32_t mipLevels = ktxTexture->numLevels;
+#ifdef ANDROID
+	// Vulkan 작업 전체를 try/catch로 감싸 예외가 앱을 죽이는 것을 방지
+	try {
+#endif
 
-	ktx_uint8_t* ktxTextureData = ktxTexture_GetData(ktxTexture);
-	ktx_size_t ktxTextureSize = ktxTexture_GetDataSize(ktxTexture);
+	uint32_t width     = ktxTex->baseWidth;
+	uint32_t height    = ktxTex->baseHeight;
+	uint32_t mipLevels = ktxTex->numLevels;
+
+	ktx_uint8_t* ktxData     = ktxTexture_GetData(ktxTex);
+	ktx_size_t   ktxDataSize = ktxTexture_GetDataSize(ktxTex);
+
+#ifdef ANDROID
+	if (!ktxData || ktxDataSize == 0) {
+		LOGE("[KTX] ktxTexture_GetData returned null or zero size: %s", filepath.c_str());
+		ktxTexture_Destroy(ktxTex);
+		return;
+	}
+	LOGI("[KTX] ktxData=%p size=%zu", (void*)ktxData, (size_t)ktxDataSize);
+#endif
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
-
-	device.createBuffer(ktxTextureSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+	device.createBuffer(ktxDataSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingBufferMemory);
 
 	void* data;
-	vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, ktxTextureSize, 0, &data);
-	memcpy(data, ktxTextureData, ktxTextureSize);
+	vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, ktxDataSize, 0, &data);
+	memcpy(data, ktxData, ktxDataSize);
 	vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
 
 	// Setup buffer copy regions for each face including all of its mip levels
 	std::vector<VkBufferImageCopy> bufferCopyRegions;
-	for (uint32_t face = 0; face < arrayCount; face++)
+	for (uint32_t face = 0; face < static_cast<uint32_t>(arrayCount); face++)
 	{
 		for (uint32_t level = 0; level < mipLevels; level++)
 		{
 			ktx_size_t offset;
-			KTX_error_code result = ktxTexture_GetImageOffset(ktxTexture, level, 0, face, &offset);
-			assert(result == KTX_SUCCESS);
+			KTX_error_code res = ktxTexture_GetImageOffset(ktxTex, level, 0, face, &offset);
+			assert(res == KTX_SUCCESS);
 
 			VkBufferImageCopy bufferCopyRegion = {};
-			bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			bufferCopyRegion.imageSubresource.mipLevel = level;
+			bufferCopyRegion.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+			bufferCopyRegion.imageSubresource.mipLevel       = level;
 			bufferCopyRegion.imageSubresource.baseArrayLayer = face;
-			bufferCopyRegion.imageSubresource.layerCount = 1;
-			bufferCopyRegion.imageExtent.width = ktxTexture->baseWidth >> level;
-			bufferCopyRegion.imageExtent.height = ktxTexture->baseHeight >> level;
-			bufferCopyRegion.imageExtent.depth = 1;
-			bufferCopyRegion.bufferOffset = offset;
-
+			bufferCopyRegion.imageSubresource.layerCount     = 1;
+			bufferCopyRegion.imageExtent.width               = ktxTex->baseWidth  >> level;
+			bufferCopyRegion.imageExtent.height              = ktxTex->baseHeight >> level;
+			bufferCopyRegion.imageExtent.depth               = 1;
+			bufferCopyRegion.bufferOffset                    = offset;
 			bufferCopyRegions.push_back(bufferCopyRegion);
 		}
 	}
 
+	ktxTexture_Destroy(ktxTex);
+
 	VkImageCreateInfo imageInfo{};
-	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.extent.width = width;
+	imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.imageType     = VK_IMAGE_TYPE_2D;
+	imageInfo.extent.width  = width;
 	imageInfo.extent.height = height;
-	imageInfo.extent.depth = 1;
-	imageInfo.mipLevels = mipLevels;
-	imageInfo.arrayLayers = arrayCount;
-	imageInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageInfo.extent.depth  = 1;
+	imageInfo.mipLevels     = mipLevels;
+	imageInfo.arrayLayers   = arrayCount;
+	imageInfo.format        = VK_FORMAT_R16G16B16A16_SFLOAT;
+	imageInfo.tiling        = VK_IMAGE_TILING_OPTIMAL;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Optional
+	imageInfo.usage         = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+	imageInfo.samples       = VK_SAMPLE_COUNT_1_BIT;
+	imageInfo.flags         = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 	device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, image, deviceMemory);
 
 	VkImageSubresourceRange subresourceRange = {};
-	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresourceRange.aspectMask   = VK_IMAGE_ASPECT_COLOR_BIT;
 	subresourceRange.baseMipLevel = 0;
-	subresourceRange.levelCount = mipLevels;
-	subresourceRange.layerCount = arrayCount;
+	subresourceRange.levelCount   = mipLevels;
+	subresourceRange.layerCount   = arrayCount;
 
 	VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
-	device.transitionImageLayout(commandBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+	device.transitionImageLayout(commandBuffer, image,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
 
-	vkCmdCopyBufferToImage(
-		commandBuffer,
-		stagingBuffer,
-		image,
+	vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, image,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		static_cast<uint32_t>(bufferCopyRegions.size()),
 		bufferCopyRegions.data());
 
-	device.transitionImageLayout(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
+	device.transitionImageLayout(commandBuffer, image,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
 	device.endSingleTimeCommands(commandBuffer);
-	//generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels);
 
-	// create image view and image sampler
+	vkDestroyBuffer(device.getLogicalDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(device.getLogicalDevice(), stagingBufferMemory, nullptr);
+
 	VkImageViewCreateInfo viewInfo{};
-	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewInfo.image = image;
+	viewInfo.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewInfo.image    = image;
 	viewInfo.viewType = imgViewType;
-	viewInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	viewInfo.subresourceRange.baseMipLevel = 0;
-	viewInfo.subresourceRange.levelCount = mipLevels;
+	viewInfo.format   = VK_FORMAT_R16G16B16A16_SFLOAT;
+	viewInfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewInfo.subresourceRange.baseMipLevel   = 0;
+	viewInfo.subresourceRange.levelCount     = mipLevels;
 	viewInfo.subresourceRange.baseArrayLayer = 0;
-	viewInfo.subresourceRange.layerCount = arrayCount;
-
-	if (vkCreateImageView(device.getLogicalDevice(), &viewInfo, nullptr, &view) != VK_SUCCESS) {
+	viewInfo.subresourceRange.layerCount     = arrayCount;
+	if (vkCreateImageView(device.getLogicalDevice(), &viewInfo, nullptr, &view) != VK_SUCCESS)
 		throw std::runtime_error("failed to create texture image view!");
-	}
 
 	VkSamplerCreateInfo samplerInfo{};
-	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerInfo.magFilter = VK_FILTER_LINEAR;
-	samplerInfo.minFilter = VK_FILTER_LINEAR;
-
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-
-	VkPhysicalDeviceProperties properties{};
-	vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
-	samplerInfo.anisotropyEnable = VK_FALSE;
-	samplerInfo.maxAnisotropy = 0;
-	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	samplerInfo.sType               = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.magFilter           = VK_FILTER_LINEAR;
+	samplerInfo.minFilter           = VK_FILTER_LINEAR;
+	samplerInfo.addressModeU        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeV        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeW        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.anisotropyEnable    = VK_FALSE;
+	samplerInfo.maxAnisotropy       = 0;
+	samplerInfo.borderColor         = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 	samplerInfo.unnormalizedCoordinates = VK_FALSE;
-	samplerInfo.compareEnable = VK_FALSE;
-	samplerInfo.compareOp = VK_COMPARE_OP_NEVER;
-
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerInfo.mipLodBias = 0.0f;
-	samplerInfo.minLod = 0.0f;
-	samplerInfo.maxLod = static_cast<float>(mipLevels);
-
-	if (vkCreateSampler(device.getLogicalDevice(), &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
+	samplerInfo.compareEnable       = VK_FALSE;
+	samplerInfo.compareOp           = VK_COMPARE_OP_NEVER;
+	samplerInfo.mipmapMode          = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.mipLodBias          = 0.0f;
+	samplerInfo.minLod              = 0.0f;
+	samplerInfo.maxLod              = static_cast<float>(mipLevels);
+	if (vkCreateSampler(device.getLogicalDevice(), &samplerInfo, nullptr, &sampler) != VK_SUCCESS)
 		throw std::runtime_error("failed to create texture sampler!");
-	}
 
 	updateDescriptor();
+
+#ifdef ANDROID
+	LOGI("[KTX] Vulkan setup complete: %s", filepath.c_str());
+	} // try (Vulkan 작업)
+	catch (const std::exception& e) {
+		LOGE("[KTX] Vulkan exception: %s  file=%s", e.what(), filepath.c_str());
+	}
+	catch (...) {
+		LOGE("[KTX] Vulkan unknown exception  file=%s", filepath.c_str());
+	}
+#endif
 }
 
 void jhb::Model::PickingPhasedrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex, VkPipeline pipeline)

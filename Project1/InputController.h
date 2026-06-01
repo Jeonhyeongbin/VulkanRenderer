@@ -33,26 +33,63 @@ namespace jhb {
         InputController(GameObject& camera) : camera(camera) {}
 
         // 터치 이벤트 입력 (android_main에서 호출)
+        // ── 오른쪽 절반 드래그: 카메라 회전 ──
         void onTouchBegin(float x, float y)
         {
-            touchLastX = x;
-            touchLastY = y;
+            touchLastX = x;  touchLastY = y;
             isTouching = true;
         }
         void onTouchMove(float x, float y)
         {
-            if (isTouching) {
+            if (isTouching && !isPinching) {
                 touchDeltaX = x - touchLastX;
                 touchDeltaY = y - touchLastY;
-                touchLastX = x;
-                touchLastY = y;
+                touchLastX = x;  touchLastY = y;
             }
         }
         void onTouchEnd()
         {
             isTouching = false;
-            touchDeltaX = 0.f;
-            touchDeltaY = 0.f;
+            touchDeltaX = touchDeltaY = 0.f;
+        }
+
+        // ── 왼쪽 절반 드래그: 카메라 이동 ──
+        void onMoveTouchBegin(float x, float y)
+        {
+            moveLastX = x;  moveLastY = y;
+            isMoveTouching = true;
+        }
+        void onMoveTouchMove(float x, float y)
+        {
+            if (isMoveTouching && !isPinching) {
+                moveDeltaX = x - moveLastX;
+                moveDeltaY = y - moveLastY;
+                moveLastX = x;  moveLastY = y;
+            }
+        }
+        void onMoveTouchEnd()
+        {
+            isMoveTouching = false;
+            moveDeltaX = moveDeltaY = 0.f;
+        }
+
+        // ── 두 손가락 핀치: 줌인/줌아웃 ──
+        void onPinchBegin(float dist)
+        {
+            isPinching = true;  pinchLastDist = dist;  pinchDelta = 0.f;
+            touchDeltaX = touchDeltaY = 0.f;  // 잔상 방지
+            moveDeltaX  = moveDeltaY  = 0.f;
+        }
+        void onPinchMove(float dist)
+        {
+            if (isPinching) {
+                pinchDelta    = dist - pinchLastDist;
+                pinchLastDist = dist;
+            }
+        }
+        void onPinchEnd()
+        {
+            isPinching = false;  pinchDelta = pinchLastDist = 0.f;
         }
 
         // JHBApplication에서 커서 위치 대신 사용
@@ -62,11 +99,20 @@ namespace jhb {
         glm::vec3 move(float dt, GameObject& gameObject);
 
     private:
-        float touchLastX = 0.f;
-        float touchLastY = 0.f;
-        float touchDeltaX = 0.f;
-        float touchDeltaY = 0.f;
-        bool  isTouching = false;
+        // 오른쪽 드래그 (회전)
+        float touchLastX  = 0.f, touchLastY  = 0.f;
+        float touchDeltaX = 0.f, touchDeltaY = 0.f;
+        bool  isTouching  = false;
+
+        // 왼쪽 드래그 (이동)
+        float moveLastX   = 0.f, moveLastY   = 0.f;
+        float moveDeltaX  = 0.f, moveDeltaY  = 0.f;
+        bool  isMoveTouching = false;
+
+        // 두 손가락 핀치
+        bool  isPinching    = false;
+        float pinchLastDist = 0.f;
+        float pinchDelta    = 0.f;
 
     public:
 #endif

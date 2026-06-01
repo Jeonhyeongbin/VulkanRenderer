@@ -24,6 +24,13 @@
 #include <math.h>
 #include <memory>
 #include <numeric>
+#ifdef ANDROID
+#include <thread>
+#include <chrono>
+#include <android/log.h>
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  "VulkanRenderer", __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "VulkanRenderer", __VA_ARGS__)
+#endif
 
 namespace jhb {
 	JHBApplication::JHBApplication()
@@ -52,13 +59,15 @@ namespace jhb {
 	void JHBApplication::Run()
 	{
 		auto viewerObject = GameObject::createGameObject();
-		viewerObject.transform.translation.y = -5.5f;
-		viewerObject.transform.translation.z = -2.5f;
+		viewerObject.transform.translation.x =  0.0f;   // 좌우 정중앙
+		viewerObject.transform.translation.y = -12.0f;  // 위쪽 (Y음수 = 위)
+		viewerObject.transform.translation.z =  0.0f;   // 앞뒤 정중앙
+		viewerObject.transform.rotation.x    =  glm::radians(35.0f); // 35도 아래를 향함
 #ifndef ANDROID
 		InputController cameraController{device.getWindow().GetGLFWwindow(), viewerObject};
 #else
 		InputController cameraController{viewerObject};
-		inputController = &cameraController; // Main.cpp handleInputEvent에서 사용
+		inputController.store(&cameraController); // Main.cpp handleInputEvent에서 사용 (atomic)
 #endif
 		double x = 0, y = 0;
 		auto currentTime = std::chrono::high_resolution_clock::now();
@@ -75,15 +84,30 @@ namespace jhb {
 		//computeShaderSystem->SetupDescriptor(deferedPbrRenderSystem->pbrObjects);
 
 #ifdef ANDROID
-		while (androidAppRunning)
+		// 30fps 캡용 타이머 초기화
+		constexpr long long TARGET_FRAME_US = 33333LL; // 1/30초 = 33.33ms
+		auto lastFrameEnd = std::chrono::high_resolution_clock::now();
+
+		while (androidAppRunning.load())
 		{
-			// Android 이벤트 처리
-			int events;
-			android_poll_source* source;
-			while (ALooper_pollAll(0, nullptr, &events, (void**)&source) >= 0) {
-				if (source) source->process(androidApp, source);
-			}
+			// 이벤트 처리는 android_main 이벤트 스레드가 전담한다.
+			// 이 스레드(앱 스레드)에서 ALooper_pollAll을 호출하면 안 된다.
+			// (ALooper는 android_main 스레드가 소유)
 			if (androidApp->destroyRequested) break;
+
+			// ── 30fps 프레임 캡 (발열 감소) ──────────────────────────────────
+			// 이전 프레임 끝에서 33.3ms가 지나지 않았으면 sleep으로 CPU를 쉬게 한다.
+			// FIFO VSync로 GPU는 이미 60fps 제한이 걸리지만 CPU는 계속 스핀하므로
+			// 명시적 sleep을 줘야 발열이 줄어든다.
+			{
+				auto now = std::chrono::high_resolution_clock::now();
+				long long elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameEnd).count();
+				if (elapsedUs < TARGET_FRAME_US) {
+					std::this_thread::sleep_for(std::chrono::microseconds(TARGET_FRAME_US - elapsedUs));
+				}
+				lastFrameEnd = std::chrono::high_resolution_clock::now();
+			}
+			// ────────────────────────────────────────────────────────────────
 
 			// 터치 입력에서 커서 위치 업데이트
 			x = cameraController.getTouchX();
@@ -114,6 +138,10 @@ namespace jhb {
 			}
 
 			int frameIndex = renderer.getFrameIndex();
+			// Android에서 스왑체인 이미지는 3개 이상일 수 있다.
+			// 스왑체인 기반 프레임버퍼(DeferredPBR) 선택은 실제 획득한 이미지 인덱스를 사용해야 한다.
+			// UBO/오프스크린 버퍼처럼 MAX_FRAMES_IN_FLIGHT(2) 기반 리소스는 frameIndex를 그대로 쓴다.
+			int imageIndex = renderer.getImageIndex();
 			//renderer.excuteComputeDispatch(&(computeShaderSystem->computeCommandBuffers[frameIndex]));
 
 			FrameInfo frameInfo{
@@ -171,7 +199,16 @@ namespace jhb {
 
 			shadowMapRenderSystem->updateShadowMap(commandBuffer, GameObjectManager::GetSingleton().gameObjects, frameIndex);
 
-			renderer.beginSwapChainRenderPass(commandBuffer, deferedPbrRenderSystem->getRenderPass(), deferedPbrRenderSystem->getFrameBuffer(frameIndex), window.getExtent(), 8);
+			// beginSwapChainRenderPass가 false를 반환하면 extent 불일치로 renderpass가 시작되지 않은 것이다.
+			// 이 경우 renderGameObjects / endSwapChainRenderPass 를 건너뛰고 프레임을 종료한다.
+			if (!renderer.beginSwapChainRenderPass(commandBuffer, deferedPbrRenderSystem->getRenderPass(), deferedPbrRenderSystem->getFrameBuffer(imageIndex), window.getExtent(), 8))
+			{
+#ifdef ANDROID
+				LOGI("[Render] beginSwapChainRenderPass extent mismatch – skipping frame");
+#endif
+				renderer.endFrame();
+				continue;
+			}
 			/*
 			pbrRenderSystem->renderGameObjects(frameInfo);
 			pointLightSystem->renderGameObjects(frameInfo);
@@ -189,6 +226,11 @@ namespace jhb {
 			renderer.endFrame();
 		}
 
+		// Run() 루프 종료 후 dangling pointer 방지
+		// (cameraController는 이 함수가 반환되면 소멸됨)
+#ifdef ANDROID
+		inputController.store(nullptr);
+#endif
 		vkDeviceWaitIdle(device.getLogicalDevice());
 	}
 

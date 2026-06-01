@@ -442,9 +442,12 @@ namespace jhb {
 
 	void SwapChain::createColorResources()
 	{
-		colorImage.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-		colorImageView.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-		colorImageMemory.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+		// MAX_FRAMES_IN_FLIGHT가 아닌 실제 스왑체인 이미지 수로 resize
+		// (Android에서 minImageCount+1이 MAX_FRAMES_IN_FLIGHT를 초과할 수 있음)
+		const size_t imageCount = swapChainImages.size();
+		colorImage.resize(imageCount);
+		colorImageView.resize(imageCount);
+		colorImageMemory.resize(imageCount);
 		VkFormat colorFormat = swapChainImageFormat;
 		for (int i = 0; i < colorImage.size(); i++)
 		{
@@ -506,13 +509,20 @@ namespace jhb {
 
 	VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
 	{
-		// about format and color space
-		// format : color channels and types(what types??)
+		// 1순위: B8G8R8A8_SRGB (PC에서 일반적)
 		for (const auto& availableFormat : availableFormats) {
 			if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
 				return availableFormat;
 			}
 		}
+		// 2순위: R8G8B8A8_UNORM (Android에서 일반적)
+		for (const auto& availableFormat : availableFormats) {
+			if (availableFormat.format == VK_FORMAT_R8G8B8A8_UNORM && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+				return availableFormat;
+			}
+		}
+		// fallback: 첫 번째 지원 포맷 사용
+		return availableFormats[0];
 	}
 
 	VkPresentModeKHR SwapChain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)

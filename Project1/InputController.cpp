@@ -83,31 +83,47 @@ void jhb::InputController::OnButtonPressed(GLFWwindow* window, int button, int a
 
 glm::vec3 jhb::InputController::move(float dt, GameObject& gameObject)
 {
-	// 오른쪽 드래그 → 카메라 회전 (touchDelta 사용)
+	// ── 오른쪽 드래그: 카메라 회전 ──
 	glm::vec3 rotate{ 0 };
-	rotate.y += touchDeltaX * 0.5f;
-	rotate.x += touchDeltaY * 0.5f;
-
+	rotate.y -= touchDeltaX * 0.8f; // 좌우 반전
+	rotate.x += touchDeltaY * 0.8f;
 	if (glm::dot(rotate, rotate) > std::numeric_limits<float>::epsilon())
 	{
 		gameObject.transform.rotation += lookSpeed * dt * glm::normalize(rotate);
 	}
+	touchDeltaX = touchDeltaY = 0.f;
 
-	// 각도 제한 (기존 PC 코드와 동일)
-	auto limitAngle = 1.f;
-	gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -limitAngle, limitAngle);
+	// 각도 제한
+	gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -1.f, 1.f);
 	gameObject.transform.rotation.y = glm::mod(gameObject.transform.rotation.y, glm::two_pi<float>());
 
+	// 현재 방향 벡터 계산
 	float yaw   = gameObject.transform.rotation.y;
 	float pitch = gameObject.transform.rotation.x;
-	glm::vec3 forwardDir(0);
+	glm::vec3 forwardDir;
 	forwardDir.x = glm::cos(yaw) * glm::cos(pitch);
 	forwardDir.y = glm::sin(pitch);
 	forwardDir.z = glm::sin(yaw) * glm::cos(pitch);
 
-	// 매 프레임 델타 초기화 (누적 방지)
-	touchDeltaX = 0.f;
-	touchDeltaY = 0.f;
+	const glm::vec3 upDir{ 0.f, -1.f, 0.f };
+	glm::vec3 rightDir = glm::normalize(glm::cross(forwardDir, upDir));
+
+	// ── 왼쪽 드래그: 카메라 이동 ──
+	// 수평 델타 → 좌우, 수직 델타 → 앞뒤
+	if (isMoveTouching)
+	{
+		const float moveScale = 0.015f;
+		gameObject.transform.translation += rightDir   * ( moveDeltaX * moveScale);
+		gameObject.transform.translation += forwardDir * (-moveDeltaY * moveScale); // 위로 드래그 = 앞으로
+		moveDeltaX = moveDeltaY = 0.f;
+	}
+
+	// ── 두 손가락 핀치: 줌인/줌아웃 ──
+	if (std::abs(pinchDelta) > std::numeric_limits<float>::epsilon())
+	{
+		gameObject.transform.translation += forwardDir * (pinchDelta * 0.01f);
+		pinchDelta = 0.f;
+	}
 
 	return forwardDir;
 }
