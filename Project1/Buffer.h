@@ -3,6 +3,12 @@
 #include "Device.h"
 
 namespace jhb {
+    class BufferDesc {
+    public:
+        VkDeviceSize size;
+        VkBufferUsageFlags usage;
+    };
+
     class Buffer {
     public:
         Buffer(
@@ -16,6 +22,8 @@ namespace jhb {
 
         Buffer(const Buffer&) = delete;
         Buffer& operator=(const Buffer&) = delete;
+
+        Buffer& CreateBuffer(std::string bufferName, BufferDesc desc, void* extraData);
 
         VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
         void unmap();
@@ -52,6 +60,8 @@ namespace jhb {
         VkDeviceSize alignmentSize;
         VkBufferUsageFlags usageFlags;
         VkMemoryPropertyFlags memoryPropertyFlags;
+
+        std::string bufferName;
     };
 
 }  // namespace lve

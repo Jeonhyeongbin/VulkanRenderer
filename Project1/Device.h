@@ -35,6 +35,9 @@
 
 #include "Window.h"
 
+#include "Image.h"
+#include "Buffer.h"
+
 namespace jhb {
 	class Device
 	{
@@ -81,6 +84,7 @@ namespace jhb {
 			VkMemoryPropertyFlags properties,
 			VkImage& image,
 			VkDeviceMemory& imageMemory);
+		Image& CreateImage(ImageDesc desc, std::string name);
 
 		VkSampleCountFlagBits getMaxUsableSampleCount();
 		bool checkValidationLayerSupport();
