@@ -1,106 +1,48 @@
 #pragma once
-#define GLM_FORCE_RADIANS // not use degree;
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-#include <glm/glm.hpp>
-#include <glm/gtc/constants.hpp>
-
-#include "BaseRenderSystem.h"
-#include "Pipeline.h"
-#include "Device.h"
-#include "SwapChain.h"
-#include "Model.h"
-#include "GameObject.h"
-#include "Camera.h"
-#include "FrameInfo.h"
-
-#include <stdint.h>
+#include "RenderGraph/RenderGraph.h"
 
 namespace jhb {
-	class DeferedPBRRenderSystem : public BaseRenderSystem {
-		struct Texture {
-			VkImage image;
-			VkDeviceMemory memory;
-			VkImageView view;
-			VkSampler sampler;
-			VkFormat format;
-		};
 
-		struct UniformData {
-			glm::mat4 projection;
-			glm::mat4 view;
-			glm::mat4 model;
-			glm::vec4 lightPos;
-		} uniformData;
+// Registers deferred passes into the caller's frame graph.
+// Scene ownership, frame submission and presentation belong to the caller.
+class DeferedPBRRenderSystem {
+public:
+    struct GBuffer {
+        rg::TextureId position, normal, albedo, material, emissive, depth;
+    };
 
-		struct OffscreenConstant {
-			glm::mat4 modelMat;
-			glm::mat4 lightView;
-		} offscreenBuffer;
+    struct LightingInputs {
+        rg::TextureId brdfLut;
+        rg::TextureId irradiance;
+        rg::TextureId prefilteredEnvironment;
+        rg::TextureId shadowCube;
+    };
 
-	public:
-		DeferedPBRRenderSystem(Device& device, std::vector<VkDescriptorSetLayout> descSetlayouts, const std::vector<VkImageView>& swapchainImageViews, VkFormat swapchainFormat);
-		~DeferedPBRRenderSystem();
+    // vertexBindings/vertexAttributes must match the scene's mesh/instance data.
+    // The Device pipeline factory must enable depth test/write for geometry and
+    // disable both for lighting. Geometry uses a vertex mat4 push constant.
+    DeferedPBRRenderSystem(rg::RenderGraph& graph, VkExtent2D extent,
+                           rg::PipelineDesc geometryPipeline,
+                           VkFormat depthFormat = VK_FORMAT_D32_SFLOAT,
+                           std::string name = "deferred");
 
-		DeferedPBRRenderSystem(const DeferedPBRRenderSystem&) = delete;
-		DeferedPBRRenderSystem(DeferedPBRRenderSystem&&) = delete;
-		DeferedPBRRenderSystem& operator=(const DeferedPBRRenderSystem&) = delete;
+    // Call once after graph.newFrame()/clear(). The callback records mesh draws
+    // inside the already-open geometry pass. It may bind material sets at set 3
+    // and push model matrices, but must not begin/end rendering.
+    // Capture frame/scene data with a lifetime covering graph.render().
+    void addPasses(const LightingInputs& lighting, rg::RenderFunction drawGeometry);
 
-		virtual void renderGameObjects(FrameInfo& frameInfo) override;
-	public:
-		VkFramebuffer getFrameBuffer(int idx) { return frameBuffers[idx]; }
-		VkRenderPass getRenderPass() { return offScreenRenderPass; }
-		void createFrameBuffers(const std::vector<VkImageView>& swapchainImageViews, bool shouldRecreate = false);
-	private:
-		// render pass only used to create pipeline
-		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass
-		virtual void createPipeline(VkRenderPass , const std::string& vert, const std::string& frag) override;
-		void createGBuffers();
-		void createAttachment(VkFormat format,
-			VkImageUsageFlagBits usage,
-			Texture* attachment, VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT);
-		void createRenderPass(VkFormat);
-		void createSponze();
-		void createDamagedHelmets();
-		void createSkybox();
-		void createFloor();
+    [[nodiscard]] const GBuffer& gbuffer() const { return gbuffer_; }
+    [[nodiscard]] rg::TextureId output() const { return output_; }
 
-		void createVertexAttributeAndBindingDesc(PipelineConfigInfo&);
-		void createLightingPipelineAndPipelinelayout(const std::vector<VkDescriptorSetLayout>&);
-		void createSkyboxPipelineAndPipelinelayout(const std::vector<VkDescriptorSetLayout>& externDescsetlayout);
-		void removeVkResources();
+private:
+    rg::RenderGraph& graph_;
+    std::string name_;
+    GBuffer gbuffer_{};
+    rg::TextureId output_{};
+    rg::PipelineId geometryPipeline_{};
+    rg::PipelineId lightingPipeline_{};
+};
 
-		std::vector<VkDescriptorSetLayout> initializeOffScreenDescriptor();
-		std::shared_ptr<Model> loadGLTFFile(const std::string& filename, VkSamplerAddressMode samplerMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
-
-	private:
-		std::unique_ptr<Pipeline> lightingPipeline = nullptr; // pipeline for second subpass
-		std::unique_ptr<Pipeline> skyboxPipeline = nullptr; // pipeline for skybox
-		VkPipelineLayout lightingPipelinelayout;
-		VkPipelineLayout skyboxPipelinelayout;
-
-	private:
-		Texture PositionAttachment;
-		Texture AlbedoAttachment;
-		Texture NormalAttachment;
-		Texture DepthAttachment;
-		Texture MaterialAttachment;
-		Texture EmmisiveAttachment;
-		Texture ColorResolveAttachment;
-
-		std::vector<VkFramebuffer> frameBuffers;
-
-		VkRenderPass offScreenRenderPass;
-		const VkExtent2D offscreenImageSize{ 1024, 1024 };
-
-		std::unique_ptr<Buffer> uboBuffer;
-		VkDescriptorSet gbufferDescriptorSet;
-
-		std::unique_ptr<DescriptorPool> gbufferDescriptorPool;
-		std::unique_ptr<DescriptorSetLayout> gbufferDescriptorSetLayout;
-		glm::vec3 _lightpos;
-	public:
-		GameObject::Map pbrObjects;
-		static uint32_t id;
-	};
-}
+} // namespace jhb
