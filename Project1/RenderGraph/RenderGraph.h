@@ -113,6 +113,8 @@ struct PipelineBinding
     }
 };
 
+class PipelineDescBuilder;
+
 struct PipelineDesc
 {
     std::string vertexPath;
@@ -129,6 +131,9 @@ struct PipelineDesc
     std::vector<PipelineBinding> bindings;
     uint32_t pushConstantSize{0};
     VkShaderStageFlags pushConstantStages{VK_SHADER_STAGE_VERTEX_BIT};
+    bool reflectShaders{false};
+
+    static PipelineDescBuilder builder();
 
     // Lets a renderer include raster/depth/blend state not represented above in
     // graph cache equality.
@@ -136,6 +141,54 @@ struct PipelineDesc
 
     [[nodiscard]] bool operator==(const PipelineDesc &other) const;
 };
+
+class PipelineDescBuilder
+{
+  public:
+    PipelineDescBuilder()
+    {
+        desc_.reflectShaders = true;
+    }
+
+    PipelineDescBuilder &vertexPath(std::string path)
+    {
+        desc_.vertexPath = std::move(path);
+        return *this;
+    }
+
+    PipelineDescBuilder &fragmentPath(std::string path)
+    {
+        desc_.fragmentPath = std::move(path);
+        return *this;
+    }
+
+    PipelineDescBuilder &depthTest(bool enabled)
+    {
+        desc_.depthTest = enabled;
+        return *this;
+    }
+
+    PipelineDescBuilder &depthWrite(bool enabled)
+    {
+        desc_.depthWrite = enabled;
+        return *this;
+    }
+
+    PipelineDescBuilder &defaultMeshVertexInput();
+
+    operator PipelineDesc() const
+    {
+        return desc_;
+    }
+
+  private:
+    PipelineDesc desc_;
+};
+
+inline PipelineDescBuilder PipelineDesc::builder()
+{
+    return {};
+}
 
 struct DescriptorBinding
 {

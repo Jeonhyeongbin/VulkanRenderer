@@ -76,7 +76,7 @@ bool PipelineDesc::operator==(const PipelineDesc &other) const
            depthWrite == other.depthWrite && depthCompare == other.depthCompare &&
            cullMode == other.cullMode && bindings == other.bindings &&
            pushConstantSize == other.pushConstantSize &&
-           pushConstantStages == other.pushConstantStages;
+           pushConstantStages == other.pushConstantStages && reflectShaders == other.reflectShaders;
 }
 
 const GraphBuffer &GraphResources::buffer(BufferId id) const
@@ -356,12 +356,20 @@ PipelineId RenderGraph::createPipeline(PipelineDesc pipelineDesc)
 
 void RenderGraph::prepare()
 {
-    for (std::size_t i = resources_.pipelines.size(); i < pipelineDescs_.size(); ++i)
+    // Builder descriptions may be drafts without attachment formats. Only create
+    // the finalized pipelines actually referenced by this frame's passes.
+    resources_.pipelines.resize(pipelineDescs_.size());
+    for (const auto& pass : passes_[currentFrame_])
     {
+        const auto i = pass.pipelineHandle;
+        if (resources_.pipelines[i].handle != VK_NULL_HANDLE)
+        {
+            continue;
+        }
         Pipeline pipeline = device_.createPipeline(pipelineDescs_[i]);
-        pipeline.desc = pipelineDescs_[i];
+        // Device returns the resolved descriptor/push-constant interface after reflection.
         pipeline.type = pipelineDescs_[i].type;
-        resources_.pipelines.push_back(std::move(pipeline));
+        resources_.pipelines[i] = std::move(pipeline);
     }
 
     for (auto &pass : passes_[currentFrame_])
