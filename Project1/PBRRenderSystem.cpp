@@ -1,18 +1,16 @@
 #include "PBRRenderSystem.h"
+#include "Scene.h"
 #include "JHBApplication.h"
 #include "Model.h"
 #include "FrameInfo.h"
 #include <memory>
 #include <array>
-#ifdef ANDROID
-#include "AndroidAssets.h"
-#endif
 
 namespace jhb {
 	uint32_t PBRRendererSystem::id = 0;
 
-	PBRRendererSystem::PBRRendererSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag) :
-		BaseRenderSystem(device, globalSetLayOut, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(gltfPushConstantData)} }) {
+	PBRRendererSystem::PBRRendererSystem(Device& device, Scene& scene, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag) :
+		BaseRenderSystem(device, globalSetLayOut, { VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(gltfPushConstantData)} }), scene_(scene) {
 		createPipeline(renderPass, vert, frag);
 		createDamagedHelmet();
 
@@ -165,61 +163,7 @@ namespace jhb {
 			pipelineConfig);
 	}
 
-	std::shared_ptr<Model> PBRRendererSystem::loadGLTFFile(const std::string& filename)
-	{
-		tinygltf::Model glTFInput;
-		tinygltf::TinyGLTF gltfContext;
-		std::string error, warning;
 
-#ifdef ANDROID
-		jhb::setupGltfAndroidCallbacks(gltfContext);
-#endif
-
-		bool fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, filename);
-
-		size_t pos = filename.find_last_of('/');
-
-		std::vector<uint32_t> indexBuffer;
-		std::vector<Vertex> vertexBuffer;
-
-		std::shared_ptr<Model> model = std::make_shared<Model>(device);
-
-		model->path = filename.substr(0, pos);
-
-		if (fileLoaded) {
-			model->loadMaterials(glTFInput);
-			model->loadTextures(glTFInput);
-			model->loadImages(glTFInput, VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT);
-			const tinygltf::Scene& scene = glTFInput.scenes[0];
-			for (size_t i = 0; i < scene.nodes.size(); i++) {
-				const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
-				model->loadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
-			}
-
-			if (!model->hasTangent)
-			{
-				for (int i = 0; i < indexBuffer.size(); i += 3)
-				{
-					Vertex& vertex1 = vertexBuffer[indexBuffer[i]];
-					Vertex& vertex2 = vertexBuffer[indexBuffer[i + 1]];
-					Vertex& vertex3 = vertexBuffer[indexBuffer[i + 2]];
-					model->calculateTangent(vertex1.uv, vertex2.uv, vertex3.uv, vertex1.position, vertex2.position, vertex3.position, vertex1.tangent);
-					model->calculateTangent(vertex2.uv, vertex1.uv, vertex3.uv, vertex2.position, vertex1.position, vertex3.position, vertex2.tangent);
-					model->calculateTangent(vertex3.uv, vertex2.uv, vertex1.uv, vertex3.position, vertex2.position, vertex1.position, vertex3.tangent);
-				}
-			}
-		}
-		else {
-			throw std::runtime_error("Could not open the glTF file.\n\nMake sure the assets submodule has been checked out and is up-to-date.");
-			return nullptr;
-		}
-
-		model->createVertexBuffer(vertexBuffer);
-		model->createIndexBuffer(indexBuffer);
-		model->createObjectSphere(vertexBuffer);
-		//model->updateInstanceBuffer(6, 2.5f, 2.5f);
-		return model;
-	}
 
 
 	void PBRRendererSystem::renderGameObjects(FrameInfo& frameInfo)
@@ -253,15 +197,14 @@ namespace jhb {
 		helmet.transform.translation = { 0.f, 0.f, 0.f };
 		helmet.transform.scale = { 1.f, 1.f, 1.f };
 		helmet.transform.rotation = { -glm::radians(90.f), 0.f, 0.f};
-		helmet.model = loadGLTFFile("Models/DamagedHelmet/DamagedHelmet.gltf");
+		helmet.model = scene_.loadGLTF("Models/DamagedHelmet/DamagedHelmet.gltf");
 		helmet.setId(id++);
 		pbrObjects.emplace(helmet.getId(), std::move(helmet));
 	}
 
 	void PBRRendererSystem::createFloor(VkRenderPass renderPass)
 	{
-		std::shared_ptr<Model> floorModel = std::make_unique<Model>(device);
-		floorModel->loadModel("Models/quad.obj");
+		auto floorModel = scene_.loadOBJ("Models/quad.obj");
 		auto floor = GameObject::createGameObject();
 		floor.model = floorModel;
 		floor.transform.translation = { 0.f, 5.f, 0.f };

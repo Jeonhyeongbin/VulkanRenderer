@@ -67,6 +67,7 @@ namespace jhb {
 		// init top to bottom
 		Window window{ 800, 600, "TriangleApp!" };
 		Device device{ window };
+        std::unique_ptr<class Scene> GlobalScene;
 
 		std::vector<VkSubpassDependency> subdependencies = { {VK_SUBPASS_EXTERNAL,0,VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT, 0
@@ -104,7 +105,7 @@ namespace jhb {
 		std::unique_ptr<class PointLightSystem> pointLightSystem;
 		std::unique_ptr<class SkyBoxRenderSystem> skyboxRenderSystem;
 
-		class Scene* GlobalScene;
+
 
 	private:
 		double px, py, pz;

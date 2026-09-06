@@ -20,7 +20,7 @@
 namespace jhb {
 	class SkyBoxRenderSystem : public BaseRenderSystem {
 	public:
-		SkyBoxRenderSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag);
+		SkyBoxRenderSystem(Device& device, class Scene& scene, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag);
 		~SkyBoxRenderSystem();
 
 		SkyBoxRenderSystem(const SkyBoxRenderSystem&) = delete;
@@ -36,6 +36,7 @@ namespace jhb {
 
 		void renderSkyBox(FrameInfo& frameInfo);
 	private:
+        Scene& scene_;
 
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass

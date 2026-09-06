@@ -20,7 +20,7 @@
 namespace jhb {
 	class PBRRendererSystem : public BaseRenderSystem {
 	public:
-		PBRRendererSystem(Device& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag);
+		PBRRendererSystem(Device& device, class Scene& scene, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::string& vert, const std::string& frag);
 		~PBRRendererSystem();
 
 		PBRRendererSystem(const PBRRendererSystem&) = delete;
@@ -34,13 +34,11 @@ namespace jhb {
 		void createDamagedHelmet();
 		void createFloor(VkRenderPass);
 	private:
+        Scene& scene_;
 		// render pass only used to create pipeline
 		// render system doest not store render pass, beacuase render system's life cycle is not tie to render pass
 		void createPipelinePerMaterial(VkRenderPass renderPass, const std::string& vert, const std::string& frag, std::vector<Material>& materials);
 		void createPipeline(VkRenderPass renderPass, const std::string& vert, const std::string& frag) override;
-
-	private:
-		std::shared_ptr<Model> loadGLTFFile(const std::string& filename);
 
 	public:
 		GameObject::Map pbrObjects;

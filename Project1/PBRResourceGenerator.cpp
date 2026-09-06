@@ -1,7 +1,8 @@
 #include "PBRResourceGenerator.h"
+#include "Scene.h"
 
-jhb::PBRResourceGenerator::PBRResourceGenerator(Device& _device, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::vector<VkDescriptorSet>& _descSets)
-	: device(_device), descSetlayouts(globalSetLayOut), descSets(_descSets)
+jhb::PBRResourceGenerator::PBRResourceGenerator(Device& _device, Scene& scene, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::vector<VkDescriptorSet>& _descSets)
+	: scene_(scene), device(_device), descSetlayouts(globalSetLayOut), descSets(_descSets)
 {
 	createCube();
 	// need to multiple pipelinelayout
@@ -17,46 +18,7 @@ jhb::PBRResourceGenerator::~PBRResourceGenerator()
 
 void jhb::PBRResourceGenerator::createCube()
 {
-	std::vector<std::string> cubefiles = {  };
-	std::vector<Vertex> vertices = {
-		{{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-  {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-  {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
-  {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
-
-  {{.5f, -.5f, -.5f}, {.8f, .8f, .5f}},
-  {{.5f, .5f, .5f}, {.8f, .8f, .5f}},
-  {{.5f, -.5f, .5f}, {.8f, .8f, .5f}},
-  {{.5f, .5f, -.5f}, {.8f, .8f, .5f}},
-
-  {{-.5f, -.5f, -.5f}, {.9f, .6f, .5f}},
-  {{.5f, -.5f, .5f}, {.9f, .6f, .5f}},
-  {{-.5f, -.5f, .5f}, {.9f, .6f, .5f}},
-  {{.5f, -.5f, -.5f}, {.9f, .6f, .5f}},
-
-  {{-.5f, .5f, -.5f}, {.8f, .5f, .5f}},
-  {{.5f, .5f, .5f}, {.8f, .5f, .5f}},
-  {{-.5f, .5f, .5f}, {.8f, .5f, .5f}},
-  {{.5f, .5f, -.5f}, {.8f, .5f, .5f}},
-
-  {{-.5f, -.5f, 0.5f}, {.5f, .5f, .8f}},
-  {{.5f, .5f, 0.5f}, {.5f, .5f, .8f}},
-  {{-.5f, .5f, 0.5f}, {.5f, .5f, .8f}},
-  {{.5f, -.5f, 0.5f}, {.5f, .5f, .8f}},
-
-  {{-.5f, -.5f, -0.5f}, {.5f, .8f, .5f}},
-  {{.5f, .5f, -0.5f}, {.5f, .8f, .5f}},
-  {{-.5f, .5f, -0.5f}, {.5f, .8f, .5f}},
-  {{.5f, -.5f, -0.5f}, {.5f, .8f, .5f}},
-	};
-
-	std::vector<uint32_t> indices = { 0,  1,  2,  0,  3,  1,  4,  5,  6,  4,  7,  5,  8,  9,  10, 8,  11, 9,
-							12, 13, 14, 12, 15, 13, 16, 17, 18, 16, 19, 17, 20, 21, 22, 20, 23, 21 };
-
-	std::shared_ptr<Model> cubeModel = std::make_unique<Model>(device);
-	cubeModel->createVertexBuffer(vertices);
-	cubeModel->createIndexBuffer(indices);
-	cubeModel->getTexture(0).loadKTXTexture(device, "Texture/pisa_cube.ktx", VK_IMAGE_VIEW_TYPE_CUBE, 6);
+	auto cubeModel = scene_.environmentCube();
 	cube = std::make_unique<GameObject>(GameObject::createGameObject());
 	cube->model = cubeModel;
 	cube->transform.translation = { 0.f, 0.f, 0.f };
@@ -254,19 +216,7 @@ void jhb::PBRResourceGenerator::generateBRDFLUT()
 
 	brdfPipeline->bind(cmd);
 
-	std::vector<Vertex> vertices = {
-			{{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-	  {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-	  {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
-
-	};
-
-	std::vector<uint32_t> indices = { 0,  1,  2 };
-
-	std::shared_ptr<Model> quad = std::make_unique<Model>(device);
-	quad->createVertexBuffer(vertices);
-	quad->createIndexBuffer(indices);
-	quad->getTexture(0).loadKTXTexture(device, "Texture/pisa_cube.ktx", VK_IMAGE_VIEW_TYPE_CUBE, 6);
+	auto quad = scene_.createBrdfTriangle();
 	auto brdfmodel = GameObject::createGameObject();
 	brdfmodel.model = quad;
 	brdfmodel.transform.translation = { 0.f, 0.f, 0.f };

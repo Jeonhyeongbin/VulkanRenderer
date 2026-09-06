@@ -5,7 +5,7 @@ namespace jhb {
 	class PBRResourceGenerator
 	{
 	public:
-		PBRResourceGenerator(Device& device, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::vector<VkDescriptorSet>& descSets);
+		PBRResourceGenerator(Device& device, class Scene& scene, const std::vector<VkDescriptorSetLayout>& globalSetLayOut, const std::vector<VkDescriptorSet>& descSets);
 		~PBRResourceGenerator();
 
 		PBRResourceGenerator(const PBRResourceGenerator&) = delete;
@@ -19,6 +19,7 @@ namespace jhb {
 		void generatePrefilteredCube();
 
 	private:
+        Scene& scene_;
 		Device& device;
 
 		VkImage preFilterCubeImg;

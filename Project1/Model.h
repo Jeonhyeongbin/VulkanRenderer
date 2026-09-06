@@ -23,8 +23,8 @@ namespace jhb {
 		glm::vec2 uv{};
 		glm::vec4 tangent{};
 
-		// bindingÀº ¿©·¯ ¹öÅØ½º ¹öÆÛ¸¦ »ç¿ëÇÒ¶§
-		// attribute´Â ÇÑ ¹öÅØ½º ¾È¿¡¼­ ¸Ş¸ğ¸®±¸Á¶¸¦ Á¤ÀÇÇÒ¶§
+		// bindingì€ ì—¬ëŸ¬ ë²„í…ìŠ¤ ë²„í¼ë¥¼ ì‚¬ìš©í• ë•Œ
+		// attributeëŠ” í•œ ë²„í…ìŠ¤ ì•ˆì—ì„œ ë©”ëª¨ë¦¬êµ¬ì¡°ë¥¼ ì •ì˜í• ë•Œ
 		static std::vector<VkVertexInputBindingDescription> getBindingDescriptions();
 		static std::vector<VkVertexInputAttributeDescription> getAttrivuteDescriptions();
 
@@ -51,7 +51,7 @@ namespace jhb {
 		int32_t materialIndex;
 	};
 
-	// ÀçÁú¸¶´Ù °¢±â ´Ù¸¥ ÆÄÀÌÇÁ¶óÀÎÀ» ¾²µµ·Ï (alpha³ª ÀçÁúÀÌ ¾ç¸éÀÏ¼öµµ ÀÖÀ¸¹Ç·Î )
+	// ì¬ì§ˆë§ˆë‹¤ ê°ê¸° ë‹¤ë¥¸ íŒŒì´í”„ë¼ì¸ì„ ì“°ë„ë¡ (alphaë‚˜ ì¬ì§ˆì´ ì–‘ë©´ì¼ìˆ˜ë„ ìˆìœ¼ë¯€ë¡œ )
 	struct Material {
 		glm::vec4 baseColorFactor = glm::vec4(1.0f);
 		glm::vec4 emissiveFactor = glm::vec4(1.0f);
@@ -152,6 +152,13 @@ namespace jhb {
 
 	public:
 		void loadModel(const std::string& filepath);
+        // Upload geometry decoded by the OBJ loader.
+        void uploadGeometry()
+        {
+            createVertexBuffer(vertices);
+            createIndexBuffer(indices);
+            createObjectSphere(vertices);
+        }
 		void loadImages(tinygltf::Model& input, VkSamplerAddressMode samplerMode);
 		void loadTextures(tinygltf::Model& input);
 		void loadMaterials(tinygltf::Model& input);

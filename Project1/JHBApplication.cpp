@@ -41,7 +41,7 @@ namespace jhb {
 		pickingObjUboDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
 		//computeShaderSystem = std::make_unique<ComputerShadeSystem>(device);
-		GlobalScene = new jhb::Scene();
+		GlobalScene = std::make_unique<Scene>(device);
 
 		init();
 	}
@@ -310,7 +310,7 @@ namespace jhb {
 		pointLightSystem = std::make_unique<PointLightSystem>(device, renderer.getSwapChainRenderPass(), std::vector { descSetLayouts[0]->getDescriptorSetLayout()}, "shaders/point_light.vert.spv",
 			"shaders/point_light.frag.spv");
 
-		skyboxRenderSystem = std::make_unique<SkyBoxRenderSystem>(device, renderer.getSwapChainRenderPass(), std::vector { descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout() }, "shaders/skybox.vert.spv",
+		skyboxRenderSystem = std::make_unique<SkyBoxRenderSystem>(device, *GlobalScene, renderer.getSwapChainRenderPass(), std::vector { descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout() }, "shaders/skybox.vert.spv",
 			"shaders/skybox.frag.spv");
 
 		shadowMapRenderSystem = std::make_unique<ShadowRenderSystem>(device, "shaders/shadowOffscreen.vert.spv", "shaders/shadowOffscreen.frag.spv");
@@ -327,8 +327,8 @@ namespace jhb {
 
 		VkDescriptorImageInfo skyBoximageInfo{};
 		skyBoximageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		skyBoximageInfo.imageView = GameObjectManager::GetSingleton().gameObjects[1].model->getTexture(0).view;
-		skyBoximageInfo.sampler = GameObjectManager::GetSingleton().gameObjects[1].model->getTexture(0).sampler;
+		skyBoximageInfo.imageView = GlobalScene->environmentCube()->getTexture(0).view;
+		skyBoximageInfo.sampler = GlobalScene->environmentCube()->getTexture(0).sampler;
 
 		for (int i = 0; i < CubeBoxDescriptorSets.size(); i++)
 		{
@@ -336,7 +336,7 @@ namespace jhb {
 		}
 
 		// should create pbr resource images using pipeline once
-		pbrSourceGenerator = std::make_unique<PBRResourceGenerator>(device, std::vector { descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout() }, std::vector { globalDescriptorSets[0], CubeBoxDescriptorSets[0]});
+		pbrSourceGenerator = std::make_unique<PBRResourceGenerator>(device, *GlobalScene, std::vector { descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout() }, std::vector { globalDescriptorSets[0], CubeBoxDescriptorSets[0]});
 		pbrSourceGenerator->createPBRResource();
 
 		VkDescriptorImageInfo brdfImgInfo{};
