@@ -26,7 +26,12 @@ set(MAIN_SOURCES
     Buffer.cpp
     Camera.cpp
     ComputerShadeSystem.cpp
-    DeferedPBRRenderSystem.cpp
+    GBufferPass.cpp
+    DeferredLightingPass.cpp
+    RenderGraph/RenderGraph.cpp
+    RenderGraph/RenderGraphUtil.cpp
+    DescriptorSet.cpp
+    RenderGraph/VkSync.cpp
     Descriptors.cpp
     Device.cpp
     FrameInfo.cpp
@@ -121,6 +126,7 @@ target_compile_definitions(VulkanRenderer PRIVATE
 )
 
 if(MSVC)
+    set_source_files_properties(Device.cpp Renderer.cpp PROPERTIES COMPILE_OPTIONS "/utf-8")
     target_compile_options(VulkanRenderer PRIVATE
         /W3         # 경고 수준 3
         /sdl        # SDL 보안 검사

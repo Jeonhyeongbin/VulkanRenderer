@@ -37,9 +37,50 @@
 
 #include "Image.h"
 #include "Buffer.h"
+#include <string_view>
+#include <cstddef>
+
+namespace jhb::rg
+{
+struct Texture;
+struct ImageDesc;
+struct Buffer;
+struct Pipeline;
+struct PipelineDesc;
+
+// RenderGraph talks directly to a Device, like the Rust implementation. The
+// renderer's concrete Device owns allocation, pipeline creation and extension
+// dispatch details.
+class Device
+{
+  public:
+    virtual ~Device() = default;
+
+    [[nodiscard]] virtual VkDevice handle() const noexcept = 0;
+    [[nodiscard]] virtual Texture createTexture(const ImageDesc &desc,
+                                                std::string_view debugName) = 0;
+    [[nodiscard]] virtual Buffer createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                                              VkMemoryPropertyFlags memoryProperties,
+                                              std::string_view debugName) = 0;
+    [[nodiscard]] virtual Pipeline createPipeline(const PipelineDesc &desc) = 0;
+    virtual void uploadBuffer(Buffer &buffer, const void *data, std::size_t size) = 0;
+
+    virtual void destroyTexture(Texture &texture) noexcept = 0;
+    virtual void destroyBuffer(Buffer &buffer) noexcept = 0;
+    virtual void destroyPipeline(Pipeline &pipeline) noexcept = 0;
+
+    virtual void beginRendering(VkCommandBuffer commandBuffer,
+                                const VkRenderingInfoKHR &renderingInfo) const = 0;
+    virtual void endRendering(VkCommandBuffer commandBuffer) const = 0;
+    virtual void beginDebugLabel(VkCommandBuffer commandBuffer, std::string_view name) const = 0;
+    virtual void endDebugLabel(VkCommandBuffer commandBuffer) const = 0;
+
+    [[nodiscard]] virtual VkDescriptorPoolCreateFlags descriptorPoolFlags() const noexcept = 0;
+};
+} // namespace jhb::rg
 
 namespace jhb {
-	class Device
+	class Device : public rg::Device
 	{
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 			VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -58,17 +99,38 @@ namespace jhb {
 		};
 
 	public:
-		Device(Window& window);
-		~Device();
+          Device(Window &window);
 
-		// Not copyable or movable
-		Device(const Device&) = delete;
-		void operator=(const Device&) = delete;
-		Device(Device&&) = delete;
-		Device& operator=(Device&&) = delete;
+          VkDevice handle() const noexcept override
+          {
+              return logicalDevice;
+          }
 
-		void initImgui();
-		Window& getWindow() const { return window; }
+          rg::Texture createTexture(const rg::ImageDesc &, std::string_view) override;
+          rg::Buffer createBuffer(VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags,
+                                  std::string_view) override;
+          rg::Pipeline createPipeline(const rg::PipelineDesc &) override;
+          void uploadBuffer(rg::Buffer &, const void *, std::size_t) override;
+          void destroyTexture(rg::Texture &) noexcept override;
+          void destroyBuffer(rg::Buffer &) noexcept override;
+          void destroyPipeline(rg::Pipeline &) noexcept override;
+          void beginRendering(VkCommandBuffer, const VkRenderingInfoKHR &) const override;
+          void endRendering(VkCommandBuffer) const override;
+          void beginDebugLabel(VkCommandBuffer, std::string_view) const override;
+          void endDebugLabel(VkCommandBuffer) const override;
+          VkDescriptorPoolCreateFlags descriptorPoolFlags() const noexcept override;
+          ~Device();
+
+          // Not copyable or movable
+          Device(const Device &) = delete;
+          void operator=(const Device &) = delete;
+          Device(Device &&) = delete;
+          Device &operator=(Device &&) = delete;
+
+          void initImgui();
+          Window &getWindow() const
+          {
+              return window; }
 		VkDevice getLogicalDevice() const  { return logicalDevice; }
 		VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
 		VkSurfaceKHR getSurface() const { return surface; }
@@ -84,7 +146,6 @@ namespace jhb {
 			VkMemoryPropertyFlags properties,
 			VkImage& image,
 			VkDeviceMemory& imageMemory);
-		Image& CreateImage(ImageDesc desc, std::string name);
 
 		VkSampleCountFlagBits getMaxUsableSampleCount();
 		bool checkValidationLayerSupport();

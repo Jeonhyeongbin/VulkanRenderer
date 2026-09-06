@@ -1,6 +1,5 @@
 #include "Renderer.h"
 #include <memory>
-#include <array>
 
 namespace jhb {
 	Renderer::Renderer(Window& window, Device& device, const std::vector<VkSubpassDependency>& dependencies, bool shouldSwapchainCreate, VkFormat format, int attachmentCount) : window{ window }, device{ device }, dependencies{ dependencies } {
@@ -26,6 +25,7 @@ namespace jhb {
 
 	Renderer::~Renderer()
 	{
+        vkDeviceWaitIdle(device.getLogicalDevice());
 		freeCommandBuffers();
 	}
 

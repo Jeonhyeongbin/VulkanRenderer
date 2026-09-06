@@ -147,9 +147,16 @@
     <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="ComputerShadeSystem.cpp" />
-    <ClCompile Include="DeferedPBRRenderSystem.cpp" />
+    <ClCompile Include="GBufferPass.cpp" />
+    <ClCompile Include="DeferredLightingPass.cpp" />
+    <ClCompile Include="RenderGraph\RenderGraph.cpp" />
+    <ClCompile Include="RenderGraph\RenderGraphUtil.cpp" />
+    <ClCompile Include="DescriptorSet.cpp" />
+    <ClCompile Include="RenderGraph\VkSync.cpp" />
     <ClCompile Include="Descriptors.cpp" />
-    <ClCompile Include="Device.cpp" />
+    <ClCompile Include="Device.cpp">
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="External\Imgui\imgui.cpp" />
     <ClCompile Include="External\Imgui\imgui_demo.cpp" />
     <ClCompile Include="External\Imgui\imgui_draw.cpp" />
@@ -170,7 +177,9 @@
     <ClCompile Include="PBRResourceGenerator.cpp" />
     <ClCompile Include="Pipeline.cpp" />
     <ClCompile Include="PointLightSystem.cpp" />
-    <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="Renderer.cpp">
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="ShadowRenderSystem.cpp" />
     <ClCompile Include="SkyBoxRenderSystem.cpp" />
@@ -183,9 +192,9 @@
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="ComputerShadeSystem.h" />
-    <ClInclude Include="DeferedPBRRenderSystem.h" />
     <ClInclude Include="Descriptors.h" />
     <ClInclude Include="Device.h" />
+    <ClInclude Include="DescriptorSet.h" />
     <ClInclude Include="External\Imgui\imconfig.h" />
     <ClInclude Include="External\Imgui\imgui.h" />
     <ClInclude Include="External\Imgui\imgui_impl_glfw.h" />

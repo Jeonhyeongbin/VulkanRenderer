@@ -36,7 +36,12 @@ set(MAIN_SOURCES
     ${PROJECT1_DIR}/Buffer.cpp
     ${PROJECT1_DIR}/Camera.cpp
     ${PROJECT1_DIR}/ComputerShadeSystem.cpp
-    ${PROJECT1_DIR}/DeferedPBRRenderSystem.cpp
+    ${PROJECT1_DIR}/GBufferPass.cpp
+    ${PROJECT1_DIR}/DeferredLightingPass.cpp
+    ${PROJECT1_DIR}/RenderGraph/RenderGraph.cpp
+    ${PROJECT1_DIR}/RenderGraph/RenderGraphUtil.cpp
+    ${PROJECT1_DIR}/DescriptorSet.cpp
+    ${PROJECT1_DIR}/RenderGraph/VkSync.cpp
     ${PROJECT1_DIR}/Descriptors.cpp
     ${PROJECT1_DIR}/Device.cpp
     ${PROJECT1_DIR}/FrameInfo.cpp

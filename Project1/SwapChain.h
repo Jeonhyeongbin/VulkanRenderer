@@ -37,6 +37,7 @@ namespace jhb {
 		}
 		VkRenderPass getRenderPass() { return renderPass; }
 		size_t getImageCount() { return swapChainImages.size(); }
+        VkImage getImage(uint32_t index) const { return swapChainImages.at(index); }
 		VkResult acquireNextImage(uint32_t* imageIndex);
 
 		VkFormat findDepthFormat();

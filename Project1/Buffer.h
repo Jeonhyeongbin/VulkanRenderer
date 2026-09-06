@@ -3,6 +3,7 @@
 #include "Device.h"
 
 namespace jhb {
+    class Device;
     class BufferDesc {
     public:
         VkDeviceSize size;

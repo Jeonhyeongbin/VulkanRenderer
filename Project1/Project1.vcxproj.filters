@@ -114,9 +114,6 @@
     <ClCompile Include="BloomRenderSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DeferedPBRRenderSystem.cpp">
-      <Filter>Systems</Filter>
-    </ClCompile>
     <ClCompile Include="ComputerShadeSystem.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
@@ -223,9 +220,6 @@
     </ClInclude>
     <ClInclude Include="BloomRenderSystem.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DeferedPBRRenderSystem.h">
-      <Filter>Systems</Filter>
     </ClInclude>
     <ClInclude Include="ComputerShadeSystem.h">
       <Filter>Systems</Filter>

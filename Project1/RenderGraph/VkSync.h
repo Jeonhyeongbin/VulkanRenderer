@@ -7,12 +7,14 @@
 #include <optional>
 #include <vector>
 
-namespace jhb::vk_sync {
+namespace jhb::vk_sync
+{
 
 // C++ port of the access model used by vk-sync-rs.  RenderGraph stores one of
 // these values per resource instead of exposing stage/access/layout triples to
 // every pass.
-enum class AccessType {
+enum class AccessType
+{
     Nothing,
     CommandBufferReadNVX,
     IndirectBuffer,
@@ -65,24 +67,28 @@ enum class AccessType {
     General,
 };
 
-enum class ImageLayout {
+enum class ImageLayout
+{
     Optimal,
     General,
     GeneralAndPresentation,
 };
 
-struct AccessInfo {
+struct AccessInfo
+{
     VkPipelineStageFlags stageMask{0};
     VkAccessFlags accessMask{0};
     VkImageLayout imageLayout{VK_IMAGE_LAYOUT_UNDEFINED};
 };
 
-struct GlobalBarrier {
+struct GlobalBarrier
+{
     std::vector<AccessType> previousAccesses;
     std::vector<AccessType> nextAccesses;
 };
 
-struct BufferBarrier {
+struct BufferBarrier
+{
     std::vector<AccessType> previousAccesses;
     std::vector<AccessType> nextAccesses;
     uint32_t srcQueueFamilyIndex{VK_QUEUE_FAMILY_IGNORED};
@@ -92,7 +98,8 @@ struct BufferBarrier {
     VkDeviceSize size{VK_WHOLE_SIZE};
 };
 
-struct ImageBarrier {
+struct ImageBarrier
+{
     std::vector<AccessType> previousAccesses;
     std::vector<AccessType> nextAccesses;
     ImageLayout previousLayout{ImageLayout::Optimal};
@@ -109,23 +116,16 @@ bool isWriteAccess(AccessType accessType);
 
 // Combines all supplied barriers into one vkCmdPipelineBarrier call, matching
 // vk-sync-rs's command API.
-void cmdPipelineBarrier(
-    VkCommandBuffer commandBuffer,
-    const std::optional<GlobalBarrier>& globalBarrier,
-    const std::vector<BufferBarrier>& bufferBarriers,
-    const std::vector<ImageBarrier>& imageBarriers);
+void cmdPipelineBarrier(VkCommandBuffer commandBuffer,
+                        const std::optional<GlobalBarrier> &globalBarrier,
+                        const std::vector<BufferBarrier> &bufferBarriers,
+                        const std::vector<ImageBarrier> &imageBarriers);
 
-AccessType globalPipelineBarrier(
-    VkCommandBuffer commandBuffer,
-    AccessType previousAccess,
-    AccessType nextAccess);
+AccessType globalPipelineBarrier(VkCommandBuffer commandBuffer, AccessType previousAccess,
+                                 AccessType nextAccess);
 
-AccessType imagePipelineBarrier(
-    VkCommandBuffer commandBuffer,
-    VkImage image,
-    const VkImageSubresourceRange& range,
-    AccessType previousAccess,
-    AccessType nextAccess,
-    bool discardContents = false);
+AccessType imagePipelineBarrier(VkCommandBuffer commandBuffer, VkImage image,
+                                const VkImageSubresourceRange &range, AccessType previousAccess,
+                                AccessType nextAccess, bool discardContents = false);
 
 } // namespace jhb::vk_sync

@@ -1,4 +1,422 @@
 #include "Device.h"
+#include "RenderGraph/RenderGraph.h"
+
+namespace jhb
+{
+void Device::beginRendering(VkCommandBuffer cb, const VkRenderingInfoKHR &info) const
+{
+    auto fn = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(
+        vkGetDeviceProcAddr(handle(), "vkCmdBeginRendering"));
+    if (!fn)
+    {
+        fn = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(
+            vkGetDeviceProcAddr(handle(), "vkCmdBeginRenderingKHR"));
+    }
+    if (!fn)
+    {
+        throw std::runtime_error("Dynamic rendering is not available");
+    }
+    fn(cb, &info);
+}
+
+void Device::endRendering(VkCommandBuffer cb) const
+{
+    auto fn = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(
+        vkGetDeviceProcAddr(handle(), "vkCmdEndRendering"));
+    if (!fn)
+    {
+        fn = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(
+            vkGetDeviceProcAddr(handle(), "vkCmdEndRenderingKHR"));
+    }
+    if (!fn)
+    {
+        throw std::runtime_error("Dynamic rendering is not available");
+    }
+    fn(cb);
+}
+
+void Device::beginDebugLabel(VkCommandBuffer, std::string_view) const
+{
+}
+
+void Device::endDebugLabel(VkCommandBuffer) const
+{
+}
+
+VkDescriptorPoolCreateFlags Device::descriptorPoolFlags() const noexcept
+{
+    return 0;
+}
+} // namespace jhb
+
+#include <fstream>
+#include <cstring>
+#include <map>
+#ifdef ANDROID
+#include "AndroidAssets.h"
+#endif
+
+namespace jhb
+{
+namespace
+{
+void checked(VkResult result, const char *operation)
+{
+    if (result != VK_SUCCESS)
+    {
+        throw std::runtime_error(operation);
+    }
+}
+
+std::vector<uint32_t> spirv(const std::string &path)
+{
+    std::vector<uint32_t> words;
+#ifdef ANDROID
+    AAsset *asset = AAssetManager_open(getAndroidAssetManager(), path.c_str(), AASSET_MODE_BUFFER);
+    if (!asset)
+    {
+        throw std::runtime_error("Missing shader: " + path);
+    }
+    auto size = AAsset_getLength(asset);
+    if (size <= 0 || size % 4)
+    {
+        AAsset_close(asset);
+        throw std::runtime_error("Invalid SPIR-V");
+    }
+    words.resize(size / 4);
+    auto read = AAsset_read(asset, words.data(), size);
+    AAsset_close(asset);
+    if (read != size)
+    {
+        throw std::runtime_error("Shader read failed");
+    }
+#else
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file)
+    {
+        throw std::runtime_error("Missing shader: " + path);
+    }
+    auto size = file.tellg();
+    if (size <= 0 || static_cast<size_t>(size) % 4)
+    {
+        throw std::runtime_error("Invalid SPIR-V");
+    }
+    words.resize(static_cast<size_t>(size) / 4);
+    file.seekg(0);
+    if (!file.read(reinterpret_cast<char *>(words.data()), size))
+    {
+        throw std::runtime_error("Shader read failed");
+    }
+#endif
+    return words;
+}
+} // namespace
+
+rg::Texture Device::createTexture(const rg::ImageDesc &d, std::string_view name)
+{
+    if (!d.width || !d.height || !d.arrayLayers || !d.mipLevels || d.depth != 1)
+    {
+        throw std::invalid_argument("Graph textures currently support 2D/array/cube images");
+    }
+    if (d.imageType == rg::ImageType::CubeMap && (d.arrayLayers != 6 || d.width != d.height))
+    {
+        throw std::invalid_argument("Cube texture must be square with six layers");
+    }
+    rg::Texture t;
+    t.image.desc = d;
+    t.image.debugName = name;
+    try
+    {
+        VkImageCreateInfo ci{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+        ci.flags = d.imageType == rg::ImageType::CubeMap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
+        ci.imageType = VK_IMAGE_TYPE_2D;
+        ci.format = d.format;
+        ci.extent = {d.width, d.height, 1};
+        ci.mipLevels = d.mipLevels;
+        ci.arrayLayers = d.arrayLayers;
+        ci.samples = VK_SAMPLE_COUNT_1_BIT;
+        ci.tiling = VK_IMAGE_TILING_OPTIMAL;
+        ci.usage = d.usage;
+        ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        checked(vkCreateImage(handle(), &ci, nullptr, &t.image.image), "Create graph image");
+        VkMemoryRequirements req;
+        vkGetImageMemoryRequirements(handle(), t.image.image, &req);
+        VkMemoryAllocateInfo alloc{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        alloc.allocationSize = req.size;
+        alloc.memoryTypeIndex =
+            findMemoryType(req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        checked(vkAllocateMemory(handle(), &alloc, nullptr, &t.image.memory),
+                "Allocate graph image");
+        checked(vkBindImageMemory(handle(), t.image.image, t.image.memory, 0), "Bind graph image");
+        VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        vi.image = t.image.image;
+        vi.format = d.format;
+        vi.viewType = d.imageType == rg::ImageType::CubeMap ? VK_IMAGE_VIEW_TYPE_CUBE
+                      : d.arrayLayers > 1                   ? VK_IMAGE_VIEW_TYPE_2D_ARRAY
+                                                            : VK_IMAGE_VIEW_TYPE_2D;
+        vi.subresourceRange = {d.aspectFlags, 0, d.mipLevels, 0, d.arrayLayers};
+        checked(vkCreateImageView(handle(), &vi, nullptr, &t.image.imageView), "Create graph view");
+        // Attachment views always select mip zero and one layer.
+        for (uint32_t layer = 0; layer < d.arrayLayers; ++layer)
+        {
+            vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            vi.subresourceRange = {d.aspectFlags, 0, 1, layer, 1};
+            VkImageView view{};
+            checked(vkCreateImageView(handle(), &vi, nullptr, &view), "Create layer view");
+            t.image.layerViews.push_back(view);
+        }
+        VkSamplerCreateInfo si{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+        si.magFilter = si.minFilter = VK_FILTER_NEAREST;
+        si.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        si.addressModeU = si.addressModeV = si.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        si.maxLod = float(d.mipLevels);
+        checked(vkCreateSampler(handle(), &si, nullptr, &t.sampler), "Create graph sampler");
+        t.descriptorInfo = {t.sampler, t.image.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+        return t;
+    }
+    catch (...)
+    {
+        destroyTexture(t);
+        throw;
+    }
+}
+
+rg::Buffer Device::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                                VkMemoryPropertyFlags properties, std::string_view name)
+{
+    rg::Buffer b;
+    b.size = size;
+    b.debugName = name;
+    try
+    {
+        VkBufferCreateInfo ci{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+        ci.size = size;
+        ci.usage = usage;
+        ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        checked(vkCreateBuffer(handle(), &ci, nullptr, &b.buffer), "Create graph buffer");
+        VkMemoryRequirements req;
+        vkGetBufferMemoryRequirements(handle(), b.buffer, &req);
+        VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        ai.allocationSize = req.size;
+        ai.memoryTypeIndex = findMemoryType(req.memoryTypeBits, properties);
+        checked(vkAllocateMemory(handle(), &ai, nullptr, &b.memory), "Allocate graph buffer");
+        checked(vkBindBufferMemory(handle(), b.buffer, b.memory, 0), "Bind graph buffer");
+        if (properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+        {
+            if (!(properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+            {
+                throw std::invalid_argument("Graph upload requires coherent host memory");
+            }
+            checked(vkMapMemory(handle(), b.memory, 0, size, 0, &b.mapped), "Map graph buffer");
+        }
+        return b;
+    }
+    catch (...)
+    {
+        destroyBuffer(b);
+        throw;
+    }
+}
+
+void Device::uploadBuffer(rg::Buffer &b, const void *data, std::size_t size)
+{
+    if (!b.mapped || size > b.size)
+    {
+        throw std::invalid_argument("Invalid graph buffer upload");
+    }
+    std::memcpy(b.mapped, data, size);
+}
+
+void Device::destroyBuffer(rg::Buffer &b) noexcept
+{
+    if (b.mapped)
+    {
+        vkUnmapMemory(handle(), b.memory);
+    }
+    vkDestroyBuffer(handle(), b.buffer, nullptr);
+    vkFreeMemory(handle(), b.memory, nullptr);
+    b = {};
+}
+
+void Device::destroyTexture(rg::Texture &t) noexcept
+{
+    for (auto view : t.image.layerViews)
+    {
+        vkDestroyImageView(handle(), view, nullptr);
+    }
+    vkDestroySampler(handle(), t.sampler, nullptr);
+    vkDestroyImageView(handle(), t.image.imageView, nullptr);
+    vkDestroyImage(handle(), t.image.image, nullptr);
+    vkFreeMemory(handle(), t.image.memory, nullptr);
+    t = {};
+}
+
+void Device::destroyPipeline(rg::Pipeline &p) noexcept
+{
+    vkDestroyPipeline(handle(), p.handle, nullptr);
+    vkDestroyPipelineLayout(handle(), p.layout, nullptr);
+    for (auto layout : p.descriptorSetLayouts)
+    {
+        vkDestroyDescriptorSetLayout(handle(), layout, nullptr);
+    }
+    p = {};
+}
+
+rg::Pipeline Device::createPipeline(const rg::PipelineDesc &d)
+{
+    rg::Pipeline p;
+    p.desc = d;
+    p.type = d.type;
+    std::vector<VkShaderModule> modules;
+    try
+    {
+        uint32_t sets = 0;
+        for (const auto &b : d.bindings)
+        {
+            sets = (std::max)(sets, b.set + 1);
+        }
+        for (uint32_t set = 0; set < sets; ++set)
+        {
+            std::vector<VkDescriptorSetLayoutBinding> bindings;
+            for (const auto &b : d.bindings)
+            {
+                if (b.set == set)
+                {
+                    bindings.push_back({b.binding, b.type, b.count, b.stages, nullptr});
+                    if (!b.name.empty())
+                    {
+                        p.namedBindings[b.name] = {b.set, b.binding, b.type};
+                    }
+                }
+            }
+            VkDescriptorSetLayoutCreateInfo ci{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+            ci.bindingCount = static_cast<uint32_t>(bindings.size());
+            ci.pBindings = bindings.data();
+            VkDescriptorSetLayout layout{};
+            checked(vkCreateDescriptorSetLayout(handle(), &ci, nullptr, &layout),
+                    "Create graph set layout");
+            p.descriptorSetLayouts.push_back(layout);
+        }
+        VkPushConstantRange push{d.pushConstantStages, 0, d.pushConstantSize};
+        VkPipelineLayoutCreateInfo li{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+        li.setLayoutCount = static_cast<uint32_t>(p.descriptorSetLayouts.size());
+        li.pSetLayouts = p.descriptorSetLayouts.data();
+        li.pushConstantRangeCount = d.pushConstantSize ? 1 : 0;
+        li.pPushConstantRanges = &push;
+        checked(vkCreatePipelineLayout(handle(), &li, nullptr, &p.layout),
+                "Create graph pipeline layout");
+        auto stage = [&](const std::string &path, VkShaderStageFlagBits flag)
+        {
+            auto words = spirv(path);
+            VkShaderModuleCreateInfo mi{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+            mi.codeSize = words.size() * 4;
+            mi.pCode = words.data();
+            VkShaderModule module{};
+            checked(vkCreateShaderModule(handle(), &mi, nullptr, &module), "Create shader module");
+            modules.push_back(module);
+            VkPipelineShaderStageCreateInfo si{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+            si.stage = flag;
+            si.module = module;
+            si.pName = "main";
+            return si;
+        };
+        if (d.type == rg::PipelineType::Compute)
+        {
+            VkComputePipelineCreateInfo ci{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+            ci.stage = stage(d.computePath, VK_SHADER_STAGE_COMPUTE_BIT);
+            ci.layout = p.layout;
+            checked(vkCreateComputePipelines(handle(), VK_NULL_HANDLE, 1, &ci, nullptr, &p.handle),
+                    "Create compute pipeline");
+        }
+        else
+        {
+            std::vector<VkPipelineShaderStageCreateInfo> stages{
+                stage(d.vertexPath, VK_SHADER_STAGE_VERTEX_BIT)};
+            if (!d.fragmentPath.empty())
+            {
+                stages.push_back(stage(d.fragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT));
+            }
+            VkPipelineVertexInputStateCreateInfo vertex{
+                VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+            vertex.vertexBindingDescriptionCount = static_cast<uint32_t>(d.vertexBindings.size());
+            vertex.pVertexBindingDescriptions = d.vertexBindings.data();
+            vertex.vertexAttributeDescriptionCount =
+                static_cast<uint32_t>(d.vertexAttributes.size());
+            vertex.pVertexAttributeDescriptions = d.vertexAttributes.data();
+            VkPipelineInputAssemblyStateCreateInfo assembly{
+                VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+            assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+            VkPipelineViewportStateCreateInfo viewport{
+                VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+            viewport.viewportCount = viewport.scissorCount = 1;
+            VkPipelineRasterizationStateCreateInfo raster{
+                VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+            raster.polygonMode = VK_POLYGON_MODE_FILL;
+            raster.lineWidth = 1;
+            raster.cullMode = d.cullMode;
+            raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+            VkPipelineMultisampleStateCreateInfo ms{
+                VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+            ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+            VkPipelineDepthStencilStateCreateInfo depth{
+                VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+            depth.depthTestEnable = d.depthTest;
+            depth.depthWriteEnable = d.depthWrite;
+            depth.depthCompareOp = d.depthCompare;
+            std::vector<VkPipelineColorBlendAttachmentState> attachments(
+                d.colorAttachmentFormats.size());
+            for (auto &a : attachments)
+            {
+                a.colorWriteMask = 0xf;
+            }
+            VkPipelineColorBlendStateCreateInfo blend{
+                VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+            blend.attachmentCount = static_cast<uint32_t>(attachments.size());
+            blend.pAttachments = attachments.data();
+            VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+            VkPipelineDynamicStateCreateInfo dynamic{
+                VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+            dynamic.dynamicStateCount = 2;
+            dynamic.pDynamicStates = dynamicStates;
+            VkPipelineRenderingCreateInfo rendering{
+                VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+            rendering.colorAttachmentCount = static_cast<uint32_t>(d.colorAttachmentFormats.size());
+            rendering.pColorAttachmentFormats = d.colorAttachmentFormats.data();
+            rendering.depthAttachmentFormat = d.depthStencilAttachmentFormat;
+            VkGraphicsPipelineCreateInfo ci{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+            ci.pNext = &rendering;
+            ci.stageCount = static_cast<uint32_t>(stages.size());
+            ci.pStages = stages.data();
+            ci.pVertexInputState = &vertex;
+            ci.pInputAssemblyState = &assembly;
+            ci.pViewportState = &viewport;
+            ci.pRasterizationState = &raster;
+            ci.pMultisampleState = &ms;
+            ci.pDepthStencilState = &depth;
+            ci.pColorBlendState = &blend;
+            ci.pDynamicState = &dynamic;
+            ci.layout = p.layout;
+            checked(vkCreateGraphicsPipelines(handle(), VK_NULL_HANDLE, 1, &ci, nullptr, &p.handle),
+                    "Create graphics pipeline");
+        }
+        for (auto m : modules)
+        {
+            vkDestroyShaderModule(handle(), m, nullptr);
+        }
+        return p;
+    }
+    catch (...)
+    {
+        for (auto m : modules)
+        {
+            vkDestroyShaderModule(handle(), m, nullptr);
+        }
+        destroyPipeline(p);
+        throw;
+    }
+}
+} // namespace jhb
+
 #include "SwapChain.h"
 #ifdef ANDROID
 #include <android/log.h>
@@ -136,7 +554,7 @@ namespace jhb {
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.pEngineName = "No Engine";
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_0;
+		appInfo.apiVersion = VK_API_VERSION_1_3;
 
 #ifdef ANDROID
 		// 기기가 지원하는 instance extension 목록 출력 (디버깅)
@@ -217,11 +635,6 @@ namespace jhb {
 		if (vkBindImageMemory(logicalDevice, image, imageMemory, 0) != VK_SUCCESS) {
 			throw std::runtime_error("failed to bind image memory!");
 		}
-	}
-
-	Image& Device::CreateImage(ImageDesc desc, std::string name)
-	{
-		// TODO: 여기에 return 문을 삽입합니다.
 	}
 
 	VkSampleCountFlagBits Device::getMaxUsableSampleCount()
@@ -352,11 +765,23 @@ namespace jhb {
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
-		VkPhysicalDeviceFeatures deviceFeatures{}; // todo : implementation later
+		VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+        if (properties.apiVersion < VK_API_VERSION_1_3)
+            throw std::runtime_error("RenderGraph requires Vulkan 1.3");
+        VkPhysicalDeviceDynamicRenderingFeatures dynamic{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
+        VkPhysicalDeviceFeatures2 supported{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+        supported.pNext = &dynamic;
+        vkGetPhysicalDeviceFeatures2(physicalDevice, &supported);
+        if (!dynamic.dynamicRendering) throw std::runtime_error("Device lacks dynamic rendering");
+        VkPhysicalDeviceFeatures deviceFeatures{};
+        deviceFeatures.independentBlend = supported.features.independentBlend;
+        dynamic.dynamicRendering = VK_TRUE;
 
 		// Create the logical device
 		VkDeviceCreateInfo deviceCreateInfo{};
 		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        deviceCreateInfo.pNext = &dynamic;
 
 		deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 		deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();

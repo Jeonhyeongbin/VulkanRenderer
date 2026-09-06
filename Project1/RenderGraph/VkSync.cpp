@@ -2,11 +2,15 @@
 
 #include <stdexcept>
 
-namespace jhb::vk_sync {
-namespace {
+namespace jhb::vk_sync
+{
+namespace
+{
 
-VkImageLayout chooseLayout(ImageLayout policy, AccessType access, VkImageLayout optimal) {
-    switch (policy) {
+VkImageLayout chooseLayout(ImageLayout policy, AccessType access, VkImageLayout optimal)
+{
+    switch (policy)
+    {
     case ImageLayout::Optimal:
         return optimal;
     case ImageLayout::General:
@@ -24,9 +28,11 @@ VkImageLayout chooseLayout(ImageLayout policy, AccessType access, VkImageLayout 
 
 } // namespace
 
-AccessInfo getAccessInfo(AccessType type) {
+AccessInfo getAccessInfo(AccessType type)
+{
     using A = AccessType;
-    switch (type) {
+    switch (type)
+    {
     case A::Nothing:
         return {};
     case A::CommandBufferReadNVX:
@@ -42,7 +48,7 @@ AccessInfo getAccessInfo(AccessType type) {
         return {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
                 VK_IMAGE_LAYOUT_UNDEFINED};
     case A::VertexShaderReadUniformBuffer:
-        return {VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
+        return {VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_ACCESS_UNIFORM_READ_BIT,
                 VK_IMAGE_LAYOUT_UNDEFINED};
     case A::VertexShaderReadSampledImageOrUniformTexelBuffer:
         return {VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
@@ -148,8 +154,8 @@ AccessInfo getAccessInfo(AccessType type) {
         return {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                 VK_IMAGE_LAYOUT_GENERAL};
     case A::ColorAttachmentWrite:
-        return {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        return {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
     case A::DepthStencilAttachmentWrite:
         return {VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
                     VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
@@ -189,9 +195,11 @@ AccessInfo getAccessInfo(AccessType type) {
     throw std::logic_error("Unknown vk_sync::AccessType");
 }
 
-bool isWriteAccess(AccessType type) {
+bool isWriteAccess(AccessType type)
+{
     using A = AccessType;
-    switch (type) {
+    switch (type)
+    {
     case A::CommandBufferWriteNVX:
     case A::VertexShaderWrite:
     case A::TessellationControlShaderWrite:
@@ -214,29 +222,34 @@ bool isWriteAccess(AccessType type) {
     }
 }
 
-void cmdPipelineBarrier(
-    VkCommandBuffer commandBuffer,
-    const std::optional<GlobalBarrier>& globalBarrier,
-    const std::vector<BufferBarrier>& bufferBarriers,
-    const std::vector<ImageBarrier>& imageBarriers) {
+void cmdPipelineBarrier(VkCommandBuffer commandBuffer,
+                        const std::optional<GlobalBarrier> &globalBarrier,
+                        const std::vector<BufferBarrier> &bufferBarriers,
+                        const std::vector<ImageBarrier> &imageBarriers)
+{
     VkPipelineStageFlags sourceStages = 0;
     VkPipelineStageFlags destinationStages = 0;
     VkMemoryBarrier memoryBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
     bool hasMemoryBarrier = false;
 
-    if (globalBarrier) {
+    if (globalBarrier)
+    {
         hasMemoryBarrier = true;
-        for (const auto access : globalBarrier->previousAccesses) {
+        for (const auto access : globalBarrier->previousAccesses)
+        {
             const auto info = getAccessInfo(access);
             sourceStages |= info.stageMask;
-            if (isWriteAccess(access)) {
+            if (isWriteAccess(access))
+            {
                 memoryBarrier.srcAccessMask |= info.accessMask;
             }
         }
-        for (const auto access : globalBarrier->nextAccesses) {
+        for (const auto access : globalBarrier->nextAccesses)
+        {
             const auto info = getAccessInfo(access);
             destinationStages |= info.stageMask;
-            if (memoryBarrier.srcAccessMask != 0) {
+            if (memoryBarrier.srcAccessMask != 0)
+            {
                 memoryBarrier.dstAccessMask |= info.accessMask;
             }
         }
@@ -244,24 +257,29 @@ void cmdPipelineBarrier(
 
     std::vector<VkBufferMemoryBarrier> vkBufferBarriers;
     vkBufferBarriers.reserve(bufferBarriers.size());
-    for (const auto& barrier : bufferBarriers) {
+    for (const auto &barrier : bufferBarriers)
+    {
         VkBufferMemoryBarrier result{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
         result.srcQueueFamilyIndex = barrier.srcQueueFamilyIndex;
         result.dstQueueFamilyIndex = barrier.dstQueueFamilyIndex;
         result.buffer = barrier.buffer;
         result.offset = barrier.offset;
         result.size = barrier.size;
-        for (const auto access : barrier.previousAccesses) {
+        for (const auto access : barrier.previousAccesses)
+        {
             const auto info = getAccessInfo(access);
             sourceStages |= info.stageMask;
-            if (isWriteAccess(access)) {
+            if (isWriteAccess(access))
+            {
                 result.srcAccessMask |= info.accessMask;
             }
         }
-        for (const auto access : barrier.nextAccesses) {
+        for (const auto access : barrier.nextAccesses)
+        {
             const auto info = getAccessInfo(access);
             destinationStages |= info.stageMask;
-            if (result.srcAccessMask != 0) {
+            if (result.srcAccessMask != 0)
+            {
                 result.dstAccessMask |= info.accessMask;
             }
         }
@@ -270,26 +288,31 @@ void cmdPipelineBarrier(
 
     std::vector<VkImageMemoryBarrier> vkImageBarriers;
     vkImageBarriers.reserve(imageBarriers.size());
-    for (const auto& barrier : imageBarriers) {
+    for (const auto &barrier : imageBarriers)
+    {
         VkImageMemoryBarrier result{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
         result.srcQueueFamilyIndex = barrier.srcQueueFamilyIndex;
         result.dstQueueFamilyIndex = barrier.dstQueueFamilyIndex;
         result.image = barrier.image;
         result.subresourceRange = barrier.range;
-        for (const auto access : barrier.previousAccesses) {
+        for (const auto access : barrier.previousAccesses)
+        {
             const auto info = getAccessInfo(access);
             sourceStages |= info.stageMask;
-            if (isWriteAccess(access)) {
+            if (isWriteAccess(access))
+            {
                 result.srcAccessMask |= info.accessMask;
             }
             result.oldLayout = barrier.discardContents
                                    ? VK_IMAGE_LAYOUT_UNDEFINED
                                    : chooseLayout(barrier.previousLayout, access, info.imageLayout);
         }
-        for (const auto access : barrier.nextAccesses) {
+        for (const auto access : barrier.nextAccesses)
+        {
             const auto info = getAccessInfo(access);
             destinationStages |= info.stageMask;
-            if (result.srcAccessMask != 0) {
+            if (result.srcAccessMask != 0)
+            {
                 result.dstAccessMask |= info.accessMask;
             }
             result.newLayout = chooseLayout(barrier.nextLayout, access, info.imageLayout);
@@ -297,37 +320,32 @@ void cmdPipelineBarrier(
         vkImageBarriers.push_back(result);
     }
 
-    if (sourceStages == 0) {
+    if (sourceStages == 0)
+    {
         sourceStages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     }
-    if (destinationStages == 0) {
+    if (destinationStages == 0)
+    {
         destinationStages = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     }
 
     vkCmdPipelineBarrier(commandBuffer, sourceStages, destinationStages, 0,
-                         hasMemoryBarrier ? 1u : 0u,
-                         hasMemoryBarrier ? &memoryBarrier : nullptr,
-                         static_cast<uint32_t>(vkBufferBarriers.size()),
-                         vkBufferBarriers.data(),
-                         static_cast<uint32_t>(vkImageBarriers.size()),
-                         vkImageBarriers.data());
+                         hasMemoryBarrier ? 1u : 0u, hasMemoryBarrier ? &memoryBarrier : nullptr,
+                         static_cast<uint32_t>(vkBufferBarriers.size()), vkBufferBarriers.data(),
+                         static_cast<uint32_t>(vkImageBarriers.size()), vkImageBarriers.data());
 }
 
-AccessType globalPipelineBarrier(
-    VkCommandBuffer commandBuffer,
-    AccessType previousAccess,
-    AccessType nextAccess) {
+AccessType globalPipelineBarrier(VkCommandBuffer commandBuffer, AccessType previousAccess,
+                                 AccessType nextAccess)
+{
     cmdPipelineBarrier(commandBuffer, GlobalBarrier{{previousAccess}, {nextAccess}}, {}, {});
     return nextAccess;
 }
 
-AccessType imagePipelineBarrier(
-    VkCommandBuffer commandBuffer,
-    VkImage image,
-    const VkImageSubresourceRange& range,
-    AccessType previousAccess,
-    AccessType nextAccess,
-    bool discardContents) {
+AccessType imagePipelineBarrier(VkCommandBuffer commandBuffer, VkImage image,
+                                const VkImageSubresourceRange &range, AccessType previousAccess,
+                                AccessType nextAccess, bool discardContents)
+{
     ImageBarrier barrier;
     barrier.previousAccesses = {previousAccess};
     barrier.nextAccesses = {nextAccess};

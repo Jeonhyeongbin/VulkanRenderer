@@ -15,7 +15,6 @@
 #include "PBRResourceGenerator.h"
 #include "MousePickingRenderSystem.h"
 #include "ShadowRenderSystem.h"
-#include "DeferedPBRRenderSystem.h"
 #include "ComputerShadeSystem.h"
 #include "GameObjectManager.h"
 #include "Scene.h"
@@ -81,7 +80,6 @@ namespace jhb {
 		float aspect = renderer.getAspectRatio();
 		window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
 
-		//computeShaderSystem->SetupDescriptor(deferedPbrRenderSystem->pbrObjects);
 
 #ifdef ANDROID
 		// 30fps 캡용 타이머 초기화
@@ -132,7 +130,6 @@ namespace jhb {
 #ifndef ANDROID
 				imguiRenderSystem->recreateFrameBuffer(device, renderer.GetSwapChain(), window.getExtent());
 #endif
-				deferedPbrRenderSystem->createFrameBuffers(renderer.getSwapChainImageViews(), true);
 				window.resetWindowResizedFlag();
 				continue;
 			}
@@ -199,22 +196,8 @@ namespace jhb {
 
 			shadowMapRenderSystem->updateShadowMap(commandBuffer, GameObjectManager::GetSingleton().gameObjects, frameIndex);
 
-			// beginSwapChainRenderPass가 false를 반환하면 extent 불일치로 renderpass가 시작되지 않은 것이다.
-			// 이 경우 renderGameObjects / endSwapChainRenderPass 를 건너뛰고 프레임을 종료한다.
-			if (!renderer.beginSwapChainRenderPass(commandBuffer, deferedPbrRenderSystem->getRenderPass(), deferedPbrRenderSystem->getFrameBuffer(imageIndex), window.getExtent(), 8))
-			{
-#ifdef ANDROID
-				LOGI("[Render] beginSwapChainRenderPass extent mismatch – skipping frame");
-#endif
-				renderer.endFrame();
-				continue;
-			}
-			/*
-			pbrRenderSystem->renderGameObjects(frameInfo);
-			pointLightSystem->renderGameObjects(frameInfo);
-			*/
-			deferedPbrRenderSystem->renderGameObjects(frameInfo);
-			renderer.endSwapChainRenderPass(commandBuffer);
+			// TODO(migration): compose GBufferPass -> DeferredLightingPass -> PresentPass here.
+			// Scene/material preparation must be migrated before this path can render.
 		
 #ifndef ANDROID
 			renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass, imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
@@ -324,8 +307,6 @@ namespace jhb {
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
 #endif
 
-		deferedPbrRenderSystem = std::make_unique<DeferedPBRRenderSystem>(device, std::vector{ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[3]->getDescriptorSetLayout(), descSetLayouts[2]->getDescriptorSetLayout()
-		, descSetLayouts[5]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout()}, renderer.getSwapChainImageViews(), renderer.GetSwapChain().getSwapChainImageFormat());
 		pointLightSystem = std::make_unique<PointLightSystem>(device, renderer.getSwapChainRenderPass(), std::vector { descSetLayouts[0]->getDescriptorSetLayout()}, "shaders/point_light.vert.spv",
 			"shaders/point_light.frag.spv");
 
