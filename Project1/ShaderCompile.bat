@@ -11,6 +11,7 @@ cd /d "%~dp0"
 %VULKAN_SDK%\Bin\glslc.exe .\shaders\prefilterenvmap.frag -o .\shaders\prefilterenvmap.frag.spv
 %VULKAN_SDK%\Bin\glslc.exe .\shaders\genbrdflut.vert -o .\shaders\genbrdflut.vert.spv
 %VULKAN_SDK%\Bin\glslc.exe .\shaders\genbrdflut.frag -o .\shaders\genbrdflut.frag.spv
+%VULKAN_SDK%\Bin\glslc.exe .\shaders\picking.vert -o .\shaders\picking.vert.spv
 %VULKAN_SDK%\Bin\glslc.exe .\shaders\picking.frag -o .\shaders\picking.frag.spv
 %VULKAN_SDK%\Bin\glslc.exe .\shaders\shadowOffscreen.vert -o .\shaders\shadowOffscreen.vert.spv
 %VULKAN_SDK%\Bin\glslc.exe .\shaders\shadowOffscreen.frag -o .\shaders\shadowOffscreen.frag.spv

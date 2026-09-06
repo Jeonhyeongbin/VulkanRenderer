@@ -173,9 +173,12 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="MousePickingRenderSystem.cpp" />
-    <ClCompile Include="PBRRenderSystem.cpp" />
+    <ClCompile Include="PBRPass.cpp" />
     <ClCompile Include="PBRResourceGenerator.cpp" />
     <ClCompile Include="Pipeline.cpp" />
+    <ClCompile Include="PipelineDesc.cpp" />
+    <ClCompile Include="ShaderReflection.cpp" />
+    <ClCompile Include="External\SPIRV-Reflect\spirv_reflect.c" />
     <ClCompile Include="PointLightSystem.cpp" />
     <ClCompile Include="Renderer.cpp">
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
@@ -212,9 +215,10 @@
     <ClInclude Include="JHBApplication.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="MousePickingRenderSystem.h" />
-    <ClInclude Include="PBRRenderSystem.h" />
+    <ClInclude Include="PBRPass.h" />
     <ClInclude Include="PBRResourceGenerator.h" />
     <ClInclude Include="Pipeline.h" />
+    <ClInclude Include="ShaderReflection.h" />
     <ClInclude Include="PointLightSystem.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Scene.h" />

@@ -710,6 +710,64 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 	}
 }
 
+void jhb::Model::drawGraphGeometry(VkCommandBuffer commandBuffer,
+                                    VkPipelineLayout pipelineLayout, int frameIndex)
+{
+    if (frameIndex < 0 || frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
+    {
+        throw std::out_of_range("Invalid material descriptor frame index");
+    }
+    if (nodes.empty())
+    {
+        throw std::invalid_argument("Graph PBR currently requires a glTF model with materials");
+    }
+
+    bind(commandBuffer);
+
+    const auto drawNode = [&](const auto& self, const Node* node,
+                              const glm::mat4& parentTransform) -> void
+    {
+        if (!node || !node->visible)
+        {
+            return;
+        }
+
+        const glm::mat4 modelMatrix = parentTransform * node->matrix;
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                           0, sizeof(modelMatrix), &modelMatrix);
+
+        for (const auto& primitive : node->mesh.primitives)
+        {
+            if (primitive.indexCount == 0)
+            {
+                continue;
+            }
+
+            const auto& material = materials.at(primitive.materialIndex);
+            const auto set = material.descriptorSets.at(frameIndex);
+            if (set == VK_NULL_HANDLE)
+            {
+                throw std::logic_error("Graph geometry requires prepared material descriptors");
+            }
+
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    pipelineLayout, 3, 1, &set, 0, nullptr);
+            vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount,
+                             primitive.firstIndex, 0, 0);
+        }
+
+        for (const auto* child : node->children)
+        {
+            self(self, child, modelMatrix);
+        }
+    };
+
+    for (const auto* node : nodes)
+    {
+        drawNode(drawNode, node, rootModelMatrix);
+    }
+}
+
 void jhb::Model::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex)
 {
 	if (!node->visible) {

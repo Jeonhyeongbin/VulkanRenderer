@@ -15,21 +15,21 @@ layout (location = 10) in vec3 lightPos;
 #define EPSILON 0.15
 #define SHADOW_OPACITY 0.5
 
-layout (set = 1, binding = 0) uniform sampler2D samplerBRDFLUT;
-layout (set = 1, binding = 1) uniform samplerCube samplerIrradiance;
-layout (set = 1, binding = 2) uniform samplerCube prefilteredMap;
-layout (set = 2, binding = 0) uniform sampler2D samplerColorMap;
-layout (set = 2, binding = 1) uniform sampler2D samplerNormalMap;
-layout (set = 2, binding = 2) uniform sampler2D samplerOcclusionMap;
-layout (set = 2, binding = 3) uniform sampler2D samplerEmissiveMap;
-layout (set = 2, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
-layout (set = 3, binding = 0) uniform samplerCube shadowMap;
+layout (set = 2, binding = 0) uniform sampler2D samplerBRDFLUT;
+layout (set = 2, binding = 1) uniform samplerCube samplerIrradiance;
+layout (set = 2, binding = 2) uniform samplerCube prefilteredMap;
+layout (set = 3, binding = 0) uniform sampler2D samplerColorMap;
+layout (set = 3, binding = 1) uniform sampler2D samplerNormalMap;
+layout (set = 3, binding = 2) uniform sampler2D samplerOcclusionMap;
+layout (set = 3, binding = 3) uniform sampler2D samplerEmissiveMap;
+layout (set = 3, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
+layout (set = 2, binding = 3) uniform samplerCube shadowMap;
 struct PointLight{
 	vec4 position; // w is  just for allign
 	vec4 color; // w is intensity
 } light;
 
-layout(set=0, binding = 0) uniform GlobalUbo{
+layout(set=1, binding = 0) uniform GlobalUbo{
 	mat4 projection;
 	mat4 view;
 	mat4 invView;

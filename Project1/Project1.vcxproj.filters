@@ -99,7 +99,7 @@
     <ClCompile Include="JHBApplication.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PBRRenderSystem.cpp">
+    <ClCompile Include="PBRPass.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
     <ClCompile Include="PBRResourceGenerator.cpp">
@@ -206,7 +206,7 @@
     <ClInclude Include="JHBApplication.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="PBRRenderSystem.h">
+    <ClInclude Include="PBRPass.h">
       <Filter>Systems</Filter>
     </ClInclude>
     <ClInclude Include="PBRResourceGenerator.h">

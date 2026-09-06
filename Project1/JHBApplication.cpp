@@ -1,5 +1,5 @@
 #include "JHBApplication.h"
-#include "PBRRenderSystem.h"
+#include "PBRPass.h"
 #include "SkyBoxRenderSystem.h"
 #ifndef ANDROID
 #include "ImguiRenderSystem.h"
@@ -302,7 +302,7 @@ namespace jhb {
 			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS).
 			build());
 
-		mousePickingRenderSystem = std::make_unique<MousePickingRenderSystem>(device, std::vector{ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout() }, "shaders/pbr.vert.spv", "shaders/picking.frag.spv");
+		mousePickingRenderSystem = std::make_unique<MousePickingRenderSystem>(device, std::vector{ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout() }, "shaders/picking.vert.spv", "shaders/picking.frag.spv");
 #ifndef ANDROID
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
 #endif

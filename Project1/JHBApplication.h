@@ -100,7 +100,7 @@ namespace jhb {
 #endif
 		std::unique_ptr<class MousePickingRenderSystem> mousePickingRenderSystem;
 		std::unique_ptr<class ShadowRenderSystem> shadowMapRenderSystem;
-		std::unique_ptr<class PBRRendererSystem> pbrRenderSystem;
+		std::unique_ptr<class PBRPass> pbrPass;
 		std::unique_ptr<class PBRResourceGenerator> pbrSourceGenerator;
 		std::unique_ptr<class PointLightSystem> pointLightSystem;
 		std::unique_ptr<class SkyBoxRenderSystem> skyboxRenderSystem;

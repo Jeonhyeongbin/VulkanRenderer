@@ -52,9 +52,12 @@ set(MAIN_SOURCES
     ${PROJECT1_DIR}/JHBApplication.cpp
     ${PROJECT1_DIR}/Model.cpp
     ${PROJECT1_DIR}/MousePickingRenderSystem.cpp
-    ${PROJECT1_DIR}/PBRRenderSystem.cpp
+    ${PROJECT1_DIR}/PBRPass.cpp
     ${PROJECT1_DIR}/PBRResourceGenerator.cpp
     ${PROJECT1_DIR}/Pipeline.cpp
+    ${PROJECT1_DIR}/PipelineDesc.cpp
+    ${PROJECT1_DIR}/ShaderReflection.cpp
+    ${PROJECT1_DIR}/External/SPIRV-Reflect/spirv_reflect.c
     ${PROJECT1_DIR}/PointLightSystem.cpp
     ${PROJECT1_DIR}/Renderer.cpp
     ${PROJECT1_DIR}/Scene.cpp

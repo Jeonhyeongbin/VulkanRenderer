@@ -1,4 +1,5 @@
 #include "Device.h"
+#include "ShaderReflection.h"
 #include "RenderGraph/RenderGraph.h"
 
 namespace jhb
@@ -232,8 +233,13 @@ void Device::destroyPipeline(rg::Pipeline &p) noexcept
     p = {};
 }
 
-rg::Pipeline Device::createPipeline(const rg::PipelineDesc &d)
+rg::Pipeline Device::createPipeline(const rg::PipelineDesc &description)
 {
+    auto d = description;
+    if (d.reflectShaders)
+    {
+        rg::reflectPipelineInterface(d);
+    }
     rg::Pipeline p;
     p.desc = d;
     p.type = d.type;

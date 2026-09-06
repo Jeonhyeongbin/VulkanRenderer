@@ -43,9 +43,12 @@ set(MAIN_SOURCES
     Main.cpp
     Model.cpp
     MousePickingRenderSystem.cpp
-    PBRRenderSystem.cpp
+    PBRPass.cpp
     PBRResourceGenerator.cpp
     Pipeline.cpp
+    PipelineDesc.cpp
+    ShaderReflection.cpp
+    External/SPIRV-Reflect/spirv_reflect.c
     PointLightSystem.cpp
     Renderer.cpp
     Scene.cpp
