@@ -74,7 +74,7 @@ namespace jhb {
 			}, {VK_SUBPASS_EXTERNAL, 0,VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
 			0
 		} };
-		Renderer renderer{ window, device, subdependencies, true, VK_FORMAT_R16G16B16A16_SFLOAT, 2 };
+		Renderer renderer{ window, device };
 
 		std::array<std::unique_ptr<DescriptorPool>, 6> globalPools{};
 		std::vector<std::unique_ptr<Buffer>> uboBuffers{};

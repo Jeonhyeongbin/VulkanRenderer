@@ -3,37 +3,7 @@
 
 namespace jhb
 {
-void Device::beginRendering(VkCommandBuffer cb, const VkRenderingInfoKHR &info) const
-{
-    auto fn = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(
-        vkGetDeviceProcAddr(handle(), "vkCmdBeginRendering"));
-    if (!fn)
-    {
-        fn = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(
-            vkGetDeviceProcAddr(handle(), "vkCmdBeginRenderingKHR"));
-    }
-    if (!fn)
-    {
-        throw std::runtime_error("Dynamic rendering is not available");
-    }
-    fn(cb, &info);
-}
 
-void Device::endRendering(VkCommandBuffer cb) const
-{
-    auto fn = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(
-        vkGetDeviceProcAddr(handle(), "vkCmdEndRendering"));
-    if (!fn)
-    {
-        fn = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(
-            vkGetDeviceProcAddr(handle(), "vkCmdEndRenderingKHR"));
-    }
-    if (!fn)
-    {
-        throw std::runtime_error("Dynamic rendering is not available");
-    }
-    fn(cb);
-}
 
 void Device::beginDebugLabel(VkCommandBuffer, std::string_view) const
 {

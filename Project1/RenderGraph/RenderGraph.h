@@ -22,6 +22,11 @@
 #include <variant>
 #include <vector>
 
+namespace jhb
+{
+class Renderer;
+}
+
 namespace jhb::rg
 {
 
@@ -347,7 +352,8 @@ class RenderGraph
     PipelineId createPipeline(PipelineDesc pipelineDesc);
 
     void prepare();
-    void render(VkCommandBuffer commandBuffer, RenderContext &context, const Image &presentImage);
+    void render(Renderer &renderer, VkCommandBuffer commandBuffer, RenderContext &context,
+                const Image &presentImage);
 
     [[nodiscard]] const GraphResources &resources() const
     {
@@ -382,7 +388,7 @@ class RenderGraph
     void createUniformDescriptorSet(RenderPass &pass);
     void updateUniformBuffer(RenderPass &pass);
     void
-    prepareRenderPass(VkCommandBuffer commandBuffer, const RenderPass &pass,
+    prepareRenderPass(Renderer &renderer, VkCommandBuffer commandBuffer, const RenderPass &pass,
                       const std::vector<std::tuple<Image, ViewType, uint32_t, VkAttachmentLoadOp>>
                           &colorAttachments,
                       const std::optional<std::tuple<Image, ViewType, uint32_t, VkAttachmentLoadOp>>

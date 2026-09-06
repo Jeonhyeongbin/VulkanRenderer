@@ -69,9 +69,7 @@ class Device
     virtual void destroyBuffer(Buffer &buffer) noexcept = 0;
     virtual void destroyPipeline(Pipeline &pipeline) noexcept = 0;
 
-    virtual void beginRendering(VkCommandBuffer commandBuffer,
-                                const VkRenderingInfoKHR &renderingInfo) const = 0;
-    virtual void endRendering(VkCommandBuffer commandBuffer) const = 0;
+
     virtual void beginDebugLabel(VkCommandBuffer commandBuffer, std::string_view name) const = 0;
     virtual void endDebugLabel(VkCommandBuffer commandBuffer) const = 0;
 
@@ -114,8 +112,8 @@ namespace jhb {
           void destroyTexture(rg::Texture &) noexcept override;
           void destroyBuffer(rg::Buffer &) noexcept override;
           void destroyPipeline(rg::Pipeline &) noexcept override;
-          void beginRendering(VkCommandBuffer, const VkRenderingInfoKHR &) const override;
-          void endRendering(VkCommandBuffer) const override;
+
+
           void beginDebugLabel(VkCommandBuffer, std::string_view) const override;
           void endDebugLabel(VkCommandBuffer) const override;
           VkDescriptorPoolCreateFlags descriptorPoolFlags() const noexcept override;

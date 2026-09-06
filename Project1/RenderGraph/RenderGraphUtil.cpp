@@ -1,4 +1,5 @@
 #include "RenderGraph.h"
+#include "../Renderer.h"
 #include <stdexcept>
 #include <algorithm>
 
@@ -222,7 +223,7 @@ void RenderGraph::bindDescriptorSet(VkCommandBuffer cb, const Pipeline &p, uint3
 }
 
 void RenderGraph::prepareRenderPass(
-    VkCommandBuffer cb, const RenderPass &p,
+    Renderer &renderer, VkCommandBuffer cb, const RenderPass &p,
     const std::vector<std::tuple<Image, ViewType, uint32_t, VkAttachmentLoadOp>> &colors,
     const std::optional<std::tuple<Image, ViewType, uint32_t, VkAttachmentLoadOp>> &depth,
     VkExtent2D extent)
@@ -261,7 +262,7 @@ void RenderGraph::prepareRenderPass(
         info.colorAttachmentCount = static_cast<uint32_t>(colorInfos.size());
         info.pColorAttachments = colorInfos.data();
         info.pDepthAttachment = depth ? &depthInfo : nullptr;
-        device_.beginRendering(cb, info);
+        renderer.beginRendering(cb, info);
         VkViewport viewport{0, float(extent.height), float(extent.width), -float(extent.height), 0,
                             1};
         VkRect2D scissor{{0, 0}, extent};

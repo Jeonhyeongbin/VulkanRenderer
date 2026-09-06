@@ -8,79 +8,134 @@
 #include "Window.h"
 #include "Device.h"
 #include "SwapChain.h"
-#include "Model.h"
 
 #include <stdint.h>
 #include <cassert>
 
-namespace jhb {
-	class Renderer { //manage swap chain and render pass
-	public:
-		Renderer(Window& window, Device& device, const std::vector<VkSubpassDependency>& dependencies, bool shouldSwapchainCreate, VkFormat format, int attachmentCount);
-		Renderer(Window& window, Device& device, const std::vector<VkSubpassDependency>& dependencies, 
-			VkExtent2D extent, bool shouldSwapchainCreate, VkFormat format, int attachmentCount);
-		~Renderer();
+namespace jhb
+{
+class Renderer
+{ // manage swap chain and render pass
+  public:
+    Renderer(Window &window, Device &device);
+    ~Renderer();
 
-		Renderer(const Renderer&) = delete;
-		Renderer(Renderer&&) = delete;
-		Renderer& operator=(const Renderer&) = delete;
+    Renderer(const Renderer &) = delete;
+    Renderer(Renderer &&) = delete;
+    Renderer &operator=(const Renderer &) = delete;
 
-		// application need to access render pass
-		// and pipe line also
-		SwapChain& GetSwapChain() { return *swapChain; }
-		VkRenderPass getSwapChainRenderPass() const { return swapChain->getRenderPass(); }
-		VkImageView getSwapChainImageView(int index) { return swapChain->getSwapChianImageView(index); }
-		const std::vector<VkImageView>& getSwapChainImageViews() const { return swapChain->getSwapChianImageViews(); }
-		float getAspectRatio() const { return swapChain->extentAspectRatio(); }
-		void setWindowExtent(VkExtent2D _extent) { extent = _extent; }
+    SwapChain &GetSwapChain()
+    {
+        return *swapChain;
+    }
 
-		void excuteComputeDispatch(const VkCommandBuffer* buffers);
+    VkImageView getSwapChainImageView(int index)
+    {
+        return swapChain->getSwapChianImageView(index);
+    }
 
-		VkCommandBuffer beginFrame();
-		void endFrame();
-		bool beginSwapChainRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, int attachmentCount = 2);
-		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer);
-		void beginSwapChainRenderPassWithMouseCoordinate(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, VkExtent2D extent, float x, float y);
-		void endSwapChainRenderPass(VkCommandBuffer commandBuffer);
+    const std::vector<VkImageView> &getSwapChainImageViews() const
+    {
+        return swapChain->getSwapChianImageViews();
+    }
 
-		bool isFrameInProgress() const { return isFrameStarted; }
-		VkCommandBuffer getCurrentCommandBuffer() const 
-		{
-			assert(isFrameStarted && "Cannot get command buffer when frame not in progress");
-			return commandBuffers[currentFrameIndex]; 
-		}
+    float getAspectRatio() const
+    {
+        return swapChain->extentAspectRatio();
+    }
 
-		int getFrameIndex() const
-		{
-			assert(isFrameStarted && "Cannot get frame index when frame not in progress!");
-			return currentFrameIndex;
-		}
+    void setWindowExtent(VkExtent2D _extent)
+    {
+        extent = _extent;
+    }
 
-		// 실제로 획득한 스왑체인 이미지 인덱스를 반환한다.
-		// Android에서는 스왑체인 이미지가 3개일 수 있으므로
-		// 스왑체인 기반 프레임버퍼 선택에는 getFrameIndex() 대신 이 함수를 사용해야 한다.
-		int getImageIndex() const
-		{
-			assert(isFrameStarted && "Cannot get image index when frame not in progress!");
-			return (int)currentImageIndex;
-		}
+    void excuteComputeDispatch(const VkCommandBuffer *buffers);
 
-	private:
-		void createCommandBuffers();
-		void freeCommandBuffers();
-		void recreateSwapChain(const std::vector<VkSubpassDependency>& dependencies, VkExtent2D extent, bool shouldSwapchainCreate, VkFormat format, int attachmentCount);
+    VkCommandBuffer beginFrame();
+    void endFrame();
 
-		// init top to bottom
-		Window& window;
-		Device& device;
-		VkExtent2D extent;
+    // Dynamic rendering only; frame acquisition/submission stays in beginFrame/endFrame.
+    bool isRendering() const
+    {
+        return isRendering_;
+    }
 
-		std::unique_ptr<SwapChain> swapChain;
-		std::vector<VkCommandBuffer> commandBuffers;
-		std::vector<VkSubpassDependency> dependencies;
+    void beginRendering(VkCommandBuffer commandBuffer, const VkRenderingInfoKHR &info)
+    {
+        if (!isFrameStarted || commandBuffer != getCurrentCommandBuffer() || isRendering_)
+        {
+            throw std::logic_error(
+                "Cannot begin rendering outside the current frame or inside a pass");
+        }
+        // Device initialization already requires Vulkan 1.3 dynamicRendering.
+        vkCmdBeginRendering(commandBuffer, &info);
+        isRendering_ = true;
+    }
 
-		uint32_t currentImageIndex{0};
-		int currentFrameIndex{0};
-		bool isFrameStarted{false};
-	};
-}
+    void endRendering(VkCommandBuffer commandBuffer)
+    {
+        if (!isFrameStarted || commandBuffer != getCurrentCommandBuffer() || !isRendering_)
+        {
+            throw std::logic_error("No matching dynamic rendering pass");
+        }
+        vkCmdEndRendering(commandBuffer);
+        isRendering_ = false;
+    }
+
+    // Changes after every successful swapchain recreation, including endFrame.
+    uint64_t getSwapChainGeneration() const
+    {
+        return swapChainGeneration_;
+    }
+
+    VkExtent2D getSwapChainExtent() const
+    {
+        return swapChain->getSwapChainExtent();
+    }
+
+    bool isFrameInProgress() const
+    {
+        return isFrameStarted;
+    }
+
+    VkCommandBuffer getCurrentCommandBuffer() const
+    {
+        assert(isFrameStarted && "Cannot get command buffer when frame not in progress");
+        return commandBuffers[currentFrameIndex];
+    }
+
+    int getFrameIndex() const
+    {
+        assert(isFrameStarted && "Cannot get frame index when frame not in progress!");
+        return currentFrameIndex;
+    }
+
+    // 실제로 획득한 스왑체인 이미지 인덱스를 반환한다.
+    // Android에서는 스왑체인 이미지가 3개일 수 있으므로
+    // 스왑체인 기반 프레임버퍼 선택에는 getFrameIndex() 대신 이 함수를 사용해야 한다.
+    int getImageIndex() const
+    {
+        assert(isFrameStarted && "Cannot get image index when frame not in progress!");
+        return (int)currentImageIndex;
+    }
+
+  private:
+    void createCommandBuffers();
+    void freeCommandBuffers();
+    void recreateSwapChain();
+
+    // init top to bottom
+    Window &window;
+    Device &device;
+    VkExtent2D extent;
+
+    std::unique_ptr<SwapChain> swapChain;
+    std::vector<VkCommandBuffer> commandBuffers;
+
+    uint32_t currentImageIndex{0};
+    int currentFrameIndex{0};
+    bool isFrameStarted{false};
+    bool isRendering_{false};
+    uint64_t swapChainGeneration_{0};
+};
+} // namespace jhb

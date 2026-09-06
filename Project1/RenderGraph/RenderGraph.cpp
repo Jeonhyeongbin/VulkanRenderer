@@ -1,4 +1,5 @@
 #include "RenderGraph.h"
+#include "../Renderer.h"
 
 #include <algorithm>
 #include <cassert>
@@ -371,9 +372,15 @@ void RenderGraph::prepare()
     }
 }
 
-void RenderGraph::render(VkCommandBuffer commandBuffer, RenderContext &context,
+void RenderGraph::render(Renderer &renderer, VkCommandBuffer commandBuffer, RenderContext &context,
                          const Image &presentImage)
 {
+    if (!renderer.isFrameInProgress() || commandBuffer != renderer.getCurrentCommandBuffer() ||
+        renderer.isRendering())
+    {
+        throw std::logic_error("Graph execution requires a recording frame outside rendering");
+    }
+
     for (const auto &pass : passes_[currentFrame_])
     {
         device_.beginDebugLabel(commandBuffer, pass.name);
@@ -474,7 +481,7 @@ void RenderGraph::render(VkCommandBuffer commandBuffer, RenderContext &context,
             extent = presentImage.extent2D();
         }
 
-        prepareRenderPass(commandBuffer, pass, colorAttachments, depthAttachment, extent);
+        prepareRenderPass(renderer, commandBuffer, pass, colorAttachments, depthAttachment, extent);
 
         if (context.bindlessDescriptorSet != VK_NULL_HANDLE)
         {
@@ -509,7 +516,7 @@ void RenderGraph::render(VkCommandBuffer commandBuffer, RenderContext &context,
         }
         if (pipeline.type == PipelineType::Graphics)
         {
-            device_.endRendering(commandBuffer);
+            renderer.endRendering(commandBuffer);
         }
 
         if (pass.copyCommand)
