@@ -174,6 +174,7 @@ class PipelineDescBuilder
         return *this;
     }
 
+    PipelineDescBuilder &defaultVertexInput();
     PipelineDescBuilder &defaultMeshVertexInput();
 
     operator PipelineDesc() const
@@ -344,6 +345,7 @@ class PassBuilder
     PassBuilder &copyImage(TextureId source, TextureId destination, VkImageCopy region);
     PassBuilder &presentationPass(bool enabled = true);
     PassBuilder &depthAttachment(TextureId texture);
+    PassBuilder &loadDepthAttachment(TextureId texture);
     PassBuilder &depthAttachmentLayer(TextureId texture, uint32_t layer);
     PassBuilder &externalDepthAttachment(Image image, VkAttachmentLoadOp loadOp);
 

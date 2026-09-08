@@ -53,7 +53,7 @@ set(MAIN_SOURCES
     Renderer.cpp
     Scene.cpp
     ShadowRenderSystem.cpp
-    SkyBoxRenderSystem.cpp
+    SkyboxPass.cpp
     SwapChain.cpp
     Window.cpp
 )

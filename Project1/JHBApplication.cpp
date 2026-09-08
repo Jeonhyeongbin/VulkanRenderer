@@ -1,6 +1,6 @@
 #include "JHBApplication.h"
 #include "PBRPass.h"
-#include "SkyBoxRenderSystem.h"
+#include "SkyboxPass.h"
 #ifndef ANDROID
 #include "ImguiRenderSystem.h"
 #endif
@@ -310,8 +310,7 @@ namespace jhb {
 		pointLightSystem = std::make_unique<PointLightSystem>(device, renderer.getSwapChainRenderPass(), std::vector { descSetLayouts[0]->getDescriptorSetLayout()}, "shaders/point_light.vert.spv",
 			"shaders/point_light.frag.spv");
 
-		skyboxRenderSystem = std::make_unique<SkyBoxRenderSystem>(device, *GlobalScene, renderer.getSwapChainRenderPass(), std::vector { descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout() }, "shaders/skybox.vert.spv",
-			"shaders/skybox.frag.spv");
+		skyboxPass = std::make_unique<SkyboxPass>();
 
 		shadowMapRenderSystem = std::make_unique<ShadowRenderSystem>(device, "shaders/shadowOffscreen.vert.spv", "shaders/shadowOffscreen.frag.spv");
 		shadowMapRenderSystem->updateUniformBuffer(pointLightSystem->getLightobjects()[0].transform.translation); // put the light objects poistion

@@ -64,6 +64,7 @@ enum class AccessType
     TransferWrite,
     HostWrite,
     ColorAttachmentReadWrite,
+    DepthStencilAttachmentReadWrite,
     General,
 };
 

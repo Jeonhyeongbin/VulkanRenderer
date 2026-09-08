@@ -192,6 +192,12 @@ PassBuilder &PassBuilder::depthAttachment(TextureId texture)
     return *this;
 }
 
+PassBuilder &PassBuilder::loadDepthAttachment(TextureId texture)
+{
+    depthAttachment_ = Attachment{texture, ViewType::Full, 0, VK_ATTACHMENT_LOAD_OP_LOAD};
+    return *this;
+}
+
 PassBuilder &PassBuilder::depthAttachmentLayer(TextureId texture, uint32_t layer)
 {
     depthAttachment_ = Attachment{texture, ViewType::Layer, layer, VK_ATTACHMENT_LOAD_OP_CLEAR};
@@ -433,8 +439,10 @@ void RenderGraph::render(Renderer &renderer, VkCommandBuffer commandBuffer, Rend
         {
             auto &texture = resources_.texture(write.texture);
             const auto nextAccess = isDepthFormat(texture.texture.image.desc.format)
-                                        ? vk_sync::AccessType::DepthStencilAttachmentWrite
-                                        : vk_sync::AccessType::ColorAttachmentWrite;
+                                        ? vk_sync::AccessType::DepthStencilAttachmentReadWrite
+                                        : (write.loadOp == VK_ATTACHMENT_LOAD_OP_LOAD
+                                               ? vk_sync::AccessType::ColorAttachmentReadWrite
+                                               : vk_sync::AccessType::ColorAttachmentWrite);
             texture.previousAccess = vk_sync::imagePipelineBarrier(
                 commandBuffer, texture.texture.image.image, wholeImageRange(texture.texture.image),
                 texture.previousAccess, nextAccess, false);
