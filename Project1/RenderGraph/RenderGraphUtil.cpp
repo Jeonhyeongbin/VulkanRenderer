@@ -250,6 +250,10 @@ void RenderGraph::prepareRenderPass(
         for (const auto &c : colors)
         {
             colorInfos.push_back(attachment(c, false));
+            if (colorInfos.size() <= p.writes.size())
+            {
+                colorInfos.back().clearValue.color = p.writes[colorInfos.size() - 1].clearColor;
+            }
         }
         VkRenderingAttachmentInfoKHR depthInfo{};
         if (depth)

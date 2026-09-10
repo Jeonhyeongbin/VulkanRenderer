@@ -34,7 +34,6 @@ namespace jhb {
 		VkDescriptorSet globaldDescriptorSet;
 		VkDescriptorSet pbrImageSamplerDescriptorSet;
 		VkDescriptorSet skyBoxImageSamplerDecriptorSet;
-		VkDescriptorSet shadowMapDescriptorSet;
 	};
 }
 

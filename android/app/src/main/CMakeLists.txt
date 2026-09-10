@@ -61,8 +61,8 @@ set(MAIN_SOURCES
     ${PROJECT1_DIR}/PointLightSystem.cpp
     ${PROJECT1_DIR}/Renderer.cpp
     ${PROJECT1_DIR}/Scene.cpp
-    ${PROJECT1_DIR}/ShadowRenderSystem.cpp
-    ${PROJECT1_DIR}/SkyBoxRenderSystem.cpp
+    ${PROJECT1_DIR}/ShadowPass.cpp
+    ${PROJECT1_DIR}/SkyboxPass.cpp
     ${PROJECT1_DIR}/SwapChain.cpp
     ${PROJECT1_DIR}/Window.cpp
 )

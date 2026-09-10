@@ -52,7 +52,7 @@ set(MAIN_SOURCES
     PointLightSystem.cpp
     Renderer.cpp
     Scene.cpp
-    ShadowRenderSystem.cpp
+    ShadowPass.cpp
     SkyboxPass.cpp
     SwapChain.cpp
     Window.cpp

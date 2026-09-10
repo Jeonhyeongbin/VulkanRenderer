@@ -710,6 +710,58 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 	}
 }
 
+void jhb::Model::drawGraphGeometryOnly(VkCommandBuffer commandBuffer,
+                                      VkPipelineLayout pipelineLayout)
+{
+    if (!instanceBuffer)
+    {
+        throw std::invalid_argument("Graph shadow geometry requires an instance buffer");
+    }
+    bind(commandBuffer);
+    if (nodes.empty())
+    {
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                           0, sizeof(rootModelMatrix), &rootModelMatrix);
+        if (hasIndexBuffer)
+        {
+            vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, 0);
+        }
+        else
+        {
+            vkCmdDraw(commandBuffer, vertexCount, instanceCount, 0, 0);
+        }
+        return;
+    }
+
+    const auto drawNode = [&](const auto &self, const Node *node,
+                              const glm::mat4 &parentTransform) -> void
+    {
+        if (!node || !node->visible)
+        {
+            return;
+        }
+        const auto modelMatrix = parentTransform * node->matrix;
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                           0, sizeof(modelMatrix), &modelMatrix);
+        for (const auto &primitive : node->mesh.primitives)
+        {
+            if (primitive.indexCount != 0)
+            {
+                vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount,
+                                 primitive.firstIndex, 0, 0);
+            }
+        }
+        for (const auto *child : node->children)
+        {
+            self(self, child, modelMatrix);
+        }
+    };
+    for (const auto *node : nodes)
+    {
+        drawNode(drawNode, node, rootModelMatrix);
+    }
+}
+
 void jhb::Model::drawGraphGeometry(VkCommandBuffer commandBuffer,
                                     VkPipelineLayout pipelineLayout, int frameIndex)
 {

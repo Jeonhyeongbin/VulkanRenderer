@@ -108,7 +108,7 @@
     <ClCompile Include="MousePickingRenderSystem.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
-    <ClCompile Include="ShadowRenderSystem.cpp">
+    <ClCompile Include="ShadowPass.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
     <ClCompile Include="BloomRenderSystem.cpp">
@@ -215,7 +215,7 @@
     <ClInclude Include="MousePickingRenderSystem.h">
       <Filter>Systems</Filter>
     </ClInclude>
-    <ClInclude Include="ShadowRenderSystem.h">
+    <ClInclude Include="ShadowPass.h">
       <Filter>Systems</Filter>
     </ClInclude>
     <ClInclude Include="BloomRenderSystem.h">

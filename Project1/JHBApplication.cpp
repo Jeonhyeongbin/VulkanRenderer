@@ -14,7 +14,7 @@
 #endif
 #include "PBRResourceGenerator.h"
 #include "MousePickingRenderSystem.h"
-#include "ShadowRenderSystem.h"
+#include "ShadowPass.h"
 #include "ComputerShadeSystem.h"
 #include "GameObjectManager.h"
 #include "Scene.h"
@@ -149,7 +149,6 @@ namespace jhb {
 				globalDescriptorSets[frameIndex],
 				pbrResourceDescriptorSets[frameIndex],
 				CubeBoxDescriptorSets[frameIndex],
-				shadowMapDescriptorSet,
 			};
 
 			// update part : resources
@@ -194,9 +193,8 @@ namespace jhb {
 			// this is why beginFram and beginswapchian renderpass are not combined;
 			// because main application control over this multiple render pass like reflections, shadows, post-processing effects
 
-			shadowMapRenderSystem->updateShadowMap(commandBuffer, GameObjectManager::GetSingleton().gameObjects, frameIndex);
 
-			// TODO(migration): compose GBufferPass -> DeferredLightingPass -> PresentPass here.
+			// TODO(migration): compose ShadowPass -> PBRPass -> SkyboxPass -> PresentPass here.
 			// Scene/material preparation must be migrated before this path can render.
 		
 #ifndef ANDROID
@@ -231,7 +229,6 @@ namespace jhb {
 		// for picking object index storage
 		globalPools[4] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
 
-		globalPools[5] = DescriptorPool::Builder(device).setMaxSets(1).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1).build();
 
 		for (int i = 0; i < uboBuffers.size(); i++)
 		{
@@ -297,10 +294,6 @@ namespace jhb {
 			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS).
 			build());
 
-		// for using shadow map
-		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS).
-			build());
 
 		mousePickingRenderSystem = std::make_unique<MousePickingRenderSystem>(device, std::vector{ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout() }, "shaders/picking.vert.spv", "shaders/picking.frag.spv");
 #ifndef ANDROID
@@ -312,8 +305,7 @@ namespace jhb {
 
 		skyboxPass = std::make_unique<SkyboxPass>();
 
-		shadowMapRenderSystem = std::make_unique<ShadowRenderSystem>(device, "shaders/shadowOffscreen.vert.spv", "shaders/shadowOffscreen.frag.spv");
-		shadowMapRenderSystem->updateUniformBuffer(pointLightSystem->getLightobjects()[0].transform.translation); // put the light objects poistion
+		shadowPass = std::make_unique<ShadowPass>();
 
 		// for uniform buffer
 		for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
@@ -379,13 +371,7 @@ namespace jhb {
 			}
 		}
 
-		VkDescriptorImageInfo shadowMapImageInfo{};
-		shadowMapImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		shadowMapImageInfo.imageView = shadowMapRenderSystem->GetShadowMap().view;
-		shadowMapImageInfo.sampler = shadowMapRenderSystem->GetShadowMap().sampler;
-
-		DescriptorWriter(*descSetLayouts[5], *globalPools[5]).writeImage(0, &shadowMapImageInfo)
-			.build(shadowMapDescriptorSet);
+		// Shadow cube descriptors are supplied by graph reads in PBR/lighting.
 	}
 
 	bool JHBApplication::pickingPhase(VkCommandBuffer commandBuffer, GlobalUbo& ubo, int frameIndex, int x, int y)

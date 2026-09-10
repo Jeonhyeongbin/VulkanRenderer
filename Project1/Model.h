@@ -165,6 +165,8 @@ namespace jhb {
 		void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
 		void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
         // Graph pipeline is already bound. Material descriptors use set 3.
+        // Geometry-only graph draw: model push constant at offset 0, no material/pipeline binding.
+        void drawGraphGeometryOnly(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
         void drawGraphGeometry(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
                                int frameIndex);
 		void buildIndriectNode(Node* node, std::vector<VkDrawIndexedIndirectCommand>& indirectCommandsBuffer);

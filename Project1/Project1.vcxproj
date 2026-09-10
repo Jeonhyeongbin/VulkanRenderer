@@ -184,7 +184,7 @@
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="Scene.cpp" />
-    <ClCompile Include="ShadowRenderSystem.cpp" />
+    <ClCompile Include="ShadowPass.cpp" />
     <ClCompile Include="SkyboxPass.cpp" />
     <ClCompile Include="SwapChain.cpp" />
     <ClCompile Include="Window.cpp" />
@@ -222,7 +222,7 @@
     <ClInclude Include="PointLightSystem.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Scene.h" />
-    <ClInclude Include="ShadowRenderSystem.h" />
+    <ClInclude Include="ShadowPass.h" />
     <ClInclude Include="SkyboxPass.h" />
     <ClInclude Include="SwapChain.h" />
     <ClInclude Include="Utils.hpp" />

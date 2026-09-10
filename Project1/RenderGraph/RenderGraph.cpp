@@ -142,9 +142,9 @@ PassBuilder &PassBuilder::write(TextureId id)
     return *this;
 }
 
-PassBuilder &PassBuilder::writeLayer(TextureId id, uint32_t layer)
+PassBuilder &PassBuilder::writeLayer(TextureId id, uint32_t layer, VkClearColorValue clearColor)
 {
-    writes_.push_back({id, ViewType::Layer, layer, VK_ATTACHMENT_LOAD_OP_CLEAR});
+    writes_.push_back({id, ViewType::Layer, layer, VK_ATTACHMENT_LOAD_OP_CLEAR, clearColor});
     return *this;
 }
 

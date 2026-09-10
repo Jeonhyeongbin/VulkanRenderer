@@ -247,6 +247,7 @@ struct Attachment
     ViewType view{ViewType::Full};
     uint32_t layer{0};
     VkAttachmentLoadOp loadOp{VK_ATTACHMENT_LOAD_OP_CLEAR};
+    VkClearColorValue clearColor{};
 };
 
 struct ExternalDepthAttachment
@@ -336,7 +337,8 @@ class PassBuilder
     PassBuilder &writeBuffer(BufferId resourceId);
     PassBuilder &readBuffer(BufferId resourceId);
     PassBuilder &write(TextureId resourceId);
-    PassBuilder &writeLayer(TextureId resourceId, uint32_t layer);
+    PassBuilder &writeLayer(TextureId resourceId, uint32_t layer,
+                            VkClearColorValue clearColor = {});
     PassBuilder &loadWrite(TextureId resourceId);
     PassBuilder &
     extraBarriers(const std::vector<std::pair<BufferId, vk_sync::AccessType>> &barriers);
