@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <glm/glm.hpp>
 
 namespace jhb
 {
@@ -11,10 +12,28 @@ class Device;
 class Model;
 struct Vertex;
 
-// Owns loaded model references. Pipeline/descriptor setup stays with rendering.
+// Owns loaded model references and light data. Pipeline/descriptor setup stays with rendering.
 class Scene
 {
   public:
+    struct PointLightData
+    {
+        glm::vec3 position{0.0f};
+        glm::vec3 color{1.0f};
+        float intensity{1.0f};
+        float radius{0.1f};
+    };
+
+    std::vector<PointLightData> &pointLights()
+    {
+        return pointLights_;
+    }
+
+    const std::vector<PointLightData> &pointLights() const
+    {
+        return pointLights_;
+    }
+
     explicit Scene(Device &device);
     ~Scene();
 
@@ -34,5 +53,6 @@ class Scene
     Device &device_;
     std::vector<std::shared_ptr<Model>> models_;
     std::shared_ptr<Model> environmentCube_;
+    std::vector<PointLightData> pointLights_;
 };
 } // namespace jhb

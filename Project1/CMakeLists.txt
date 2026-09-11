@@ -49,7 +49,7 @@ set(MAIN_SOURCES
     PipelineDesc.cpp
     ShaderReflection.cpp
     External/SPIRV-Reflect/spirv_reflect.c
-    PointLightSystem.cpp
+    PointLightPass.cpp
     Renderer.cpp
     Scene.cpp
     ShadowPass.cpp

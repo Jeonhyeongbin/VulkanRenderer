@@ -63,7 +63,7 @@
     <ClCompile Include="Descriptors.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PointLightSystem.cpp">
+    <ClCompile Include="PointLightPass.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
     <ClCompile Include="SkyboxPass.cpp">
@@ -164,7 +164,7 @@
     <ClInclude Include="Descriptors.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="PointLightSystem.h">
+    <ClInclude Include="PointLightPass.h">
       <Filter>Systems</Filter>
     </ClInclude>
     <ClInclude Include="SkyboxPass.h">

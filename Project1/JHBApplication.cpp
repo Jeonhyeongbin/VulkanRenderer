@@ -7,7 +7,7 @@
 #include "InputController.h"
 #include "FrameInfo.h"
 #include "Descriptors.h"
-#include "PointLightSystem.h"
+#include "PointLightPass.h"
 #include "Model.h"
 #ifndef ANDROID
 #include "External/Imgui/imgui.h"
@@ -166,7 +166,18 @@ namespace jhb {
 			//computeShaderSystem->UpdateUniform(frameIndex, ubo.view, ubo.projection);
 			
 
-			pointLightSystem->update(frameInfo, ubo);
+			// Scene owns lights; the pass only draws their markers.
+            ubo.numLights = 0;
+            for (const auto& light : GlobalScene->pointLights())
+            {
+                if (ubo.numLights == MaxLights)
+                {
+                    break;
+                }
+                auto& target = ubo.pointLights[ubo.numLights++];
+                target.position = glm::vec4(light.position, 1.0f);
+                target.color = glm::vec4(light.color, light.intensity);
+            }
 			uboBuffers[frameIndex]->writeToBuffer(&ubo); // wrtie to using frame buffer index
 			uboBuffers[frameIndex]->flush(); //not using coherent_bit flag, so must to flush memory manually
 			// and now we need tell to pipeline object where this buffer is and how data within it's structure
@@ -194,7 +205,7 @@ namespace jhb {
 			// because main application control over this multiple render pass like reflections, shadows, post-processing effects
 
 
-			// TODO(migration): compose ShadowPass -> PBRPass -> SkyboxPass -> PresentPass here.
+			// TODO(migration): compose ShadowPass -> PBRPass -> SkyboxPass -> PointLightPass -> PresentPass here.
 			// Scene/material preparation must be migrated before this path can render.
 		
 #ifndef ANDROID
@@ -300,8 +311,8 @@ namespace jhb {
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
 #endif
 
-		pointLightSystem = std::make_unique<PointLightSystem>(device, renderer.getSwapChainRenderPass(), std::vector { descSetLayouts[0]->getDescriptorSetLayout()}, "shaders/point_light.vert.spv",
-			"shaders/point_light.frag.spv");
+		pointLightPass = std::make_unique<PointLightPass>();
+        GlobalScene->pointLights().push_back({{0.0f, -10.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, 5.0f, 0.1f});
 
 		skyboxPass = std::make_unique<SkyboxPass>();
 

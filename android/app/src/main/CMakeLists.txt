@@ -58,7 +58,7 @@ set(MAIN_SOURCES
     ${PROJECT1_DIR}/PipelineDesc.cpp
     ${PROJECT1_DIR}/ShaderReflection.cpp
     ${PROJECT1_DIR}/External/SPIRV-Reflect/spirv_reflect.c
-    ${PROJECT1_DIR}/PointLightSystem.cpp
+    ${PROJECT1_DIR}/PointLightPass.cpp
     ${PROJECT1_DIR}/Renderer.cpp
     ${PROJECT1_DIR}/Scene.cpp
     ${PROJECT1_DIR}/ShadowPass.cpp

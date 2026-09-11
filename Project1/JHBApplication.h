@@ -101,7 +101,7 @@ namespace jhb {
 		std::unique_ptr<class ShadowPass> shadowPass;
 		std::unique_ptr<class PBRPass> pbrPass;
 		std::unique_ptr<class PBRResourceGenerator> pbrSourceGenerator;
-		std::unique_ptr<class PointLightSystem> pointLightSystem;
+		std::unique_ptr<class PointLightPass> pointLightPass;
 		std::unique_ptr<class SkyboxPass> skyboxPass;
 
 
