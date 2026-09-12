@@ -91,7 +91,9 @@ namespace jhb {
 
 		std::unique_ptr<class ComputerShadeSystem> computeShaderSystem;
 #ifndef ANDROID
-		std::unique_ptr<class ImguiRenderSystem> imguiRenderSystem;
+		std::unique_ptr<class ImGuiPass> imguiPass;
+        std::unique_ptr<class ImGuiContext> imguiContext;
+        float uiRoughness{0.1f}, uiMetallic{0.1f};
 #endif
 		std::unique_ptr<class PickingPass> pickingPass;
 		std::unique_ptr<class ShadowPass> shadowPass;

@@ -125,7 +125,7 @@ namespace jhb {
           Device(Device &&) = delete;
           Device &operator=(Device &&) = delete;
 
-          void initImgui();
+          VkInstance getInstance() const { return instance; }
           Window &getWindow() const
           {
               return window; }
@@ -189,7 +189,6 @@ namespace jhb {
 
 	public:
 		VkPhysicalDeviceProperties properties;
-		VkRenderPass imguiRenderPass;
 
 	private:
 		Window& window;

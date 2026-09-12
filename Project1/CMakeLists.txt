@@ -37,7 +37,7 @@ set(MAIN_SOURCES
     FrameInfo.cpp
     GameObject.cpp
     GameObjectManager.cpp
-    ImguiRenderSystem.cpp
+    ImGuiContext.cpp
     InputController.cpp
     JHBApplication.cpp
     Main.cpp

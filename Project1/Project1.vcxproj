@@ -167,7 +167,7 @@
     <ClCompile Include="FrameInfo.cpp" />
     <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="GameObjectManager.cpp" />
-    <ClCompile Include="ImguiRenderSystem.cpp" />
+    <ClCompile Include="ImGuiContext.cpp" />
     <ClCompile Include="InputController.cpp" />
     <ClCompile Include="JHBApplication.cpp" />
     <ClCompile Include="Main.cpp" />
@@ -212,7 +212,8 @@
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="GameObjectManager.h" />
     <ClInclude Include="imconfig.h" />
-    <ClInclude Include="ImguiRenderSystem.h" />
+    <ClInclude Include="ImGuiPass.h" />
+    <ClInclude Include="ImGuiContext.h" />
     <ClInclude Include="InputController.h" />
     <ClInclude Include="JHBApplication.h" />
     <ClInclude Include="Model.h" />

@@ -2,7 +2,8 @@
 #include "PBRPass.h"
 #include "SkyboxPass.h"
 #ifndef ANDROID
-#include "ImguiRenderSystem.h"
+#include "ImGuiPass.h"
+#include "ImGuiContext.h"
 #endif
 #include "InputController.h"
 #include "FrameInfo.h"
@@ -50,9 +51,7 @@ namespace jhb {
 	JHBApplication::~JHBApplication()
 	{
 #ifndef ANDROID
-		ImGui_ImplVulkan_Shutdown();
-		ImGui_ImplGlfw_Shutdown();
-		ImGui::DestroyContext();
+		imguiContext.reset();
 #endif
 	}
 
@@ -125,9 +124,6 @@ namespace jhb {
 			if (commandBuffer == nullptr) // begine frame return null pointer if swap chain need recreated
 			{
 				renderer.setWindowExtent(window.getExtent());
-#ifndef ANDROID
-				imguiRenderSystem->recreateFrameBuffer(device, renderer.GetSwapChain(), window.getExtent());
-#endif
 				window.resetWindowResizedFlag();
 				continue;
 			}
@@ -206,11 +202,20 @@ namespace jhb {
 			// Scene/material preparation must be migrated before this path can render.
 		
 #ifndef ANDROID
-			renderer.beginSwapChainRenderPass(commandBuffer, device.imguiRenderPass, imguiRenderSystem->framebuffers[frameIndex], window.getExtent());
-			imguiRenderSystem->newFrame();
-			ImDrawData* draw_data = ImGui::GetDrawData();
-			ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
-			renderer.endSwapChainRenderPass(commandBuffer);
+			imguiContext->configureTarget(renderer.GetSwapChain().getSwapChainImageFormat(),
+                static_cast<uint32_t>(renderer.GetSwapChain().getImageCount()));
+            imguiContext->beginFrame();
+            ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f), ImGuiCond_Appearing);
+            ImGui::SetNextWindowSize(ImVec2(300.0f, 300.0f), ImGuiCond_FirstUseEver);
+            ImGui::Begin("settings", nullptr, ImGuiWindowFlags_MenuBar);
+            ImGui::SliderFloat("roughness", &uiRoughness, 0.1f, 1.0f);
+            ImGui::SliderFloat("metalic", &uiMetallic, 0.1f, 1.0f);
+            ImGui::End();
+            imguiContext->endFrame();
+            // TODO(migration): composite onto an initialized, format-matched LDR graph target:
+            // imguiPass->addPass(graph, uiColor, imguiContext->drawFunction());
+            // PresentPass reads uiColor afterwards; render the graph before endFrame().
+
 #endif
 			renderer.endFrame();
 		}
@@ -286,7 +291,10 @@ namespace jhb {
 
 		pickingPass = std::make_unique<PickingPass>();
 #ifndef ANDROID
-		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
+		imguiPass = std::make_unique<ImGuiPass>();
+        imguiContext = std::make_unique<ImGuiContext>(device,
+            renderer.GetSwapChain().getSwapChainImageFormat(),
+            static_cast<uint32_t>(renderer.GetSwapChain().getImageCount()));
 #endif
 
 		pointLightPass = std::make_unique<PointLightPass>();

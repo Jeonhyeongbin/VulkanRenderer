@@ -72,7 +72,7 @@
     <ClCompile Include="BaseRenderSystem.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
-    <ClCompile Include="ImguiRenderSystem.cpp">
+    <ClCompile Include="ImGuiContext.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
     <ClCompile Include="External\Imgui\imgui.cpp">
@@ -179,7 +179,10 @@
     <ClInclude Include="BaseRenderSystem.h">
       <Filter>Systems</Filter>
     </ClInclude>
-    <ClInclude Include="ImguiRenderSystem.h">
+    <ClInclude Include="ImGuiPass.h">
+      <Filter>Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="ImGuiContext.h">
       <Filter>Systems</Filter>
     </ClInclude>
     <ClInclude Include="imconfig.h">

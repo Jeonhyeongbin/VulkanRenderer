@@ -47,7 +47,7 @@ set(MAIN_SOURCES
     ${PROJECT1_DIR}/FrameInfo.cpp
     ${PROJECT1_DIR}/GameObject.cpp
     ${PROJECT1_DIR}/GameObjectManager.cpp
-    ${PROJECT1_DIR}/ImguiRenderSystem.cpp
+    ${PROJECT1_DIR}/ImGuiContext.cpp
     ${PROJECT1_DIR}/InputController.cpp
     ${PROJECT1_DIR}/JHBApplication.cpp
     ${PROJECT1_DIR}/Model.cpp
