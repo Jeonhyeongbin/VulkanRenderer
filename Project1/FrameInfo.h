@@ -32,7 +32,6 @@ namespace jhb {
 		VkCommandBuffer commandBuffer;
 		Camera& camera;
 		VkDescriptorSet globaldDescriptorSet;
-		VkDescriptorSet pbrImageSamplerDescriptorSet;
 		VkDescriptorSet skyBoxImageSamplerDecriptorSet;
 	};
 }

@@ -102,7 +102,13 @@
     <ClCompile Include="PBRPass.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
-    <ClCompile Include="PBRResourceGenerator.cpp">
+    <ClCompile Include="BRDFLutPass.cpp">
+      <Filter>Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="IrradiancePass.cpp">
+      <Filter>Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="PrefilterPass.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
     <ClCompile Include="PickingPass.cpp">
@@ -209,7 +215,16 @@
     <ClInclude Include="PBRPass.h">
       <Filter>Systems</Filter>
     </ClInclude>
-    <ClInclude Include="PBRResourceGenerator.h">
+    <ClInclude Include="BRDFLutPass.h">
+      <Filter>Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="IrradiancePass.h">
+      <Filter>Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="PrefilterPass.h">
+      <Filter>Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="IBLPassUtil.h">
       <Filter>Systems</Filter>
     </ClInclude>
     <ClInclude Include="PickingPass.h">

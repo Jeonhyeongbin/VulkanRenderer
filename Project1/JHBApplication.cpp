@@ -12,7 +12,9 @@
 #ifndef ANDROID
 #include "External/Imgui/imgui.h"
 #endif
-#include "PBRResourceGenerator.h"
+#include "BRDFLutPass.h"
+#include "IrradiancePass.h"
+#include "PrefilterPass.h"
 #include "PickingPass.h"
 #include "ShadowPass.h"
 #include "ComputerShadeSystem.h"
@@ -37,7 +39,6 @@ namespace jhb {
 		uboBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		CubeBoxDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		globalDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-		pbrResourceDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
 
 		//computeShaderSystem = std::make_unique<ComputerShadeSystem>(device);
@@ -144,7 +145,6 @@ namespace jhb {
 				commandBuffer,
 				*window.getCamera(),
 				globalDescriptorSets[frameIndex],
-				pbrResourceDescriptorSets[frameIndex],
 				CubeBoxDescriptorSets[frameIndex],
 			};
 
@@ -229,7 +229,6 @@ namespace jhb {
 		// ubo
 		globalPools[1] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT).build(); // skybox
 
-		globalPools[2] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 3).build();	// prefiter, brud, irradiane
 
 		// for gltf model color map and normal map and emissive, occlusion, metallicRoughness Textures
 		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT*35).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 10*25).build();
@@ -316,30 +315,11 @@ namespace jhb {
 			DescriptorWriter(*descSetLayouts[1], *globalPools[1]).writeImage(0, &skyBoximageInfo).build(CubeBoxDescriptorSets[i]);
 		}
 
-		// should create pbr resource images using pipeline once
-		pbrSourceGenerator = std::make_unique<PBRResourceGenerator>(device, *GlobalScene, std::vector { descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[1]->getDescriptorSetLayout() }, std::vector { globalDescriptorSets[0], CubeBoxDescriptorSets[0]});
-		pbrSourceGenerator->createPBRResource();
-
-		VkDescriptorImageInfo brdfImgInfo{};
-		brdfImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		brdfImgInfo.imageView = pbrSourceGenerator->lutBrdfView;
-		brdfImgInfo.sampler = pbrSourceGenerator->lutBrdfSampler;
-		VkDescriptorImageInfo irradianceImgInfo{};
-		irradianceImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		irradianceImgInfo.imageView = pbrSourceGenerator->IrradianceCubeImgView;
-		irradianceImgInfo.sampler = pbrSourceGenerator->IrradianceCubeSampler;
-		VkDescriptorImageInfo prefilterImgInfo{};
-		prefilterImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		prefilterImgInfo.imageView = pbrSourceGenerator->preFilterCubeImgView;
-		prefilterImgInfo.sampler = pbrSourceGenerator->preFilterCubeSampler;
-
-		std::vector<VkDescriptorImageInfo> descImageInfos = { brdfImgInfo, irradianceImgInfo, prefilterImgInfo };
-		// for image sampler descriptor pool
-		for (int i = 0; i < pbrResourceDescriptorSets.size(); i++)
-		{
-			DescriptorWriter(*descSetLayouts[2], *globalPools[2]).writeImage(0, &descImageInfos[0]).writeImage(1, &descImageInfos[1])
-				.writeImage(2, &descImageInfos[2]).build(pbrResourceDescriptorSets[i]);
-		}
+		brdfLutPass = std::make_unique<BRDFLutPass>();
+        irradiancePass = std::make_unique<IrradiancePass>();
+        prefilterPass = std::make_unique<PrefilterPass>();
+        // TODO(migration): create IBL resources and declare BRDF -> irradiance -> prefilter
+        // in an initialization graph. PBR/lighting consume their outputs through .read().
 
 		// for gltf color map and normal map and emissive, occlusion, metallicRoughness Textures
 		// this time, only need damaged helmet materials info

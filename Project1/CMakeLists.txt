@@ -44,7 +44,9 @@ set(MAIN_SOURCES
     Model.cpp
     PickingPass.cpp
     PBRPass.cpp
-    PBRResourceGenerator.cpp
+    BRDFLutPass.cpp
+    IrradiancePass.cpp
+    PrefilterPass.cpp
     Pipeline.cpp
     PipelineDesc.cpp
     ShaderReflection.cpp

@@ -53,7 +53,9 @@ set(MAIN_SOURCES
     ${PROJECT1_DIR}/Model.cpp
     ${PROJECT1_DIR}/PickingPass.cpp
     ${PROJECT1_DIR}/PBRPass.cpp
-    ${PROJECT1_DIR}/PBRResourceGenerator.cpp
+    ${PROJECT1_DIR}/BRDFLutPass.cpp
+    ${PROJECT1_DIR}/IrradiancePass.cpp
+    ${PROJECT1_DIR}/PrefilterPass.cpp
     ${PROJECT1_DIR}/Pipeline.cpp
     ${PROJECT1_DIR}/PipelineDesc.cpp
     ${PROJECT1_DIR}/ShaderReflection.cpp

@@ -174,7 +174,9 @@
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="PickingPass.cpp" />
     <ClCompile Include="PBRPass.cpp" />
-    <ClCompile Include="PBRResourceGenerator.cpp" />
+    <ClCompile Include="BRDFLutPass.cpp" />
+    <ClCompile Include="IrradiancePass.cpp" />
+    <ClCompile Include="PrefilterPass.cpp" />
     <ClCompile Include="Pipeline.cpp" />
     <ClCompile Include="PipelineDesc.cpp" />
     <ClCompile Include="ShaderReflection.cpp" />
@@ -216,7 +218,10 @@
     <ClInclude Include="Model.h" />
     <ClInclude Include="PickingPass.h" />
     <ClInclude Include="PBRPass.h" />
-    <ClInclude Include="PBRResourceGenerator.h" />
+    <ClInclude Include="BRDFLutPass.h" />
+    <ClInclude Include="IrradiancePass.h" />
+    <ClInclude Include="PrefilterPass.h" />
+    <ClInclude Include="IBLPassUtil.h" />
     <ClInclude Include="Pipeline.h" />
     <ClInclude Include="ShaderReflection.h" />
     <ClInclude Include="PointLightPass.h" />

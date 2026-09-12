@@ -84,7 +84,6 @@ namespace jhb {
 
 		std::vector<VkDescriptorSet> CubeBoxDescriptorSets{}; // skybox
 		std::vector<VkDescriptorSet> globalDescriptorSets{}; // global uniform buffer
-		std::vector<VkDescriptorSet> pbrResourceDescriptorSets{}; // pbr resource
 		VkImage fontImage;
 		VkImageView fontView;
 		VkSampler Sampler;
@@ -97,7 +96,9 @@ namespace jhb {
 		std::unique_ptr<class PickingPass> pickingPass;
 		std::unique_ptr<class ShadowPass> shadowPass;
 		std::unique_ptr<class PBRPass> pbrPass;
-		std::unique_ptr<class PBRResourceGenerator> pbrSourceGenerator;
+		std::unique_ptr<class BRDFLutPass> brdfLutPass;
+		std::unique_ptr<class IrradiancePass> irradiancePass;
+		std::unique_ptr<class PrefilterPass> prefilterPass;
 		std::unique_ptr<class PointLightPass> pointLightPass;
 		std::unique_ptr<class SkyboxPass> skyboxPass;
 

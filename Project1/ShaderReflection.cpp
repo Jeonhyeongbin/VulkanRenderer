@@ -127,7 +127,9 @@ void reflectPipelineInterface(PipelineDesc &desc)
         for (uint32_t i = 0; i < module.data.push_constant_block_count; ++i)
         {
             const auto &block = module.data.push_constant_blocks[i];
-            pushSize = (std::max)(pushSize, block.offset + block.size);
+            // SPIRV-Reflect's block.size already includes leading member offsets.
+            // Our single range starts at zero; adding block.offset would count it twice.
+            pushSize = (std::max)(pushSize, block.size);
             pushStages |= stage;
         }
     };
