@@ -13,7 +13,7 @@
 #include "External/Imgui/imgui.h"
 #endif
 #include "PBRResourceGenerator.h"
-#include "MousePickingRenderSystem.h"
+#include "PickingPass.h"
 #include "ShadowPass.h"
 #include "ComputerShadeSystem.h"
 #include "GameObjectManager.h"
@@ -38,7 +38,7 @@ namespace jhb {
 		CubeBoxDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		globalDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 		pbrResourceDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-		pickingObjUboDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
 
 		//computeShaderSystem = std::make_unique<ComputerShadeSystem>(device);
 		GlobalScene = std::make_unique<Scene>(device);
@@ -123,9 +123,6 @@ namespace jhb {
 			auto commandBuffer = renderer.beginFrame();
 			if (commandBuffer == nullptr) // begine frame return null pointer if swap chain need recreated
 			{
-				mousePickingRenderSystem->destroyOffscreenFrameBuffer();
-				mousePickingRenderSystem->createOffscreenFrameBuffers();
-
 				renderer.setWindowExtent(window.getExtent());
 #ifndef ANDROID
 				imguiRenderSystem->recreateFrameBuffer(device, renderer.GetSwapChain(), window.getExtent());
@@ -237,8 +234,6 @@ namespace jhb {
 		// for gltf model color map and normal map and emissive, occlusion, metallicRoughness Textures
 		globalPools[3] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT*35).addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT * 10*25).build();
 
-		// for picking object index storage
-		globalPools[4] = DescriptorPool::Builder(device).setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT).addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT).build();
 
 
 		for (int i = 0; i < uboBuffers.size(); i++)
@@ -250,17 +245,7 @@ namespace jhb {
 				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
 			);
-
-			uboPickingIndexBuffer[i] = std::make_unique<Buffer>(
-				device,
-				sizeof(PickingUbo),
-				1,
-				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-			);
-
 			uboBuffers[i]->map();
-			uboPickingIndexBuffer[i]->map();
 		}
 
 		// because of simultenous
@@ -300,13 +285,7 @@ namespace jhb {
 			.addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
 			.build());
 
-		// for mouse picking object index ubo buffers;
-		descSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS).
-			build());
-
-
-		mousePickingRenderSystem = std::make_unique<MousePickingRenderSystem>(device, std::vector{ descSetLayouts[0]->getDescriptorSetLayout(), descSetLayouts[4]->getDescriptorSetLayout() }, "shaders/picking.vert.spv", "shaders/picking.frag.spv");
+		pickingPass = std::make_unique<PickingPass>();
 #ifndef ANDROID
 		imguiRenderSystem = std::make_unique<ImguiRenderSystem>(device, renderer.GetSwapChain());
 #endif
@@ -322,9 +301,9 @@ namespace jhb {
 		for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
-			auto pickingBufferInfo = uboPickingIndexBuffer[i]->descriptorInfo();
+
 			DescriptorWriter(*descSetLayouts[0], *globalPools[0]).writeBuffer(0, &bufferInfo).build(globalDescriptorSets[i]);
-			DescriptorWriter(*descSetLayouts[4], *globalPools[4]).writeBuffer(0, &pickingBufferInfo).build(pickingObjUboDescriptorSets[i]);
+
 		}
 
 		VkDescriptorImageInfo skyBoximageInfo{};
@@ -387,34 +366,9 @@ namespace jhb {
 
 	bool JHBApplication::pickingPhase(VkCommandBuffer commandBuffer, GlobalUbo& ubo, int frameIndex, int x, int y)
 	{
-		void* data;
-		float tmp;
-		if (window.GetMousePressed() == true && window.objectId <0)
-		{
-			renderer.beginSwapChainRenderPass(commandBuffer, mousePickingRenderSystem->pickingRenderpass, mousePickingRenderSystem->offscreenFrameBuffer[frameIndex], window.getExtent());
-			mousePickingRenderSystem->renderMousePickedObjToOffscreen(commandBuffer,  {globalDescriptorSets[frameIndex], pickingObjUboDescriptorSets[frameIndex]}, frameIndex, uboPickingIndexBuffer[frameIndex].get());
-			renderer.endSwapChainRenderPass(commandBuffer);
-
-			// check object id from a pixel whicch located in mouse pointer coordinate
-			VkBuffer stagingBuffer;
-			VkDeviceMemory stagingBufferMemory;
-			VkDeviceSize imageSize = window.getExtent().width * window.getExtent().height * 16; // 4byte per pixel
-			device.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, stagingBuffer, stagingBufferMemory);
-
-			auto offscreenCmd = device.beginSingleTimeCommands();
-			device.transitionImageLayout(offscreenCmd, mousePickingRenderSystem->offscreenImage[frameIndex], VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-			device.endSingleTimeCommands(offscreenCmd);
-			device.copyImageToBuffer(stagingBuffer, mousePickingRenderSystem->offscreenImage[frameIndex], window.getExtent().width, window.getExtent().height);
-
-			vkMapMemory(device.getLogicalDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
-			int offset = (window.getExtent().width * ((int)y - 1) + (int)x) * 4;
-			window.objectId = *((uint32_t*)data + offset);
-			vkUnmapMemory(device.getLogicalDevice(), stagingBufferMemory);
-			if (window.objectId <= 0)
-			{
-				return false;
-			}
-		}
+		// TODO(migration): declare PickingPass when requested, then copy its ID pixel
+        // after graph rendering and consume readback only after the submission fence.
+        // Selection manipulation below only consumes an already resolved window.objectId.
 
 		// picking only apply to pbrobjects
 		if (window.objectId > 0)

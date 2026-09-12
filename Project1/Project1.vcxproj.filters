@@ -105,7 +105,7 @@
     <ClCompile Include="PBRResourceGenerator.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
-    <ClCompile Include="MousePickingRenderSystem.cpp">
+    <ClCompile Include="PickingPass.cpp">
       <Filter>Systems</Filter>
     </ClCompile>
     <ClCompile Include="ShadowPass.cpp">
@@ -212,7 +212,7 @@
     <ClInclude Include="PBRResourceGenerator.h">
       <Filter>Systems</Filter>
     </ClInclude>
-    <ClInclude Include="MousePickingRenderSystem.h">
+    <ClInclude Include="PickingPass.h">
       <Filter>Systems</Filter>
     </ClInclude>
     <ClInclude Include="ShadowPass.h">

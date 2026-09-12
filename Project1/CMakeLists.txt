@@ -42,7 +42,7 @@ set(MAIN_SOURCES
     JHBApplication.cpp
     Main.cpp
     Model.cpp
-    MousePickingRenderSystem.cpp
+    PickingPass.cpp
     PBRPass.cpp
     PBRResourceGenerator.cpp
     Pipeline.cpp

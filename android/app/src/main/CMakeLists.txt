@@ -51,7 +51,7 @@ set(MAIN_SOURCES
     ${PROJECT1_DIR}/InputController.cpp
     ${PROJECT1_DIR}/JHBApplication.cpp
     ${PROJECT1_DIR}/Model.cpp
-    ${PROJECT1_DIR}/MousePickingRenderSystem.cpp
+    ${PROJECT1_DIR}/PickingPass.cpp
     ${PROJECT1_DIR}/PBRPass.cpp
     ${PROJECT1_DIR}/PBRResourceGenerator.cpp
     ${PROJECT1_DIR}/Pipeline.cpp

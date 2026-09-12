@@ -76,9 +76,8 @@ namespace jhb {
 		} };
 		Renderer renderer{ window, device };
 
-		std::array<std::unique_ptr<DescriptorPool>, 5> globalPools{};
+		std::array<std::unique_ptr<DescriptorPool>, 4> globalPools{};
 		std::vector<std::unique_ptr<Buffer>> uboBuffers{};
-		std::vector<std::unique_ptr<Buffer>> uboPickingIndexBuffer{SwapChain::MAX_FRAMES_IN_FLIGHT};
 	private:
 		std::vector<std::unique_ptr<jhb::DescriptorSetLayout>> descSetLayouts;
 		std::vector<VkDescriptorSet> vkDescSets;
@@ -86,8 +85,6 @@ namespace jhb {
 		std::vector<VkDescriptorSet> CubeBoxDescriptorSets{}; // skybox
 		std::vector<VkDescriptorSet> globalDescriptorSets{}; // global uniform buffer
 		std::vector<VkDescriptorSet> pbrResourceDescriptorSets{}; // pbr resource
-		std::vector<VkDescriptorSet> pickingObjUboDescriptorSets{}; // global uniform buffer
-
 		VkImage fontImage;
 		VkImageView fontView;
 		VkSampler Sampler;
@@ -97,7 +94,7 @@ namespace jhb {
 #ifndef ANDROID
 		std::unique_ptr<class ImguiRenderSystem> imguiRenderSystem;
 #endif
-		std::unique_ptr<class MousePickingRenderSystem> mousePickingRenderSystem;
+		std::unique_ptr<class PickingPass> pickingPass;
 		std::unique_ptr<class ShadowPass> shadowPass;
 		std::unique_ptr<class PBRPass> pbrPass;
 		std::unique_ptr<class PBRResourceGenerator> pbrSourceGenerator;
