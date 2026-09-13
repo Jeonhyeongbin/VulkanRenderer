@@ -38,46 +38,7 @@ VkImageView attachmentView(const Image &image, ViewType view, uint32_t layer)
     return view == ViewType::Full ? image.imageView : image.viewForLayer(layer);
 }
 
-template <typename T, typename Predicate>
-bool vectorEquals(const std::vector<T> &left, const std::vector<T> &right, Predicate predicate)
-{
-    return left.size() == right.size() &&
-           std::equal(left.begin(), left.end(), right.begin(), predicate);
-}
-
 } // namespace
-
-VkImageView Image::viewForLayer(uint32_t layer) const
-{
-    if (layer >= layerViews.size())
-    {
-        throw std::out_of_range("RenderGraph image layer view does not exist");
-    }
-    return layerViews[layer];
-}
-
-bool PipelineDesc::operator==(const PipelineDesc &other) const
-{
-    const bool bindingsEqual = vectorEquals(
-        vertexBindings, other.vertexBindings, [](const auto &a, const auto &b)
-        { return a.binding == b.binding && a.stride == b.stride && a.inputRate == b.inputRate; });
-    const bool attributesEqual =
-        vectorEquals(vertexAttributes, other.vertexAttributes,
-                     [](const auto &a, const auto &b)
-                     {
-                         return a.location == b.location && a.binding == b.binding &&
-                                a.format == b.format && a.offset == b.offset;
-                     });
-    return vertexPath == other.vertexPath && fragmentPath == other.fragmentPath &&
-           computePath == other.computePath && bindingsEqual && attributesEqual &&
-           colorAttachmentFormats == other.colorAttachmentFormats &&
-           depthStencilAttachmentFormat == other.depthStencilAttachmentFormat &&
-           type == other.type && stateHash == other.stateHash && depthTest == other.depthTest &&
-           depthWrite == other.depthWrite && depthCompare == other.depthCompare &&
-           cullMode == other.cullMode && bindings == other.bindings &&
-           pushConstantSize == other.pushConstantSize &&
-           pushConstantStages == other.pushConstantStages && reflectShaders == other.reflectShaders;
-}
 
 const GraphBuffer &GraphResources::buffer(BufferId id) const
 {
@@ -360,6 +321,29 @@ PipelineId RenderGraph::createPipeline(PipelineDesc pipelineDesc)
     return pipelineDescs_.size() - 1;
 }
 
+void RenderGraph::addExternalGraphicsPass(std::string name, TextureId color, RenderFunction record)
+{
+    if (!record)
+    {
+        throw std::invalid_argument("External graphics pass requires a recorder");
+    }
+    const auto &desc = resources_.texture(color).texture.image.desc;
+    if (!(desc.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) ||
+        desc.aspectFlags != VK_IMAGE_ASPECT_COLOR_BIT || desc.imageType != ImageType::Image2D ||
+        desc.arrayLayers != 1 || desc.mipLevels != 1 || !desc.width || !desc.height ||
+        desc.format == VK_FORMAT_UNDEFINED || isDepthFormat(desc.format))
+    {
+        throw std::invalid_argument("External graphics pass requires a 2D color attachment");
+    }
+    RenderPass pass;
+    pass.name = std::move(name);
+    pass.externalGraphics = true;
+    pass.pipelineHandle = static_cast<PipelineId>(-1);
+    pass.writes.push_back({color, ViewType::Full, 0, VK_ATTACHMENT_LOAD_OP_LOAD});
+    pass.renderFunction = std::move(record);
+    passes_[currentFrame_].push_back(std::move(pass));
+}
+
 void RenderGraph::prepare()
 {
     // Builder descriptions may be drafts without attachment formats. Only create
@@ -367,6 +351,10 @@ void RenderGraph::prepare()
     resources_.pipelines.resize(pipelineDescs_.size());
     for (const auto& pass : passes_[currentFrame_])
     {
+        if (pass.externalGraphics)
+        {
+            continue;
+        }
         const auto i = pass.pipelineHandle;
         if (resources_.pipelines[i].handle != VK_NULL_HANDLE)
         {
@@ -380,6 +368,10 @@ void RenderGraph::prepare()
 
     for (auto &pass : passes_[currentFrame_])
     {
+        if (pass.externalGraphics)
+        {
+            continue;
+        }
         createReadResourcesDescriptorSet(pass);
         createUniformDescriptorSet(pass);
         updateUniformBuffer(pass);
@@ -398,7 +390,7 @@ void RenderGraph::render(Renderer &renderer, VkCommandBuffer commandBuffer, Rend
     for (const auto &pass : passes_[currentFrame_])
     {
         device_.beginDebugLabel(commandBuffer, pass.name);
-        const auto &pipeline = resources_.pipeline(pass.pipelineHandle);
+        const auto *pipeline = pass.externalGraphics ? nullptr : &resources_.pipeline(pass.pipelineHandle);
 
         for (const auto &read : pass.reads)
         {
@@ -499,30 +491,30 @@ void RenderGraph::render(Renderer &renderer, VkCommandBuffer commandBuffer, Rend
 
         prepareRenderPass(renderer, commandBuffer, pass, colorAttachments, depthAttachment, extent);
 
-        if (context.bindlessDescriptorSet != VK_NULL_HANDLE)
+        if (pipeline && context.bindlessDescriptorSet != VK_NULL_HANDLE)
         {
-            bindDescriptorSet(commandBuffer, pipeline, kDescriptorSetIndexBindless,
+            bindDescriptorSet(commandBuffer, *pipeline, kDescriptorSetIndexBindless,
                               context.bindlessDescriptorSet);
         }
-        if (pipeline.descriptorSetLayouts.size() > kDescriptorSetIndexView &&
-            std::any_of(pipeline.desc.bindings.begin(), pipeline.desc.bindings.end(),
+        if (pipeline && pipeline->descriptorSetLayouts.size() > kDescriptorSetIndexView &&
+            std::any_of(pipeline->desc.bindings.begin(), pipeline->desc.bindings.end(),
                         [](const auto &b) { return b.set == kDescriptorSetIndexView; }) &&
             currentFrame_ < context.viewDescriptorSets.size() &&
             context.viewDescriptorSets[currentFrame_] != VK_NULL_HANDLE)
         {
-            bindDescriptorSet(commandBuffer, pipeline, kDescriptorSetIndexView,
+            bindDescriptorSet(commandBuffer, *pipeline, kDescriptorSetIndexView,
                               context.viewDescriptorSets[currentFrame_]);
         }
         if (pass.readResourcesDescriptorSet)
         {
-            bindDescriptorSet(commandBuffer, pipeline, kDescriptorSetIndexInputResources,
+            bindDescriptorSet(commandBuffer, *pipeline, kDescriptorSetIndexInputResources,
                               pass.readResourcesDescriptorSet->handle);
         }
         if (pass.uniformsDescriptorSet)
         {
             const auto &uniformName = pass.uniforms.begin()->second.first;
-            const auto &binding = pipeline.namedBindings.at(uniformName);
-            bindDescriptorSet(commandBuffer, pipeline, binding.set,
+            const auto &binding = pipeline->namedBindings.at(uniformName);
+            bindDescriptorSet(commandBuffer, *pipeline, binding.set,
                               pass.uniformsDescriptorSet->handle);
         }
 
@@ -530,7 +522,7 @@ void RenderGraph::render(Renderer &renderer, VkCommandBuffer commandBuffer, Rend
         {
             pass.renderFunction(commandBuffer, pass, resources_);
         }
-        if (pipeline.type == PipelineType::Graphics)
+        if (!pipeline || pipeline->type == PipelineType::Graphics)
         {
             renderer.endRendering(commandBuffer);
         }

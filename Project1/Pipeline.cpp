@@ -1,4 +1,6 @@
 #include "Pipeline.h"
+#include "Device.h"
+#include "Model.h"
 
 #include <fstream>
 #include <stdexcept>

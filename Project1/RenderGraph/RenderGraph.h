@@ -2,6 +2,8 @@
 
 #include "../Device.h"
 #include "../DescriptorSet.h"
+#include "../Image.h"
+#include "../Pipeline.h"
 #include "VkSync.h"
 
 #include <vulkan/vulkan.h>
@@ -17,7 +19,6 @@
 #include <string_view>
 #include <tuple>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -34,54 +35,7 @@ using TextureId = std::size_t;
 using BufferId = std::size_t;
 using PipelineId = std::size_t;
 
-constexpr uint32_t kDescriptorSetIndexBindless = 0;
-constexpr uint32_t kDescriptorSetIndexView = 1;
-constexpr uint32_t kDescriptorSetIndexInputResources = 2;
 constexpr std::size_t kMaxUniformSize = 2048;
-
-enum class ImageType
-{
-    Image2D,
-    Image2DArray,
-    CubeMap
-};
-
-struct ImageDesc
-{
-    uint32_t width{1};
-    uint32_t height{1};
-    uint32_t depth{1};
-    uint32_t arrayLayers{1};
-    VkFormat format{VK_FORMAT_UNDEFINED};
-    ImageType imageType{ImageType::Image2D};
-    VkImageAspectFlags aspectFlags{VK_IMAGE_ASPECT_COLOR_BIT};
-    VkImageUsageFlags usage{0};
-    uint32_t mipLevels{1};
-};
-
-struct Image
-{
-    VkDeviceMemory memory{VK_NULL_HANDLE};
-    VkImage image{VK_NULL_HANDLE};
-    VkImageView imageView{VK_NULL_HANDLE};
-    std::vector<VkImageView> layerViews;
-    ImageDesc desc{};
-    std::string debugName;
-
-    [[nodiscard]] VkImageView viewForLayer(uint32_t layer) const;
-
-    [[nodiscard]] VkExtent2D extent2D() const
-    {
-        return {desc.width, desc.height};
-    }
-};
-
-struct Texture
-{
-    Image image;
-    VkSampler sampler{VK_NULL_HANDLE};
-    VkDescriptorImageInfo descriptorInfo{};
-};
 
 struct Buffer
 {
@@ -90,122 +44,6 @@ struct Buffer
     VkBuffer buffer{VK_NULL_HANDLE};
     VkDeviceSize size{0};
     std::string debugName;
-};
-
-enum class PipelineType
-{
-    Graphics,
-    Compute
-};
-
-struct PipelineBinding
-{
-    uint32_t set{0}, binding{0};
-    VkDescriptorType type{VK_DESCRIPTOR_TYPE_MAX_ENUM};
-    uint32_t count{1};
-    VkShaderStageFlags stages{VK_SHADER_STAGE_ALL};
-    std::string name;
-
-    bool operator==(const PipelineBinding &b) const
-    {
-        return set == b.set && binding == b.binding && type == b.type && count == b.count &&
-               stages == b.stages && name == b.name;
-    }
-};
-
-class PipelineDescBuilder;
-
-struct PipelineDesc
-{
-    std::string vertexPath;
-    std::string fragmentPath;
-    std::string computePath;
-    std::vector<VkVertexInputBindingDescription> vertexBindings;
-    std::vector<VkVertexInputAttributeDescription> vertexAttributes;
-    std::vector<VkFormat> colorAttachmentFormats;
-    VkFormat depthStencilAttachmentFormat{VK_FORMAT_UNDEFINED};
-    PipelineType type{PipelineType::Graphics};
-    bool depthTest{false}, depthWrite{false};
-    VkCompareOp depthCompare{VK_COMPARE_OP_LESS_OR_EQUAL};
-    VkCullModeFlags cullMode{VK_CULL_MODE_NONE};
-    std::vector<PipelineBinding> bindings;
-    uint32_t pushConstantSize{0};
-    VkShaderStageFlags pushConstantStages{VK_SHADER_STAGE_VERTEX_BIT};
-    bool reflectShaders{false};
-
-    static PipelineDescBuilder builder();
-
-    // Lets a renderer include raster/depth/blend state not represented above in
-    // graph cache equality.
-    std::size_t stateHash{0};
-
-    [[nodiscard]] bool operator==(const PipelineDesc &other) const;
-};
-
-class PipelineDescBuilder
-{
-  public:
-    PipelineDescBuilder()
-    {
-        desc_.reflectShaders = true;
-    }
-
-    PipelineDescBuilder &vertexPath(std::string path)
-    {
-        desc_.vertexPath = std::move(path);
-        return *this;
-    }
-
-    PipelineDescBuilder &fragmentPath(std::string path)
-    {
-        desc_.fragmentPath = std::move(path);
-        return *this;
-    }
-
-    PipelineDescBuilder &depthTest(bool enabled)
-    {
-        desc_.depthTest = enabled;
-        return *this;
-    }
-
-    PipelineDescBuilder &depthWrite(bool enabled)
-    {
-        desc_.depthWrite = enabled;
-        return *this;
-    }
-
-    PipelineDescBuilder &defaultVertexInput();
-    PipelineDescBuilder &defaultMeshVertexInput();
-
-    operator PipelineDesc() const
-    {
-        return desc_;
-    }
-
-  private:
-    PipelineDesc desc_;
-};
-
-inline PipelineDescBuilder PipelineDesc::builder()
-{
-    return {};
-}
-
-struct DescriptorBinding
-{
-    uint32_t set{0};
-    uint32_t binding{0};
-    VkDescriptorType type{VK_DESCRIPTOR_TYPE_MAX_ENUM};
-};
-
-struct Pipeline
-{
-    VkPipeline handle{VK_NULL_HANDLE};
-    VkPipelineLayout layout{VK_NULL_HANDLE};
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-    std::unordered_map<std::string, DescriptorBinding> namedBindings;
-    PipelineDesc desc{};
-    PipelineType type{PipelineType::Graphics};
 };
 
 struct GraphTexture
@@ -301,6 +139,8 @@ using RenderFunction =
 
 struct RenderPass
 {
+    // External graphics recorders own their pipeline/descriptors, not rendering scope.
+    bool externalGraphics{false};
     PipelineId pipelineHandle{};
     RenderFunction renderFunction;
     std::vector<Resource> reads;
@@ -398,6 +238,7 @@ class RenderGraph
 
     PassBuilder addPass(std::string name, PipelineId pipelineHandle);
     PassBuilder addPassFromDesc(std::string name, PipelineDesc pipelineDesc);
+    void addExternalGraphicsPass(std::string name, TextureId color, RenderFunction record);
 
     TextureId createTexture(std::string debugName, const ImageDesc &imageDesc);
     TextureId importTexture(std::string debugName, Texture texture,
@@ -451,8 +292,6 @@ class RenderGraph
                       const std::optional<std::tuple<Image, ViewType, uint32_t, VkAttachmentLoadOp>>
                           &depthAttachment,
                       VkExtent2D extent);
-    DescriptorSet allocateDescriptorSet(VkDescriptorSetLayout layout,
-                                        const std::vector<VkDescriptorType> &types) const;
     void bindDescriptorSet(VkCommandBuffer commandBuffer, const Pipeline &pipeline,
                            uint32_t setIndex, VkDescriptorSet descriptorSet) const;
     Device &device_;
@@ -462,6 +301,5 @@ class RenderGraph
     std::size_t currentFrame_{0};
 };
 
-[[nodiscard]] bool isDepthFormat(VkFormat format);
 
 } // namespace jhb::rg

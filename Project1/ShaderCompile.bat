@@ -22,5 +22,7 @@ cd /d "%~dp0"
 %VULKAN_SDK%\Bin\glslc.exe .\shaders\deferedoffscreenNotexture.frag -o .\shaders\deferedoffscreenNotexture.frag.spv
 %VULKAN_SDK%\Bin\glslc.exe .\shaders\deferedoffscreenSkybox.vert -o .\shaders\deferedoffscreenSkybox.vert.spv
 %VULKAN_SDK%\Bin\glslc.exe .\shaders\deferedoffscreenSkybox.frag -o .\shaders\deferedoffscreenSkybox.frag.spv
-%VULKAN_SDK%\Bin\glslc.exe .\shaders\computeCull.comp -o .\shaders\computeCull.comp.spv
+%VULKAN_SDK%\Bin\glslc.exe .\shaders\deferredGraphGeometry.vert -o .\shaders\deferredGraphGeometry.vert.spv
+%VULKAN_SDK%\Bin\glslc.exe .\shaders\deferredGraphGeometry.frag -o .\shaders\deferredGraphGeometry.frag.spv
+%VULKAN_SDK%\Bin\glslc.exe .\shaders\graphPresent.frag -o .\shaders\graphPresent.frag.spv
 exit /b 0

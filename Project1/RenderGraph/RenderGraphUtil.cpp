@@ -74,35 +74,6 @@ void RenderGraph::finishPass(PassBuilder &&b)
     passes_[currentFrame_].push_back(std::move(p));
 }
 
-DescriptorSet RenderGraph::allocateDescriptorSet(VkDescriptorSetLayout layout,
-                                                 const std::vector<VkDescriptorType> &types) const
-{
-    std::map<VkDescriptorType, uint32_t> counts;
-    for (auto t : types)
-    {
-        ++counts[t];
-    }
-    std::vector<VkDescriptorPoolSize> sizes;
-    for (auto [t, count] : counts)
-    {
-        sizes.push_back({t, count});
-    }
-    DescriptorSet set;
-    set.device = device_.handle();
-    VkDescriptorPoolCreateInfo info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-    info.flags = device_.descriptorPoolFlags();
-    info.maxSets = 1;
-    info.poolSizeCount = static_cast<uint32_t>(sizes.size());
-    info.pPoolSizes = sizes.data();
-    check(vkCreateDescriptorPool(set.device, &info, nullptr, &set.pool));
-    VkDescriptorSetAllocateInfo alloc{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-    alloc.descriptorPool = set.pool;
-    alloc.descriptorSetCount = 1;
-    alloc.pSetLayouts = &layout;
-    check(vkAllocateDescriptorSets(set.device, &alloc, &set.handle));
-    return set;
-}
-
 void RenderGraph::createReadResourcesDescriptorSet(RenderPass &p)
 {
     if (p.reads.empty() || p.readResourcesDescriptorSet)
@@ -125,8 +96,9 @@ void RenderGraph::createReadResourcesDescriptorSet(RenderPass &p)
 
     // The vector index is the shader set number, not a binding number.
     // Set 0 is reserved for bindless resources; set 1 is the per-frame view.
-    auto set = allocateDescriptorSet(
-        pipeline.descriptorSetLayouts.at(kDescriptorSetIndexInputResources), types);
+    auto set = DescriptorSet::allocate(device_.handle(),
+        pipeline.descriptorSetLayouts.at(kDescriptorSetIndexInputResources), types,
+        device_.descriptorPoolFlags());
     for (uint32_t i = 0; i < p.reads.size(); ++i)
     {
         VkWriteDescriptorSet w{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
@@ -192,7 +164,8 @@ void RenderGraph::createUniformDescriptorSet(RenderPass &p)
             }
         }
     }
-    auto set = allocateDescriptorSet(pipeline.descriptorSetLayouts.at(binding.set), types);
+    auto set = DescriptorSet::allocate(device_.handle(),
+        pipeline.descriptorSetLayouts.at(binding.set), types, device_.descriptorPoolFlags());
     const auto &b = resources_.buffer(p.uniformBuffer.value()).buffer;
     VkDescriptorBufferInfo info{b.buffer, 0, b.size};
     VkWriteDescriptorSet w{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
@@ -228,8 +201,8 @@ void RenderGraph::prepareRenderPass(
     const std::optional<std::tuple<Image, ViewType, uint32_t, VkAttachmentLoadOp>> &depth,
     VkExtent2D extent)
 {
-    const auto &pipeline = resources_.pipeline(p.pipelineHandle);
-    if (pipeline.type == PipelineType::Graphics)
+    const auto *pipeline = p.externalGraphics ? nullptr : &resources_.pipeline(p.pipelineHandle);
+    if (!pipeline || pipeline->type == PipelineType::Graphics)
     {
         auto attachment = [](const auto &a, bool isDepth)
         {
@@ -273,13 +246,10 @@ void RenderGraph::prepareRenderPass(
         vkCmdSetViewport(cb, 0, 1, &viewport);
         vkCmdSetScissor(cb, 0, 1, &scissor);
     }
-    vkCmdBindPipeline(cb, point(pipeline), pipeline.handle);
+    if (pipeline)
+    {
+        vkCmdBindPipeline(cb, point(*pipeline), pipeline->handle);
+    }
 }
 
-bool isDepthFormat(VkFormat f)
-{
-    return f == VK_FORMAT_D16_UNORM || f == VK_FORMAT_D32_SFLOAT ||
-           f == VK_FORMAT_X8_D24_UNORM_PACK32 || f == VK_FORMAT_D24_UNORM_S8_UINT ||
-           f == VK_FORMAT_D32_SFLOAT_S8_UINT || f == VK_FORMAT_D16_UNORM_S8_UINT;
-}
 } // namespace jhb::rg

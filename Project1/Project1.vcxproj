@@ -146,14 +146,12 @@
     <ClCompile Include="BloomRenderSystem.cpp" />
     <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="ComputerShadeSystem.cpp" />
     <ClCompile Include="GBufferPass.cpp" />
     <ClCompile Include="DeferredLightingPass.cpp" />
     <ClCompile Include="RenderGraph\RenderGraph.cpp" />
     <ClCompile Include="RenderGraph\RenderGraphUtil.cpp" />
     <ClCompile Include="DescriptorSet.cpp" />
     <ClCompile Include="RenderGraph\VkSync.cpp" />
-    <ClCompile Include="Descriptors.cpp" />
     <ClCompile Include="Device.cpp">
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -179,6 +177,7 @@
     <ClCompile Include="PrefilterPass.cpp" />
     <ClCompile Include="Pipeline.cpp" />
     <ClCompile Include="PipelineDesc.cpp" />
+    <ClCompile Include="Image.cpp" />
     <ClCompile Include="ShaderReflection.cpp" />
     <ClCompile Include="External\SPIRV-Reflect\spirv_reflect.c" />
     <ClCompile Include="PointLightPass.cpp" />
@@ -196,10 +195,9 @@
     <ClInclude Include="BloomRenderSystem.h" />
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="Camera.h" />
-    <ClInclude Include="ComputerShadeSystem.h" />
-    <ClInclude Include="Descriptors.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="DescriptorSet.h" />
+    <ClInclude Include="Image.h" />
     <ClInclude Include="External\Imgui\imconfig.h" />
     <ClInclude Include="External\Imgui\imgui.h" />
     <ClInclude Include="External\Imgui\imgui_impl_glfw.h" />

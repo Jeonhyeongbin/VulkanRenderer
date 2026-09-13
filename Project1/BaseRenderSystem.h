@@ -11,7 +11,6 @@
 #include "Model.h"
 #include "GameObject.h"
 #include "Camera.h"
-#include "Descriptors.h"
 #include "FrameInfo.h"
 
 #include <stdint.h>

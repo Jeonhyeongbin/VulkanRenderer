@@ -1,5 +1,5 @@
 #include "ShaderReflection.h"
-#include "RenderGraph/RenderGraph.h"
+#include "Pipeline.h"
 #include "External/SPIRV-Reflect/spirv_reflect.h"
 
 #include <fstream>

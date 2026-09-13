@@ -25,14 +25,12 @@ set(MAIN_SOURCES
     BloomRenderSystem.cpp
     Buffer.cpp
     Camera.cpp
-    ComputerShadeSystem.cpp
     GBufferPass.cpp
     DeferredLightingPass.cpp
     RenderGraph/RenderGraph.cpp
     RenderGraph/RenderGraphUtil.cpp
     DescriptorSet.cpp
     RenderGraph/VkSync.cpp
-    Descriptors.cpp
     Device.cpp
     FrameInfo.cpp
     GameObject.cpp
@@ -49,6 +47,7 @@ set(MAIN_SOURCES
     PrefilterPass.cpp
     Pipeline.cpp
     PipelineDesc.cpp
+    Image.cpp
     ShaderReflection.cpp
     External/SPIRV-Reflect/spirv_reflect.c
     PointLightPass.cpp

@@ -35,14 +35,12 @@ set(MAIN_SOURCES
     ${PROJECT1_DIR}/BloomRenderSystem.cpp
     ${PROJECT1_DIR}/Buffer.cpp
     ${PROJECT1_DIR}/Camera.cpp
-    ${PROJECT1_DIR}/ComputerShadeSystem.cpp
     ${PROJECT1_DIR}/GBufferPass.cpp
     ${PROJECT1_DIR}/DeferredLightingPass.cpp
     ${PROJECT1_DIR}/RenderGraph/RenderGraph.cpp
     ${PROJECT1_DIR}/RenderGraph/RenderGraphUtil.cpp
     ${PROJECT1_DIR}/DescriptorSet.cpp
     ${PROJECT1_DIR}/RenderGraph/VkSync.cpp
-    ${PROJECT1_DIR}/Descriptors.cpp
     ${PROJECT1_DIR}/Device.cpp
     ${PROJECT1_DIR}/FrameInfo.cpp
     ${PROJECT1_DIR}/GameObject.cpp
@@ -58,6 +56,7 @@ set(MAIN_SOURCES
     ${PROJECT1_DIR}/PrefilterPass.cpp
     ${PROJECT1_DIR}/Pipeline.cpp
     ${PROJECT1_DIR}/PipelineDesc.cpp
+    ${PROJECT1_DIR}/Image.cpp
     ${PROJECT1_DIR}/ShaderReflection.cpp
     ${PROJECT1_DIR}/External/SPIRV-Reflect/spirv_reflect.c
     ${PROJECT1_DIR}/PointLightPass.cpp
