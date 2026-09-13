@@ -8,6 +8,10 @@
 
 namespace jhb
 {
+namespace rg
+{
+struct Texture;
+}
 class Device;
 class Model;
 struct Vertex;
@@ -45,6 +49,8 @@ class Scene
     std::shared_ptr<Model> createCube();
     std::shared_ptr<Model> createBrdfTriangle();
     std::shared_ptr<Model> environmentCube();
+    // Non-owning graph import; Scene retains the loaded cube and its sampler.
+    rg::Texture environmentTexture();
 
   private:
     std::shared_ptr<Model> createMesh(const std::vector<Vertex> &vertices,

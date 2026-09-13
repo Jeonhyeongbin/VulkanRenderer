@@ -1067,7 +1067,10 @@ void jhb::Image::loadKTXTexture(Device& device, const std::string& filepath, VkI
 #else
 	ktxResult result = ktxTexture_CreateFromNamedFile(
 		filepath.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxTex);
-	assert(result == KTX_SUCCESS);
+	if (result != KTX_SUCCESS)
+	{
+		throw std::runtime_error("Failed to load KTX texture: " + filepath);
+	}
 #endif
 
 #ifdef ANDROID
@@ -1200,6 +1203,12 @@ void jhb::Image::loadKTXTexture(Device& device, const std::string& filepath, VkI
 	if (vkCreateSampler(device.getLogicalDevice(), &samplerInfo, nullptr, &sampler) != VK_SUCCESS)
 		throw std::runtime_error("failed to create texture sampler!");
 
+	this->width = width;
+	this->height = height;
+	this->mipLevels = mipLevels;
+	this->layerCount = static_cast<uint32_t>(arrayCount);
+	this->format = imageInfo.format;
+	imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	updateDescriptor();
 
 #ifdef ANDROID

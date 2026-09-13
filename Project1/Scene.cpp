@@ -160,4 +160,29 @@ std::shared_ptr<Model> Scene::environmentCube()
     }
     return environmentCube_;
 }
+
+rg::Texture Scene::environmentTexture()
+{
+    const auto &source = environmentCube()->getTexture(0);
+    if (!source.image || !source.view || !source.sampler || !source.width ||
+        source.width != source.height || source.layerCount != 6 || !source.mipLevels ||
+        source.format == VK_FORMAT_UNDEFINED ||
+        source.imageLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+    {
+        throw std::runtime_error("Environment cube upload did not produce a sampled cube texture");
+    }
+    rg::Texture texture;
+    texture.image.image = source.image;
+    texture.image.imageView = source.view;
+    texture.image.desc.width = source.width;
+    texture.image.desc.height = source.height;
+    texture.image.desc.mipLevels = source.mipLevels;
+    texture.image.desc.arrayLayers = source.layerCount;
+    texture.image.desc.format = source.format;
+    texture.image.desc.imageType = rg::ImageType::CubeMap;
+    texture.image.desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    texture.sampler = source.sampler;
+    texture.descriptorInfo = source.descriptor;
+    return texture;
+}
 } // namespace jhb

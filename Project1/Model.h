@@ -93,15 +93,16 @@ namespace jhb {
 	// Contains the texture for a single glTF image
 	// Images may be reused by texture objects and are as such separated
 	struct Image {
-		VkImage               image;
-		VkImageLayout         imageLayout;
-		VkDeviceMemory        deviceMemory;
-		VkImageView           view;
-		uint32_t              width, height;
-		uint32_t              mipLevels;
-		uint32_t              layerCount;
-		VkDescriptorImageInfo descriptor;
-		VkSampler             sampler;
+		VkImage               image{VK_NULL_HANDLE};
+		VkImageLayout         imageLayout{VK_IMAGE_LAYOUT_UNDEFINED};
+		VkDeviceMemory        deviceMemory{VK_NULL_HANDLE};
+		VkImageView           view{VK_NULL_HANDLE};
+		uint32_t              width{0}, height{0};
+		uint32_t              mipLevels{0};
+		uint32_t              layerCount{0};
+		VkFormat              format{VK_FORMAT_UNDEFINED};
+		VkDescriptorImageInfo descriptor{};
+		VkSampler             sampler{VK_NULL_HANDLE};
 
 		void loadTexture2D(Device& device, const std::string& filepath, VkSamplerAddressMode samplerMode);
 		void loadKTXTexture(Device& device, const std::string& filepath, VkImageViewType imgViewType = VK_IMAGE_VIEW_TYPE_2D, int arrayCount = 1);

@@ -1,6 +1,9 @@
 #include "JHBApplication.h"
 #include "GBufferPass.h"
 #include "PresentPass.h"
+#include "BRDFLutPass.h"
+#include "IrradiancePass.h"
+#include "PrefilterPass.h"
 #ifndef ANDROID
 #include "ImGuiPass.h"
 #include "ImGuiContext.h"
@@ -166,6 +169,7 @@ void JHBApplication::init()
     }
 
     collectSceneModels();
+    prepareIBL();
     GlobalScene->pointLights().push_back({{0.0f, -10.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, 5.0f, 0.1f});
 #ifndef ANDROID
     imguiPass = std::make_unique<ImGuiPass>();
@@ -174,6 +178,79 @@ void JHBApplication::init()
         device, VK_FORMAT_R16G16B16A16_SFLOAT,
         static_cast<uint32_t>(renderer.GetSwapChain().getImageCount()));
 #endif
+}
+
+void JHBApplication::prepareIBL()
+{
+    iblGraph = std::make_unique<rg::RenderGraph>(device, 1);
+    auto &graph = *iblGraph;
+    iblTextures.environment =
+        graph.importTexture("ibl/environment", GlobalScene->environmentTexture(),
+                            vk_sync::AccessType::AnyShaderReadSampledImageOrUniformTexelBuffer);
+
+    const auto create = [&](const char *name, uint32_t size, VkFormat format,
+                            VkImageUsageFlags usage, uint32_t mips = 1, bool cube = false)
+    {
+        rg::ImageDesc desc;
+        desc.width = desc.height = size;
+        desc.format = format;
+        desc.usage = usage;
+        desc.mipLevels = mips;
+        desc.arrayLayers = cube ? 6 : 1;
+        desc.imageType = cube ? rg::ImageType::CubeMap : rg::ImageType::Image2D;
+        return graph.createTexture(name, desc);
+    };
+    iblTextures.brdfLut = create("ibl/brdf-lut", 512, VK_FORMAT_R16G16_SFLOAT,
+                                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+    const auto cubeUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    const auto scratchUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    iblTextures.irradiance =
+        create("ibl/irradiance", 64, VK_FORMAT_R32G32B32A32_SFLOAT, cubeUsage, 7, true);
+    const auto irradianceScratch =
+        create("ibl/irradiance-scratch", 64, VK_FORMAT_R32G32B32A32_SFLOAT, scratchUsage);
+    iblTextures.prefilter =
+        create("ibl/prefilter", 512, VK_FORMAT_R16G16B16A16_SFLOAT, cubeUsage, 10, true);
+    const auto prefilterScratch =
+        create("ibl/prefilter-scratch", 512, VK_FORMAT_R16G16B16A16_SFLOAT, scratchUsage);
+
+    const auto cube = GlobalScene->environmentCube();
+    const auto drawCube =
+        [cube](VkCommandBuffer cmd, const rg::RenderPass &pass, const rg::GraphResources &resources)
+    {
+        // Scene's cube has no material pipeline; filter passes own the face MVP push constants.
+        cube->bind(cmd);
+        cube->draw(cmd, resources.pipeline(pass.pipelineHandle).layout, 0);
+    };
+    BRDFLutPass{}.addPass(graph, iblTextures.brdfLut);
+    IrradiancePass{}.addPass(
+        graph, {iblTextures.environment, irradianceScratch, iblTextures.irradiance}, drawCube);
+    PrefilterPass{}.addPass(
+        graph, {iblTextures.environment, prefilterScratch, iblTextures.prefilter}, drawCube);
+    graph.prepare();
+}
+
+void JHBApplication::recordIBL(VkCommandBuffer commandBuffer)
+{
+    if (iblRecorded)
+    {
+        return;
+    }
+    rg::RenderContext context;
+    // No presentation pass: all initialization attachments belong to the IBL graph.
+    iblGraph->render(renderer, commandBuffer, context, {});
+    for (const auto id : {iblTextures.brdfLut, iblTextures.irradiance, iblTextures.prefilter})
+    {
+        auto &output = iblGraph->resources().texture(id);
+        const auto &image = output.texture.image;
+        output.previousAccess = vk_sync::imagePipelineBarrier(
+            commandBuffer, image.image,
+            {image.desc.aspectFlags, 0, image.desc.mipLevels, 0, image.desc.arrayLayers},
+            output.previousAccess,
+            vk_sync::AccessType::AnyShaderReadSampledImageOrUniformTexelBuffer, false);
+    }
+    // Recorded, not CPU-fence-complete. The frame graph follows in the same command buffer.
+    // Retain the initialization graph/pools/scratch until shutdown after GPU idle.
+    iblRecorded = true;
 }
 
 void JHBApplication::collectSceneModels()
@@ -291,6 +368,15 @@ void JHBApplication::ensureFrameGraph()
         pass.reset();
     }
     frameGraph = std::make_unique<rg::RenderGraph>(device, SwapChain::MAX_FRAMES_IN_FLIGHT);
+    const auto importIBL = [&](const char *name, rg::TextureId id)
+    {
+        const auto &source = iblGraph->resources().texture(id);
+        return frameGraph->importTexture(name, source.texture, source.previousAccess);
+    };
+    frameIBLTextures.environment = importIBL("ibl/environment", iblTextures.environment);
+    frameIBLTextures.brdfLut = importIBL("ibl/brdf-lut", iblTextures.brdfLut);
+    frameIBLTextures.irradiance = importIBL("ibl/irradiance", iblTextures.irradiance);
+    frameIBLTextures.prefilter = importIBL("ibl/prefilter", iblTextures.prefilter);
     rg::PipelineDesc geometry = rg::PipelineDesc::builder().defaultMeshVertexInput();
     geometry.reflectShaders = false; // GBufferPass supplies its explicit descriptor contract.
     const auto depthFormat = device.findSupportedFormat(
@@ -309,6 +395,7 @@ void JHBApplication::ensureFrameGraph()
 
 void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
 {
+    recordIBL(commandBuffer);
     ensureFrameGraph();
     const int frameIndex = renderer.getFrameIndex();
     auto &graph = *frameGraph;

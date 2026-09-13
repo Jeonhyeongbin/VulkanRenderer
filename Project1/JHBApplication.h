@@ -68,6 +68,8 @@ class JHBApplication
   private:
     void init();
     void collectSceneModels();
+    void prepareIBL();
+    void recordIBL(VkCommandBuffer commandBuffer);
     void prepareDescriptors(const rg::Pipeline &pipeline);
     void releaseDescriptors();
     void updateViewBuffer(int frameIndex);
@@ -89,6 +91,17 @@ class JHBApplication
     std::vector<rg::DescriptorSet> viewDescriptorSets;
     std::vector<rg::DescriptorSet> materialDescriptorSets;
     std::vector<std::shared_ptr<Model>> sceneModels;
+
+    struct IBLTextures
+    {
+        rg::TextureId environment{}, brdfLut{}, irradiance{}, prefilter{};
+    };
+
+    // Persistent owner; frameGraph only imports these textures, including after resize.
+    std::unique_ptr<rg::RenderGraph> iblGraph;
+    IBLTextures iblTextures;
+    IBLTextures frameIBLTextures;
+    bool iblRecorded{false};
     std::unique_ptr<rg::RenderGraph> frameGraph;
     std::array<std::unique_ptr<class GBufferPass>, SwapChain::MAX_FRAMES_IN_FLIGHT> gbufferPasses;
     std::unique_ptr<class PresentPass> presentPass;
