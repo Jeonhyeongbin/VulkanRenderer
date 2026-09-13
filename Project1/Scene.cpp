@@ -1,6 +1,7 @@
 #include "Scene.h"
 #include "Model.h"
 #include "Device.h"
+#include "GameObjectManager.h"
 #ifdef ANDROID
 #include "AndroidAssets.h"
 #endif
@@ -11,7 +12,77 @@ Scene::Scene(Device &device) : device_(device)
 {
 }
 
-Scene::~Scene() = default;
+Scene::~Scene()
+{
+    for (auto &texture : materialFallbacks_)
+    {
+        device_.destroyTexture(texture);
+    }
+}
+
+void Scene::loadDefaultScene()
+{
+    if (materialFallbacks_.empty())
+    {
+        const std::array<VkClearColorValue, 4> colors = {
+            VkClearColorValue{{1, 1, 1, 1}}, VkClearColorValue{{0.5f, 0.5f, 1, 1}},
+            VkClearColorValue{{0, 0, 0, 1}}, VkClearColorValue{{1, 1, 0, 1}}};
+        rg::ImageDesc desc;
+        desc.format = VK_FORMAT_R8G8B8A8_UNORM;
+        desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        materialFallbacks_.reserve(colors.size());
+        for (const auto &color : colors)
+        {
+            materialFallbacks_.push_back(device_.createTexture(desc, "material/fallback"));
+            auto &texture = materialFallbacks_.back();
+            auto cmd = device_.beginSingleTimeCommands();
+            const VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+            device_.transitionImageLayout(cmd, texture.image.image, VK_IMAGE_LAYOUT_UNDEFINED,
+                                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range);
+            vkCmdClearColorImage(cmd, texture.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                 &color, 1, &range);
+            device_.transitionImageLayout(cmd, texture.image.image,
+                                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
+            device_.endSingleTimeCommands(cmd);
+        }
+    }
+    auto &objects = GameObjectManager::GetSingleton().gameObjects;
+    if (!objects.empty())
+    {
+        return;
+    }
+    auto object = GameObject::createGameObject();
+    object.model = loadGLTF("Models/DamagedHelmet/DamagedHelmet.gltf");
+    object.model->updateInstanceBuffer(1, {glm::vec3(0)}, {glm::vec3(0)});
+    object.model->firstid = object.getId();
+    GameObjectManager::GetSingleton().AddGameObject(std::move(object));
+}
+
+std::array<VkDescriptorImageInfo, 5> Scene::materialImages(const Model &model,
+                                                           const Material &material) const
+{
+    const auto image = [&](uint32_t index, size_t fallback)
+    {
+        if (index < model.textures.size())
+        {
+            const auto source = model.textures[index].imageIndex;
+            if (source >= 0 && static_cast<size_t>(source) < model.images.size())
+            {
+                const auto &value = model.images[source];
+                if (value.view && value.sampler &&
+                    value.descriptor.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                {
+                    return value.descriptor;
+                }
+            }
+        }
+        return materialFallbacks_.at(fallback).descriptorInfo;
+    };
+    return {image(material.baseColorTextureIndex, 0), image(material.normalTextureIndex, 1),
+            image(material.occlusionTextureIndex, 0), image(material.emissiveTextureIndex, 2),
+            image(material.metallicRoughnessTextureIndex, 3)};
+}
 
 std::shared_ptr<Model> Scene::loadGLTF(const std::string &filename)
 {
@@ -40,6 +111,7 @@ std::shared_ptr<Model> Scene::loadGLTF(const std::string &filename)
     if (fileLoaded)
     {
         model->loadMaterials(glTFInput);
+        model->materials.emplace_back(); // glTF primitives may omit their material.
         model->loadTextures(glTFInput);
         model->loadImages(glTFInput, VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT);
         const auto sceneIndex = glTFInput.defaultScene < 0 ? 0 : glTFInput.defaultScene;

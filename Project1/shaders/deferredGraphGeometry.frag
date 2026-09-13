@@ -21,9 +21,10 @@ layout (set = 3, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
 
 layout (constant_id = 0) const bool ALPHA_MASK = false;
 layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
-layout (constant_id = 2) const bool isMetallicRoughness = false;
-layout (constant_id = 3) const bool isEmissive = false;
-layout (constant_id = 4) const bool isOcclusion = false;
+// Scene supplies neutral fallback textures for absent maps.
+layout (constant_id = 2) const bool isMetallicRoughness = true;
+layout (constant_id = 3) const bool isEmissive = true;
+layout (constant_id = 4) const bool isOcclusion = true;
 
 #define NEAR_PLANE 0.1f
 #define FAR_PLANE 1024

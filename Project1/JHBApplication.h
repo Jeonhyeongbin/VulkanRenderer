@@ -104,6 +104,9 @@ class JHBApplication
     bool iblRecorded{false};
     std::unique_ptr<rg::RenderGraph> frameGraph;
     std::array<std::unique_ptr<class GBufferPass>, SwapChain::MAX_FRAMES_IN_FLIGHT> gbufferPasses;
+    std::array<std::unique_ptr<class DeferredLightingPass>, SwapChain::MAX_FRAMES_IN_FLIGHT>
+        lightingPasses;
+    std::array<rg::TextureId, SwapChain::MAX_FRAMES_IN_FLIGHT> shadowCubes{}, shadowDepths{};
     std::unique_ptr<class PresentPass> presentPass;
     uint64_t graphGeneration{0};
     bool descriptorsReady{false};

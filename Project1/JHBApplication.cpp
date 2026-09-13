@@ -1,5 +1,9 @@
 #include "JHBApplication.h"
 #include "GBufferPass.h"
+#include "DeferredLightingPass.h"
+#include "ShadowPass.h"
+#include "SkyboxPass.h"
+#include "PointLightPass.h"
 #include "PresentPass.h"
 #include "BRDFLutPass.h"
 #include "IrradiancePass.h"
@@ -52,10 +56,8 @@ JHBApplication::~JHBApplication()
 void JHBApplication::Run()
 {
     auto viewerObject = GameObject::createGameObject();
-    viewerObject.transform.translation.x = 0.0f;             // 좌우 정중앙
-    viewerObject.transform.translation.y = -12.0f;           // 위쪽 (Y음수 = 위)
-    viewerObject.transform.translation.z = 0.0f;             // 앞뒤 정중앙
-    viewerObject.transform.rotation.x = glm::radians(35.0f); // 35도 아래를 향함
+    viewerObject.transform.translation = {0.0f, 0.0f, -4.0f};
+    viewerObject.transform.rotation = {0.0f, glm::radians(90.0f), 0.0f};
 #ifndef ANDROID
     InputController cameraController{device.getWindow().GetGLFWwindow(), viewerObject};
 #else
@@ -168,12 +170,17 @@ void JHBApplication::init()
         uboBuffers[frame]->map();
     }
 
+    GlobalScene->loadDefaultScene();
     collectSceneModels();
     prepareIBL();
-    GlobalScene->pointLights().push_back({{0.0f, -10.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, 5.0f, 0.1f});
+    if (GlobalScene->pointLights().empty())
+    {
+        GlobalScene->pointLights().push_back(
+            {{-3.0f, -3.0f, -3.0f}, {1.0f, 1.0f, 1.0f}, 40.0f, 0.1f});
+    }
 #ifndef ANDROID
     imguiPass = std::make_unique<ImGuiPass>();
-    // Step 1 previews G-buffer albedo directly; this is not final lighting/tonemapping.
+    // UI composites onto the deferred color target.
     imguiContext = std::make_unique<ImGuiContext>(
         device, VK_FORMAT_R16G16B16A16_SFLOAT,
         static_cast<uint32_t>(renderer.GetSwapChain().getImageCount()));
@@ -288,12 +295,7 @@ void JHBApplication::prepareDescriptors(const rg::Pipeline &pipeline)
     {
         for (auto &material : model->materials)
         {
-            std::array<VkDescriptorImageInfo, 5> images = {
-                model->getTexture(material.baseColorTextureIndex).descriptor,
-                model->getTexture(material.normalTextureIndex).descriptor,
-                model->getTexture(material.occlusionTextureIndex).descriptor,
-                model->getTexture(material.emissiveTextureIndex).descriptor,
-                model->getTexture(material.metallicRoughnessTextureIndex).descriptor};
+            auto images = GlobalScene->materialImages(*model, material);
             for (int frame = 0; frame < SwapChain::MAX_FRAMES_IN_FLIGHT; ++frame)
             {
                 auto set = pipeline.allocateDescriptorSet(device.getLogicalDevice(), 3);
@@ -363,6 +365,10 @@ void JHBApplication::ensureFrameGraph()
     // Drop sets before their pipeline layouts, after all GPU use has completed.
     releaseDescriptors();
     presentPass.reset();
+    for (auto &pass : lightingPasses)
+    {
+        pass.reset();
+    }
     for (auto &pass : gbufferPasses)
     {
         pass.reset();
@@ -387,6 +393,22 @@ void JHBApplication::ensureFrameGraph()
         gbufferPasses[frame] =
             std::make_unique<GBufferPass>(*frameGraph, renderer.getSwapChainExtent(), geometry,
                                           depthFormat, "gbuffer/frame-" + std::to_string(frame));
+        lightingPasses[frame] = std::make_unique<DeferredLightingPass>(
+            *frameGraph, renderer.getSwapChainExtent(), "lighting/frame-" + std::to_string(frame));
+        rg::ImageDesc shadow;
+        shadow.width = shadow.height = 512;
+        shadow.format = VK_FORMAT_R32_SFLOAT;
+        shadow.arrayLayers = 6;
+        shadow.imageType = rg::ImageType::CubeMap;
+        shadow.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        shadowCubes[frame] = frameGraph->createTexture("shadow/" + std::to_string(frame), shadow);
+        shadow.format = depthFormat;
+        shadow.arrayLayers = 1;
+        shadow.imageType = rg::ImageType::Image2D;
+        shadow.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+        shadow.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        shadowDepths[frame] =
+            frameGraph->createTexture("shadow-depth/" + std::to_string(frame), shadow);
     }
     presentPass = std::make_unique<PresentPass>(*frameGraph,
                                                 renderer.GetSwapChain().getSwapChainImageFormat());
@@ -401,6 +423,16 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
     auto &graph = *frameGraph;
     graph.newFrame(frameIndex);
     graph.clear();
+    ShadowPass{}.addPass(
+        graph, {shadowCubes[frameIndex], shadowDepths[frameIndex]},
+        {GlobalScene->pointLights().front().position, 0.1f, 200.0f},
+        [this](VkCommandBuffer cmd, const rg::RenderPass &pass, const rg::GraphResources &resources)
+        {
+            for (const auto &model : sceneModels)
+            {
+                model->drawGraphGeometryOnly(cmd, resources.pipeline(pass.pipelineHandle).layout);
+            }
+        });
     gbufferPasses[frameIndex]->addPass(
         [this, frameIndex](VkCommandBuffer cmd, const rg::RenderPass &pass,
                            const rg::GraphResources &resources)
@@ -411,7 +443,21 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
                 model->drawGraphGeometry(cmd, layout, frameIndex);
             }
         });
-    const auto previewColor = gbufferPasses[frameIndex]->output().albedo;
+    const auto geometryPipeline = graph.passes().back().pipelineHandle;
+    lightingPasses[frameIndex]->addPass(gbufferPasses[frameIndex]->output(),
+                                        {frameIBLTextures.brdfLut, frameIBLTextures.irradiance,
+                                         frameIBLTextures.prefilter, shadowCubes[frameIndex]});
+    const auto previewColor = lightingPasses[frameIndex]->output();
+    const auto depth = gbufferPasses[frameIndex]->output().depth;
+    SkyboxPass{}.addPass(
+        graph, {frameIBLTextures.environment, previewColor, depth},
+        [cube = GlobalScene->environmentCube()](VkCommandBuffer cmd, const rg::RenderPass &pass,
+                                                const rg::GraphResources &resources)
+        {
+            cube->bind(cmd);
+            cube->draw(cmd, resources.pipeline(pass.pipelineHandle).layout, 0);
+        });
+    PointLightPass{}.addPass(graph, {previewColor, depth}, GlobalScene->pointLights());
 #ifndef ANDROID
     imguiContext->configureTarget(graph.resources().texture(previewColor).texture.image.desc.format,
                                   static_cast<uint32_t>(renderer.GetSwapChain().getImageCount()));
@@ -419,7 +465,7 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
     ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f), ImGuiCond_Appearing);
     ImGui::SetNextWindowSize(ImVec2(300.0f, 300.0f), ImGuiCond_FirstUseEver);
     ImGui::Begin("settings", nullptr, ImGuiWindowFlags_MenuBar);
-    ImGui::TextUnformatted("G-buffer albedo preview (lighting pending)");
+    ImGui::TextUnformatted("Deferred lighting + IBL + shadows");
     ImGui::Text("Models: %d", static_cast<int>(sceneModels.size()));
     ImGui::SliderFloat("roughness", &uiRoughness, 0.1f, 1.0f);
     ImGui::SliderFloat("metallic", &uiMetallic, 0.1f, 1.0f);
@@ -429,7 +475,7 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
 #endif
     presentPass->addPass(previewColor);
     graph.prepare();
-    prepareDescriptors(graph.resources().pipeline(graph.passes().front().pipelineHandle));
+    prepareDescriptors(graph.resources().pipeline(geometryPipeline));
 
     // The acquired image index is independent of the frame-in-flight slot.
     auto &swapChain = renderer.GetSwapChain();

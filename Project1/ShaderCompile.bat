@@ -25,4 +25,5 @@ cd /d "%~dp0"
 %VULKAN_SDK%\Bin\glslc.exe .\shaders\deferredGraphGeometry.vert -o .\shaders\deferredGraphGeometry.vert.spv
 %VULKAN_SDK%\Bin\glslc.exe .\shaders\deferredGraphGeometry.frag -o .\shaders\deferredGraphGeometry.frag.spv
 %VULKAN_SDK%\Bin\glslc.exe .\shaders\graphPresent.frag -o .\shaders\graphPresent.frag.spv
+%VULKAN_SDK%\Bin\glslc.exe .\shaders\deferredGraphLighting.frag -o .\shaders\deferredGraphLighting.frag.spv
 exit /b 0

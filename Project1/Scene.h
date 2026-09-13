@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 #include <glm/glm.hpp>
+#include "Image.h"
+#include <array>
 
 namespace jhb
 {
@@ -14,6 +16,7 @@ struct Texture;
 }
 class Device;
 class Model;
+struct Material;
 struct Vertex;
 
 // Owns loaded model references and light data. Pipeline/descriptor setup stays with rendering.
@@ -39,6 +42,9 @@ class Scene
     }
 
     explicit Scene(Device &device);
+    void loadDefaultScene();
+    std::array<VkDescriptorImageInfo, 5> materialImages(const Model &model,
+                                                        const Material &material) const;
     ~Scene();
 
     Scene(const Scene &) = delete;
@@ -60,5 +66,6 @@ class Scene
     std::vector<std::shared_ptr<Model>> models_;
     std::shared_ptr<Model> environmentCube_;
     std::vector<PointLightData> pointLights_;
+    std::vector<rg::Texture> materialFallbacks_;
 };
 } // namespace jhb

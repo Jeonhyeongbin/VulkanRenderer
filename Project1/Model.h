@@ -56,14 +56,14 @@ namespace jhb {
 		glm::vec4 baseColorFactor = glm::vec4(1.0f);
 		glm::vec4 emissiveFactor = glm::vec4(1.0f);
 
-		uint32_t baseColorTextureIndex;
-		uint32_t normalTextureIndex;
-		uint32_t emissiveTextureIndex;
-		uint32_t occlusionTextureIndex;
-		uint32_t metallicRoughnessTextureIndex;
+		uint32_t baseColorTextureIndex{UINT32_MAX};
+		uint32_t normalTextureIndex{UINT32_MAX};
+		uint32_t emissiveTextureIndex{UINT32_MAX};
+		uint32_t occlusionTextureIndex{UINT32_MAX};
+		uint32_t metallicRoughnessTextureIndex{UINT32_MAX};
 
-		float roughnessFactor;
-		float metallicFactor;
+		float roughnessFactor{1.0f};
+		float metallicFactor{1.0f};
 
 		std::string alphaMode = "OPAQUE";
 		float alphaCutOff;

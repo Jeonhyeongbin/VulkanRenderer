@@ -697,7 +697,8 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 			Primitive primitive{};
 			primitive.firstIndex = firstIndex;
 			primitive.indexCount = indexCount;
-			primitive.materialIndex = glTFPrimitive.material;
+			primitive.materialIndex = glTFPrimitive.material >= 0
+                ? glTFPrimitive.material : static_cast<int32_t>(materials.size() - 1);
 			node->mesh.primitives.push_back(primitive);
 		}
 	}
