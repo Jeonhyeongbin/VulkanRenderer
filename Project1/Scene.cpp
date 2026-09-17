@@ -14,6 +14,15 @@ Scene::Scene(Device &device) : device_(device)
 
 Scene::~Scene()
 {
+    // Remove only this Scene's registry references, so its models die before Device.
+    auto& objects = GameObjectManager::GetSingleton().gameObjects;
+    for (auto it = objects.begin(); it != objects.end(); )
+    {
+        if (std::find(models_.begin(), models_.end(), it->second.model) != models_.end())
+            it = objects.erase(it);
+        else
+            ++it;
+    }
     for (auto &texture : materialFallbacks_)
     {
         device_.destroyTexture(texture);

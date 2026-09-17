@@ -58,6 +58,14 @@ jhb::Model::Model(Device& _device, glm::mat4 modelMatrix) : device{ _device }
 
 jhb::Model::~Model()
 {
+    for (auto& image : images)
+    {
+        if (image.sampler) vkDestroySampler(device.getLogicalDevice(), image.sampler, nullptr);
+        if (image.view) vkDestroyImageView(device.getLogicalDevice(), image.view, nullptr);
+        if (image.image) vkDestroyImage(device.getLogicalDevice(), image.image, nullptr);
+        if (image.deviceMemory) vkFreeMemory(device.getLogicalDevice(), image.deviceMemory, nullptr);
+    }
+    for (auto* node : nodes) delete node;
 }
 
 void jhb::Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, int frameIndex)
@@ -970,6 +978,8 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath, VkSa
 
 	device.copyBufferToImage(commandBuffer, stagingBuffer, image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
 	device.endSingleTimeCommands(commandBuffer);
+	vkDestroyBuffer(device.getLogicalDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(device.getLogicalDevice(), stagingBufferMemory, nullptr);
 	generateMipmap(device, image, mipleves, texWidth, texHeight);
 
 	// create image view and image sampler

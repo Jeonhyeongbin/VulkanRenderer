@@ -37,7 +37,7 @@ GBufferPass::GBufferPass(rg::RenderGraph &graph, VkExtent2D extent,
     gbuffer_.albedo = attachment("albedo", VK_FORMAT_R16G16B16A16_SFLOAT);
     gbuffer_.material = attachment("material", VK_FORMAT_R16G16B16A16_SFLOAT);
     gbuffer_.emissive = attachment("emissive", VK_FORMAT_R16G16B16A16_SFLOAT);
-    gbuffer_.depth = attachment("depth", depthFormat);
+    gbuffer_.depth = attachment("depth", depthFormat, true);
 
     geometryPipeline.type = rg::PipelineType::Graphics;
     geometryPipeline.vertexPath = "shaders/deferredGraphGeometry.vert.spv";

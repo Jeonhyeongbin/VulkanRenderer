@@ -192,16 +192,16 @@ namespace jhb {
 
 	private:
 		Window& window;
-		VkInstance instance;
-		VkDevice logicalDevice;
+		VkInstance instance{VK_NULL_HANDLE};
+		VkDevice logicalDevice{VK_NULL_HANDLE};
 		VkSurfaceKHR surface; // window system intergration extension, but you should know that every device in the system supports this not true;
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 		VkQueue graphicsQueue; // queues are automatically create with logical device, you must create explictly handle to interface
 		VkQueue presentQueue;
 		VkQueue ComputeQueue;
 		VkSwapchainKHR swapChain;
-		VkDebugUtilsMessengerEXT debugMessenger;
-		VkCommandPool commandPool;
+		VkDebugUtilsMessengerEXT debugMessenger{VK_NULL_HANDLE};
+		VkCommandPool commandPool{VK_NULL_HANDLE};
 
 		const std::vector<const char*> validationLayers = {
 		"VK_LAYER_KHRONOS_validation"

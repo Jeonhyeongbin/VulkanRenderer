@@ -413,6 +413,7 @@ namespace jhb {
 
 	Device::~Device()
 	{
+		cleanup();
 	}
 	
 
@@ -1204,12 +1205,18 @@ namespace jhb {
 	}
 
 	void Device::cleanup() {
-		if (enableValidationLayers) {
-			DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+		if (logicalDevice) {
+			vkDeviceWaitIdle(logicalDevice);
+			if (commandPool) vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+			vkDestroyDevice(logicalDevice, nullptr);
+			logicalDevice = VK_NULL_HANDLE;
+			commandPool = VK_NULL_HANDLE;
 		}
-		vkDestroySwapchainKHR(logicalDevice, swapChain, nullptr);
-		vkDestroyDevice(logicalDevice, nullptr);
-		vkDestroySurfaceKHR(instance, surface, nullptr);
-		vkDestroyInstance(instance, nullptr);
+		if (instance) {
+			if (surface) vkDestroySurfaceKHR(instance, surface, nullptr);
+			if (debugMessenger) DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+			vkDestroyInstance(instance, nullptr);
+			instance = VK_NULL_HANDLE;
+		}
 	}
 }
