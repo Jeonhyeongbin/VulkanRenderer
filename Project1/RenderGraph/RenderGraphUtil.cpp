@@ -34,6 +34,7 @@ void RenderGraph::finishPass(PassBuilder &&b)
     p.uniforms = std::move(b.uniforms_);
     p.renderFunction = std::move(b.renderFunction_);
     p.copyCommand = std::move(b.copyCommand_);
+    p.bufferCopyCommand = std::move(b.bufferCopyCommand_);
     p.extraBarriers = std::move(b.extraBarriers_);
     // Finalize a copy. Never mutate a cached description shared by earlier passes.
     auto desc = pipelineDescs_.at(p.pipelineHandle);
@@ -96,9 +97,9 @@ void RenderGraph::createReadResourcesDescriptorSet(RenderPass &p)
 
     // The vector index is the shader set number, not a binding number.
     // Set 0 is reserved for bindless resources; set 1 is the per-frame view.
-    auto set = DescriptorSet::allocate(device_.handle(),
-        pipeline.descriptorSetLayouts.at(kDescriptorSetIndexInputResources), types,
-        device_.descriptorPoolFlags());
+    auto set = DescriptorSet::allocate(
+        device_.handle(), pipeline.descriptorSetLayouts.at(kDescriptorSetIndexInputResources),
+        types, device_.descriptorPoolFlags());
     for (uint32_t i = 0; i < p.reads.size(); ++i)
     {
         VkWriteDescriptorSet w{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
@@ -164,8 +165,9 @@ void RenderGraph::createUniformDescriptorSet(RenderPass &p)
             }
         }
     }
-    auto set = DescriptorSet::allocate(device_.handle(),
-        pipeline.descriptorSetLayouts.at(binding.set), types, device_.descriptorPoolFlags());
+    auto set =
+        DescriptorSet::allocate(device_.handle(), pipeline.descriptorSetLayouts.at(binding.set),
+                                types, device_.descriptorPoolFlags());
     const auto &b = resources_.buffer(p.uniformBuffer.value()).buffer;
     VkDescriptorBufferInfo info{b.buffer, 0, b.size};
     VkWriteDescriptorSet w{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};

@@ -2,6 +2,7 @@
 #include "Model.h"
 #include "Device.h"
 #include "GameObjectManager.h"
+#include <limits>
 #ifdef ANDROID
 #include "AndroidAssets.h"
 #endif
@@ -12,16 +13,65 @@ Scene::Scene(Device &device) : device_(device)
 {
 }
 
+std::vector<Scene::PickTarget> Scene::pickingTargets(const std::shared_ptr<Model> &model) const
+{
+    std::vector<PickTarget> targets;
+    const auto &objects = GameObjectManager::GetSingleton().gameObjects;
+    for (uint32_t instance = 0; instance < model->instanceCount; ++instance)
+    {
+        const uint64_t id = uint64_t(model->firstid) + instance;
+        if (id > (std::numeric_limits<uint32_t>::max)())
+        {
+            throw std::logic_error("Picking instance object ID overflow");
+        }
+        const auto found = objects.find(static_cast<uint32_t>(id));
+        if (found == objects.end() || found->second.model != model)
+        {
+            throw std::logic_error("Picking requires an object mapping for every model instance");
+        }
+        targets.push_back({static_cast<uint32_t>(id), model});
+    }
+    return targets;
+}
+
+void Scene::select(std::optional<PickTarget> target)
+{
+    selection_ = std::move(target);
+    if (!selectedObject())
+    {
+        selection_.reset();
+    }
+}
+
+std::optional<uint32_t> Scene::selectedObject() const
+{
+    if (selection_)
+    {
+        const auto model = selection_->model.lock();
+        const auto &objects = GameObjectManager::GetSingleton().gameObjects;
+        const auto found = objects.find(selection_->objectId);
+        if (model && found != objects.end() && found->second.model == model)
+        {
+            return selection_->objectId;
+        }
+    }
+    return std::nullopt;
+}
+
 Scene::~Scene()
 {
     // Remove only this Scene's registry references, so its models die before Device.
-    auto& objects = GameObjectManager::GetSingleton().gameObjects;
-    for (auto it = objects.begin(); it != objects.end(); )
+    auto &objects = GameObjectManager::GetSingleton().gameObjects;
+    for (auto it = objects.begin(); it != objects.end();)
     {
         if (std::find(models_.begin(), models_.end(), it->second.model) != models_.end())
+        {
             it = objects.erase(it);
+        }
         else
+        {
             ++it;
+        }
     }
     for (auto &texture : materialFallbacks_)
     {

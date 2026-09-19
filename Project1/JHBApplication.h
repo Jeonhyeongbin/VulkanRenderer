@@ -15,6 +15,8 @@
 #include "DescriptorSet.h"
 #include "FrameInfo.h"
 #include "RenderGraph/RenderGraph.h"
+#include "PickingPass.h"
+#include "Scene.h"
 
 #ifdef ANDROID
 #include <android_native_app_glue.h>
@@ -75,7 +77,7 @@ class JHBApplication
     void updateViewBuffer(int frameIndex);
     void ensureFrameGraph();
     void recordFrame(VkCommandBuffer commandBuffer);
-    bool pickingPhase(int x, int y);
+    void consumePicking(int frameIndex);
 
   private:
     // init top to bottom
@@ -111,6 +113,19 @@ class JHBApplication
     uint64_t graphGeneration{0};
     bool descriptorsReady{false};
 
+    struct PickingReadback
+    {
+        std::unique_ptr<Buffer> buffer;
+        rg::BufferId graphBuffer{};
+        std::vector<Scene::PickTarget> targets;
+        uint64_t request{0}, generation{0};
+        bool pending{false};
+    };
+
+    std::array<PickingReadback, SwapChain::MAX_FRAMES_IN_FLIGHT> pickingReadbacks;
+    std::array<PickingPass::Resources, SwapChain::MAX_FRAMES_IN_FLIGHT> pickingImages;
+    uint64_t latestPickRequest{0};
+
 #ifndef ANDROID
     std::unique_ptr<class ImGuiPass> imguiPass;
     std::unique_ptr<class ImGuiContext> imguiContext;
@@ -118,8 +133,6 @@ class JHBApplication
 #endif
 
   private:
-    double px{0.0}, py{0.0};
-
 #ifdef ANDROID
     struct android_app *androidApp = nullptr;
     // android_main 이벤트 스레드에서 stopAndroidApp()으로 false를 설정하면

@@ -55,13 +55,19 @@ glm::vec3 jhb::InputController::move(GLFWwindow* window, float dt, GameObject& g
 void jhb::InputController::OnButtonPressed(GLFWwindow* window, int button, int action, int modifier)
 {
 	ImGuiIO& io = ImGui::GetIO();
+	ImGui_ImplGlfw_MouseButtonCallback(window, button, action, modifier);
+	auto tmpwindow = (Window*)glfwGetWindowUserPointer(window);
+	// Always release camera dragging, including when the cursor entered a UI window.
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
+	{
+		tmpwindow->SetMouseButtonPress(false);
+	}
 	if (io.WantCaptureMouse)
 	{
-		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, modifier);
 		return;
 	}
 
-	if (button == GLFW_MOUSE_BUTTON_RIGHT || button == GLFW_MOUSE_BUTTON_LEFT)
+	if (button == GLFW_MOUSE_BUTTON_RIGHT)
 	{
 		auto tmpwindow = (Window*)glfwGetWindowUserPointer(window);
 		if (action == GLFW_PRESS)
@@ -74,7 +80,6 @@ void jhb::InputController::OnButtonPressed(GLFWwindow* window, int button, int a
 		else if (action == GLFW_RELEASE)
 		{
 			tmpwindow->SetMouseButtonPress(false);
-			tmpwindow->objectId = -1;
 		}
 	}
 }

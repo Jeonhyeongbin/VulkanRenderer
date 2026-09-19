@@ -23,6 +23,8 @@
 
 #include <memory>
 #include <unordered_set>
+#include <cstring>
+#include <limits>
 #ifdef ANDROID
 #include <thread>
 #include <chrono>
@@ -130,13 +132,10 @@ void JHBApplication::Run()
         }
 
         int frameIndex = renderer.getFrameIndex();
-        if (!pickingPhase(static_cast<int>(x), static_cast<int>(y)))
+        consumePicking(frameIndex);
+        if (window.GetMousePressed())
         {
-            // camera controll phase
-            if (window.objectId == 0 && window.GetMousePressed())
-            {
-                window.mouseMove(x, y, frameTime, viewerObject);
-            }
+            window.mouseMove(x, y, frameTime, viewerObject);
         }
 
 #ifndef ANDROID
@@ -168,6 +167,14 @@ void JHBApplication::init()
                                                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         uboBuffers[frame]->map();
+        auto &readback = pickingReadbacks[frame];
+        readback.buffer =
+            std::make_unique<Buffer>(device, sizeof(uint32_t), 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        if (readback.buffer->map() != VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to map picking readback");
+        }
     }
 
     GlobalScene->loadDefaultScene();
@@ -365,6 +372,11 @@ void JHBApplication::ensureFrameGraph()
     // Drop sets before their pipeline layouts, after all GPU use has completed.
     releaseDescriptors();
     presentPass.reset();
+    for (auto &readback : pickingReadbacks)
+    {
+        readback.pending = false;
+        readback.targets.clear();
+    }
     for (auto &pass : lightingPasses)
     {
         pass.reset();
@@ -409,6 +421,26 @@ void JHBApplication::ensureFrameGraph()
         shadow.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         shadowDepths[frame] =
             frameGraph->createTexture("shadow-depth/" + std::to_string(frame), shadow);
+        rg::ImageDesc picking;
+        const auto extent = renderer.getSwapChainExtent();
+        picking.width = extent.width;
+        picking.height = extent.height;
+        picking.format = VK_FORMAT_R32_UINT;
+        picking.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        pickingImages[frame].ids =
+            frameGraph->createTexture("picking/ids/" + std::to_string(frame), picking);
+        picking.format = depthFormat;
+        picking.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+        picking.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        pickingImages[frame].depth =
+            frameGraph->createTexture("picking/depth/" + std::to_string(frame), picking);
+        auto &readback = pickingReadbacks[frame];
+        rg::Buffer buffer;
+        buffer.buffer = readback.buffer->getBuffer();
+        buffer.size = readback.buffer->getBufferSize();
+        buffer.usage = readback.buffer->getUsageFlags();
+        readback.graphBuffer = frameGraph->importBuffer("picking/readback/" + std::to_string(frame),
+                                                        buffer, vk_sync::AccessType::HostRead);
     }
     presentPass = std::make_unique<PresentPass>(*frameGraph,
                                                 renderer.GetSwapChain().getSwapChainImageFormat());
@@ -418,6 +450,7 @@ void JHBApplication::ensureFrameGraph()
 void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
 {
     recordIBL(commandBuffer);
+    const bool resized = frameGraph && graphGeneration != renderer.getSwapChainGeneration();
     ensureFrameGraph();
     const int frameIndex = renderer.getFrameIndex();
     auto &graph = *frameGraph;
@@ -458,6 +491,7 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
             cube->draw(cmd, resources.pipeline(pass.pipelineHandle).layout, 0);
         });
     PointLightPass{}.addPass(graph, {previewColor, depth}, GlobalScene->pointLights());
+    std::optional<VkOffset2D> pickPixel;
 #ifndef ANDROID
     imguiContext->configureTarget(graph.resources().texture(previewColor).texture.image.desc.format,
                                   static_cast<uint32_t>(renderer.GetSwapChain().getImageCount()));
@@ -467,12 +501,60 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
     ImGui::Begin("settings", nullptr, ImGuiWindowFlags_MenuBar);
     ImGui::TextUnformatted("Deferred lighting + IBL + shadows");
     ImGui::Text("Models: %d", static_cast<int>(sceneModels.size()));
+    if (const auto selected = GlobalScene->selectedObject())
+    {
+        ImGui::Text("Selected object: %u", *selected);
+    }
+    else
+    {
+        ImGui::TextUnformatted("Selected object: none");
+    }
     ImGui::SliderFloat("roughness", &uiRoughness, 0.1f, 1.0f);
     ImGui::SliderFloat("metallic", &uiMetallic, 0.1f, 1.0f);
     ImGui::End();
+    if (!resized && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+        !ImGui::GetIO().WantCaptureMouse)
+    {
+        int width = 0, height = 0;
+        glfwGetWindowSize(&window.GetGLFWwindow(), &width, &height);
+        const auto mouse = ImGui::GetIO().MousePos;
+        pickPixel =
+            PickingPass::pixel(mouse.x, mouse.y, width, height, renderer.getSwapChainExtent());
+    }
     imguiContext->endFrame();
     imguiPass->addPass(graph, previewColor, imguiContext->drawFunction());
 #endif
+    if (pickPixel)
+    {
+        auto &readback = pickingReadbacks[frameIndex];
+        readback.targets.clear();
+        std::vector<std::pair<std::shared_ptr<Model>, uint32_t>> draws;
+        for (const auto &model : sceneModels)
+        {
+            auto targets = GlobalScene->pickingTargets(model);
+            if (readback.targets.size() + targets.size() >= (std::numeric_limits<uint32_t>::max)())
+            {
+                throw std::overflow_error("Too many picking instances");
+            }
+            draws.emplace_back(model, static_cast<uint32_t>(readback.targets.size() + 1));
+            readback.targets.insert(readback.targets.end(), targets.begin(), targets.end());
+        }
+        PickingPass{}.addPass(
+            graph, pickingImages[frameIndex],
+            [draws = std::move(draws)](VkCommandBuffer cmd, const rg::RenderPass &pass,
+                                       const rg::GraphResources &resources)
+            {
+                const auto layout = resources.pipeline(pass.pipelineHandle).layout;
+                for (const auto &[model, baseId] : draws)
+                {
+                    PickingPass::pushBaseId(cmd, layout, baseId);
+                    model->drawGraphGeometryOnly(cmd, layout);
+                }
+            },
+            PickingPass::Readback{readback.graphBuffer, *pickPixel});
+        readback.request = ++latestPickRequest;
+        readback.generation = graphGeneration;
+    }
     presentPass->addPass(previewColor);
     graph.prepare();
     prepareDescriptors(graph.resources().pipeline(geometryPipeline));
@@ -494,63 +576,40 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
         context.viewDescriptorSets.push_back(set.handle);
     }
     graph.render(renderer, commandBuffer, context, presentImage);
+    if (pickPixel)
+    {
+        auto &readback = pickingReadbacks[frameIndex];
+        // endFrame submits this copy with the existing frame fence. Failure exits Run.
+        readback.pending = true;
+    }
     vk_sync::imagePipelineBarrier(
         commandBuffer, presentImage.image, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
         vk_sync::AccessType::ColorAttachmentWrite, vk_sync::AccessType::Present, false);
 }
 
-bool JHBApplication::pickingPhase(int x, int y)
+void JHBApplication::consumePicking(int frameIndex)
 {
-    // TODO(migration): declare PickingPass when requested, then copy its ID pixel
-    // after graph rendering and consume readback only after the submission fence.
-    // Selection manipulation below only consumes an already resolved window.objectId.
-
-    // picking only apply to pbrobjects
-    if (window.objectId > 0)
+    auto &readback = pickingReadbacks[frameIndex];
+    if (!readback.pending)
     {
-        auto &pickedObject = GameObjectManager::GetSingleton().gameObjects[window.objectId - 1];
-        {
-            if (pickedObject.model && pickedObject.getId() >= 2)
-            {
-                // should transfer rotation axis to object space;
-                uint32_t obj_first_id = pickedObject.model->firstid;
-                pickedObject.transform.rotation =
-                    glm::rotate(glm::mat4{1.f}, (float)((px - x) * (0.001)), glm::vec3{1, 0, 0}) *
-                    glm::vec4(pickedObject.transform.rotation, 1);
-                px = x, py = y;
-
-                std::vector<glm::vec3> tmplist(pickedObject.model->instanceCount);
-                for (int i = 0; i < pickedObject.model->instanceCount; i++)
-                {
-                    tmplist[i] = GameObjectManager::GetSingleton()
-                                     .gameObjects[obj_first_id + i]
-                                     .transform.translation;
-                }
-
-                std::vector<glm::vec3> tmprot(pickedObject.model->instanceCount);
-                for (int i = 0; i < pickedObject.model->instanceCount; i++)
-                {
-                    tmprot[i] = GameObjectManager::GetSingleton()
-                                    .gameObjects[obj_first_id + i]
-                                    .transform.rotation;
-                }
-
-                tmprot[pickedObject.getId() - pickedObject.model->firstid] =
-                    pickedObject.transform.rotation;
-                {
-                    pickedObject.model->updateInstanceBuffer(pickedObject.model->instanceCount,
-                                                             tmplist, tmprot);
-                }
-            }
-        }
-        return true;
+        return;
     }
-
-    // if not objectpicking state then store currnet mouse coordinate for next pickingphase
-    px = x;
-    py = y;
-
-    // and return false boolean for processing camera phase
-    return false;
+    // beginFrame has successfully waited for this slot's previous graphics submission.
+    readback.pending = false;
+    if (readback.generation == renderer.getSwapChainGeneration() &&
+        readback.request == latestPickRequest)
+    {
+        // Buffer maps its entire dedicated allocation; whole-range invalidation is aligned.
+        if (readback.buffer->invalidate() != VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to invalidate picking readback");
+        }
+        uint32_t id = 0;
+        std::memcpy(&id, readback.buffer->getMappedMemory(), sizeof(id));
+        GlobalScene->select(id > 0 && id <= readback.targets.size()
+                                ? std::optional<Scene::PickTarget>(readback.targets[id - 1])
+                                : std::nullopt);
+    }
+    readback.targets.clear();
 }
 } // namespace jhb

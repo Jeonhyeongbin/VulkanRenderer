@@ -100,7 +100,5 @@ namespace jhb {
 		GLFWwindow* window;
 #endif
 		std::unique_ptr<jhb::Camera> camera;
-	public:
-		int objectId = 0;
 	};
 }

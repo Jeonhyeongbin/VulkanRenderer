@@ -147,6 +147,104 @@ PassBuilder &PassBuilder::presentationPass(bool enabled)
     return *this;
 }
 
+PassBuilder &PassBuilder::copyImageToBuffer(TextureId source, BufferId destination,
+                                            VkBufferImageCopy region,
+                                            vk_sync::AccessType finalAccess)
+{
+    ImageToBufferCopy copy{source, destination, region, finalAccess};
+    copy.validate(graph_->resources());
+    if (bufferCopyCommand_)
+    {
+        throw std::logic_error("Only one image-to-buffer copy per pass is supported");
+    }
+    bufferCopyCommand_ = copy;
+    return *this;
+}
+
+VkDeviceSize ImageToBufferCopy::validate(const GraphResources &resources) const
+{
+    const auto &image = resources.texture(source).texture.image.desc;
+    const auto &buffer = resources.buffer(destination).buffer;
+    uint32_t texelBytes = 0;
+    switch (image.format)
+    {
+    case VK_FORMAT_R8_UNORM:
+        texelBytes = 1;
+        break;
+    case VK_FORMAT_R8G8_UNORM:
+    case VK_FORMAT_R16_SFLOAT:
+        texelBytes = 2;
+        break;
+    case VK_FORMAT_R32_UINT:
+    case VK_FORMAT_R32_SFLOAT:
+    case VK_FORMAT_R16G16_SFLOAT:
+    case VK_FORMAT_R8G8B8A8_UNORM:
+    case VK_FORMAT_R8G8B8A8_SRGB:
+    case VK_FORMAT_B8G8R8A8_UNORM:
+    case VK_FORMAT_B8G8R8A8_SRGB:
+        texelBytes = 4;
+        break;
+    case VK_FORMAT_R16G16B16A16_SFLOAT:
+        texelBytes = 8;
+        break;
+    case VK_FORMAT_R32G32B32A32_SFLOAT:
+        texelBytes = 16;
+        break;
+    default:
+        throw std::invalid_argument("Unsupported image-to-buffer copy format");
+    }
+    const auto &sub = region.imageSubresource;
+    if (!buffer.buffer || !(buffer.usage & VK_BUFFER_USAGE_TRANSFER_DST_BIT) ||
+        !(image.usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) || image.imageType != ImageType::Image2D ||
+        image.aspectFlags != VK_IMAGE_ASPECT_COLOR_BIT ||
+        sub.aspectMask != VK_IMAGE_ASPECT_COLOR_BIT || sub.layerCount != 1 ||
+        sub.baseArrayLayer >= image.arrayLayers || sub.mipLevel >= image.mipLevels ||
+        sub.mipLevel >= 32 || region.bufferRowLength || region.bufferImageHeight ||
+        region.imageOffset.x < 0 || region.imageOffset.y < 0 || region.imageOffset.z != 0 ||
+        region.imageExtent.depth != 1 || !region.imageExtent.width || !region.imageExtent.height ||
+        region.bufferOffset % 4 || region.bufferOffset % texelBytes)
+    {
+        throw std::invalid_argument("Invalid tightly packed 2D image-to-buffer copy");
+    }
+    const auto width = (std::max)(1u, image.width >> sub.mipLevel);
+    const auto height = (std::max)(1u, image.height >> sub.mipLevel);
+    const uint64_t texels = uint64_t(region.imageExtent.width) * region.imageExtent.height;
+    if (uint64_t(region.imageOffset.x) + region.imageExtent.width > width ||
+        uint64_t(region.imageOffset.y) + region.imageExtent.height > height ||
+        region.bufferOffset > buffer.size ||
+        texels > (buffer.size - region.bufferOffset) / texelBytes)
+    {
+        throw std::invalid_argument("Image-to-buffer copy exceeds resource bounds");
+    }
+    return texels * texelBytes;
+}
+
+void ImageToBufferCopy::record(VkCommandBuffer cmd, GraphResources &resources) const
+{
+    validate(resources);
+    auto &image = resources.texture(source);
+    auto &buffer = resources.buffer(destination);
+    image.previousAccess = vk_sync::imagePipelineBarrier(
+        cmd, image.texture.image.image, wholeImageRange(image.texture.image), image.previousAccess,
+        vk_sync::AccessType::TransferRead, false);
+    // Buffer tracking is whole-resource, matching the graph's existing access model.
+    vk_sync::BufferBarrier barrier;
+    barrier.buffer = buffer.buffer.buffer;
+    barrier.previousAccesses = {buffer.previousAccess};
+    barrier.nextAccesses = {vk_sync::AccessType::TransferWrite};
+    vk_sync::cmdPipelineBarrier(cmd, std::nullopt, {barrier}, {});
+    buffer.previousAccess = vk_sync::AccessType::TransferWrite;
+    vkCmdCopyImageToBuffer(cmd, image.texture.image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                           buffer.buffer.buffer, 1, &region);
+    if (finalAccess != vk_sync::AccessType::TransferWrite)
+    {
+        barrier.previousAccesses = {buffer.previousAccess};
+        barrier.nextAccesses = {finalAccess};
+        vk_sync::cmdPipelineBarrier(cmd, std::nullopt, {barrier}, {});
+        buffer.previousAccess = finalAccess;
+    }
+}
+
 PassBuilder &PassBuilder::depthAttachment(TextureId texture)
 {
     depthAttachment_ = Attachment{texture, ViewType::Full, 0, VK_ATTACHMENT_LOAD_OP_CLEAR};
@@ -297,6 +395,7 @@ BufferId RenderGraph::createBuffer(std::string debugName, VkDeviceSize size,
     }
     Buffer buffer = device_.createBuffer(size, usage, memoryProperties, debugName);
     buffer.size = size;
+    buffer.usage = usage;
     buffer.debugName = debugName;
     resources_.buffers.push_back({std::move(buffer), vk_sync::AccessType::Nothing, true});
     return resources_.buffers.size() - 1;
@@ -349,7 +448,7 @@ void RenderGraph::prepare()
     // Builder descriptions may be drafts without attachment formats. Only create
     // the finalized pipelines actually referenced by this frame's passes.
     resources_.pipelines.resize(pipelineDescs_.size());
-    for (const auto& pass : passes_[currentFrame_])
+    for (const auto &pass : passes_[currentFrame_])
     {
         if (pass.externalGraphics)
         {
@@ -390,7 +489,8 @@ void RenderGraph::render(Renderer &renderer, VkCommandBuffer commandBuffer, Rend
     for (const auto &pass : passes_[currentFrame_])
     {
         device_.beginDebugLabel(commandBuffer, pass.name);
-        const auto *pipeline = pass.externalGraphics ? nullptr : &resources_.pipeline(pass.pipelineHandle);
+        const auto *pipeline =
+            pass.externalGraphics ? nullptr : &resources_.pipeline(pass.pipelineHandle);
 
         for (const auto &read : pass.reads)
         {
@@ -548,6 +648,10 @@ void RenderGraph::render(Renderer &renderer, VkCommandBuffer commandBuffer, Rend
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
         }
 
+        if (pass.bufferCopyCommand)
+        {
+            pass.bufferCopyCommand->record(commandBuffer, resources_);
+        }
         device_.endDebugLabel(commandBuffer);
     }
 }

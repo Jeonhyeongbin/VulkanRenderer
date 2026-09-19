@@ -51,8 +51,12 @@ void SwapChain::init()
 
 VkResult SwapChain::acquireNextImage(uint32_t *imageIndex)
 {
-    vkWaitForFences(device.getLogicalDevice(), 1, &inFlightFences[currentFrame], VK_TRUE,
-                    std::numeric_limits<uint64_t>::max());
+    const auto wait = vkWaitForFences(device.getLogicalDevice(), 1, &inFlightFences[currentFrame],
+                                      VK_TRUE, std::numeric_limits<uint64_t>::max());
+    if (wait != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to wait for frame slot completion");
+    }
 
     VkResult result = vkAcquireNextImageKHR(
         device.getLogicalDevice(), swapChain, std::numeric_limits<uint64_t>::max(),

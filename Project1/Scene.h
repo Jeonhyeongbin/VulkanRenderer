@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 #include "Image.h"
 #include <array>
+#include <optional>
 
 namespace jhb
 {
@@ -23,6 +24,16 @@ struct Vertex;
 class Scene
 {
   public:
+    struct PickTarget
+    {
+        uint32_t objectId;
+        std::weak_ptr<Model> model;
+    };
+
+    std::vector<PickTarget> pickingTargets(const std::shared_ptr<Model> &model) const;
+    void select(std::optional<PickTarget> target);
+    std::optional<uint32_t> selectedObject() const;
+
     struct PointLightData
     {
         glm::vec3 position{0.0f};
@@ -63,6 +74,7 @@ class Scene
                                       const std::vector<uint32_t> &indices);
 
     Device &device_;
+    std::optional<PickTarget> selection_;
     std::vector<std::shared_ptr<Model>> models_;
     std::shared_ptr<Model> environmentCube_;
     std::vector<PointLightData> pointLights_;

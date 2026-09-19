@@ -44,6 +44,7 @@ struct Buffer
     VkBuffer buffer{VK_NULL_HANDLE};
     VkDeviceSize size{0};
     std::string debugName;
+    VkBufferUsageFlags usage{0};
 };
 
 struct GraphTexture
@@ -125,6 +126,19 @@ struct TextureCopy
     VkImageCopy region{};
 };
 
+// Post-pass transfer, like TextureCopy. Currently supports tightly packed,
+// single-layer 2D color regions in the explicitly supported uncompressed formats.
+struct ImageToBufferCopy
+{
+    TextureId source{};
+    BufferId destination{};
+    VkBufferImageCopy region{};
+    vk_sync::AccessType finalAccess{vk_sync::AccessType::TransferWrite};
+
+    VkDeviceSize validate(const GraphResources &resources) const;
+    void record(VkCommandBuffer commandBuffer, GraphResources &resources) const;
+};
+
 struct UniformData
 {
     std::array<std::byte, kMaxUniformSize> data{};
@@ -154,6 +168,7 @@ struct RenderPass
     std::optional<BufferId> uniformBuffer;
     std::optional<DescriptorSet> uniformsDescriptorSet;
     std::optional<TextureCopy> copyCommand;
+    std::optional<ImageToBufferCopy> bufferCopyCommand;
     std::vector<std::pair<BufferId, vk_sync::AccessType>> extraBarriers;
 };
 
@@ -185,6 +200,9 @@ class PassBuilder
     PassBuilder &render(RenderFunction function);
     PassBuilder &dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
     PassBuilder &copyImage(TextureId source, TextureId destination, VkImageCopy region);
+    PassBuilder &
+    copyImageToBuffer(TextureId source, BufferId destination, VkBufferImageCopy region,
+                      vk_sync::AccessType finalAccess = vk_sync::AccessType::TransferWrite);
     PassBuilder &presentationPass(bool enabled = true);
     PassBuilder &depthAttachment(TextureId texture);
     PassBuilder &loadDepthAttachment(TextureId texture);
@@ -221,6 +239,7 @@ class PassBuilder
     bool presentationPass_{false};
     std::map<std::string, std::pair<std::string, UniformData>> uniforms_;
     std::optional<TextureCopy> copyCommand_;
+    std::optional<ImageToBufferCopy> bufferCopyCommand_;
     std::vector<std::pair<BufferId, vk_sync::AccessType>> extraBarriers_;
     bool built_{false};
 };
@@ -300,6 +319,5 @@ class RenderGraph
     std::vector<PipelineDesc> pipelineDescs_;
     std::size_t currentFrame_{0};
 };
-
 
 } // namespace jhb::rg

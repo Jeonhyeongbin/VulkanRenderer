@@ -1,10 +1,24 @@
 #include "PickingPass.h"
 #include <stdexcept>
+#include <cmath>
 
 namespace jhb
 {
+std::optional<VkOffset2D> PickingPass::pixel(double x, double y, int windowWidth, int windowHeight,
+                                             VkExtent2D extent)
+{
+    if (!std::isfinite(x) || !std::isfinite(y) || windowWidth <= 0 || windowHeight <= 0 ||
+        extent.width == 0 || extent.height == 0 || x < 0 || y < 0 || x >= windowWidth ||
+        y >= windowHeight)
+    {
+        return std::nullopt;
+    }
+    return VkOffset2D{static_cast<int32_t>(x * extent.width / windowWidth),
+                      static_cast<int32_t>(y * extent.height / windowHeight)};
+}
+
 void PickingPass::addPass(rg::RenderGraph &graph, const Resources &r,
-                          rg::RenderFunction drawObjects) const
+                          rg::RenderFunction drawObjects, std::optional<Readback> readback) const
 {
     if (!drawObjects)
     {
@@ -26,17 +40,22 @@ void PickingPass::addPass(rg::RenderGraph &graph, const Resources &r,
         throw std::invalid_argument(
             "Picking requires an R32_UINT transfer-source target and matching depth");
     }
-    graph
-        .addPassFromDesc("picking", rg::PipelineDesc::builder()
-                                        .vertexPath("shaders/picking.vert.spv")
-                                        .fragmentPath("shaders/picking.frag.spv")
-                                        .defaultMeshVertexInput()
-                                        .depthTest(true)
-                                        .depthWrite(true))
-        .write(r.ids)
-        .depthAttachment(r.depth)
-        .render(std::move(drawObjects))
-        .build();
+    auto pass = graph.addPassFromDesc("picking", rg::PipelineDesc::builder()
+                                                     .vertexPath("shaders/picking.vert.spv")
+                                                     .fragmentPath("shaders/picking.frag.spv")
+                                                     .defaultMeshVertexInput()
+                                                     .depthTest(true)
+                                                     .depthWrite(true));
+    pass.write(r.ids).depthAttachment(r.depth).render(std::move(drawObjects));
+    if (readback)
+    {
+        VkBufferImageCopy region{};
+        region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        region.imageOffset = {readback->pixel.x, readback->pixel.y, 0};
+        region.imageExtent = {1, 1, 1};
+        pass.copyImageToBuffer(r.ids, readback->buffer, region, vk_sync::AccessType::HostRead);
+    }
+    pass.build();
 }
 
 void PickingPass::pushBaseId(VkCommandBuffer commandBuffer, VkPipelineLayout layout,
