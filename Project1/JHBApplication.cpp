@@ -37,6 +37,11 @@ namespace jhb
 {
 JHBApplication::JHBApplication()
 {
+    // Renderer construction can fail without throwing. Run() returns that error.
+    if (renderer.status() != VK_SUCCESS)
+    {
+        return;
+    }
     uboBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     viewDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
@@ -55,8 +60,12 @@ JHBApplication::~JHBApplication()
 #endif
 }
 
-void JHBApplication::Run()
+VkResult JHBApplication::Run()
 {
+    if (renderer.status() != VK_SUCCESS)
+    {
+        return renderer.status();
+    }
     auto viewerObject = GameObject::createGameObject();
     viewerObject.transform.translation = {0.0f, 0.0f, -4.0f};
     viewerObject.transform.rotation = {0.0f, glm::radians(90.0f), 0.0f};
@@ -128,6 +137,10 @@ void JHBApplication::Run()
         if (commandBuffer ==
             nullptr) // begine frame return null pointer if swap chain need recreated
         {
+            if (renderer.status() != VK_SUCCESS)
+            {
+                break;
+            }
             continue;
         }
 
@@ -149,6 +162,10 @@ void JHBApplication::Run()
         updateViewBuffer(frameIndex);
         recordFrame(commandBuffer);
         renderer.endFrame();
+        if (renderer.status() != VK_SUCCESS)
+        {
+            break;
+        }
     }
 
     // Run() 루프 종료 후 dangling pointer 방지
@@ -156,7 +173,8 @@ void JHBApplication::Run()
 #ifdef ANDROID
     inputController.store(nullptr);
 #endif
-    vkDeviceWaitIdle(device.getLogicalDevice());
+    const auto idle = vkDeviceWaitIdle(device.getLogicalDevice());
+    return renderer.status() != VK_SUCCESS ? renderer.status() : idle;
 }
 
 void JHBApplication::init()

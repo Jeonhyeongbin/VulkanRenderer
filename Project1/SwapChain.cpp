@@ -3,17 +3,17 @@
 
 namespace jhb
 {
-VkFormat SwapChain::swapChainImageFormat;
-
 SwapChain::SwapChain(Device &device, VkExtent2D extent, std::shared_ptr<SwapChain> previous)
     : device(device), swapChainExtent(extent), oldSwapchain(std::move(previous))
 {
-    createSwapChain();
-    init();
-    oldSwapchain.reset();
 }
 
 SwapChain::~SwapChain()
+{
+    destroyResources();
+}
+
+void SwapChain::destroyResources() noexcept
 {
     for (auto view : swapChainImageviews)
     {
@@ -41,12 +41,38 @@ SwapChain::~SwapChain()
     {
         vkDestroyFence(device.getLogicalDevice(), fence, nullptr);
     }
+    swapChain = VK_NULL_HANDLE;
+    swapChainImageviews.clear();
+    swapChainImages.clear();
+    imageAvailableSemaphores.clear();
+    renderFinishedSemaphores.clear();
+    computeSemaphores.clear();
+    inFlightFences.clear();
+    computeFences.clear();
 }
 
-void SwapChain::init()
+VkResult SwapChain::init()
 {
-    createImageViews();
-    createSyncObjects();
+    if (swapChain != VK_NULL_HANDLE)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+    VkResult result = createSwapChain();
+    if (result == VK_SUCCESS)
+    {
+        result = createImageViews();
+    }
+    if (result == VK_SUCCESS)
+    {
+        result = createSyncObjects();
+    }
+    if (result != VK_SUCCESS)
+    {
+        destroyResources();
+        return result;
+    }
+    oldSwapchain.reset();
+    return VK_SUCCESS;
 }
 
 VkResult SwapChain::acquireNextImage(uint32_t *imageIndex)
@@ -75,20 +101,16 @@ VkFormat SwapChain::findDepthFormat()
 
 VkResult SwapChain::submitCommandBuffers(const VkCommandBuffer *buffers, uint32_t *imageIndex)
 {
-    if (imagesInFlight[*imageIndex] != VK_NULL_HANDLE)
+    if (!buffers || !imageIndex || *imageIndex >= swapChainImages.size())
     {
-        vkWaitForFences(device.getLogicalDevice(), 1, &imagesInFlight[*imageIndex], VK_TRUE,
-                        UINT64_MAX);
+        throw std::invalid_argument("Invalid command buffer or acquired swapchain image");
     }
-    imagesInFlight[*imageIndex] = inFlightFences[currentFrame];
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame],
-                                    computeSemaphores[currentFrame]};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT};
+    VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
@@ -96,11 +118,16 @@ VkResult SwapChain::submitCommandBuffers(const VkCommandBuffer *buffers, uint32_
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = buffers;
 
-    VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
+    // A graphics fence does not cover presentation's semaphore wait. Reacquiring
+    // this image (and waiting on imageAvailable) makes its present semaphore reusable.
+    VkSemaphore signalSemaphores[] = {renderFinishedSemaphores.at(*imageIndex)};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    vkResetFences(device.getLogicalDevice(), 1, &inFlightFences[currentFrame]);
+    if (vkResetFences(device.getLogicalDevice(), 1, &inFlightFences[currentFrame]) != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to reset frame fence before submission");
+    }
     if (vkQueueSubmit(device.getGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame]) !=
         VK_SUCCESS)
     {
@@ -150,10 +177,18 @@ VkResult SwapChain::submitComputeCommandBuffers(const VkCommandBuffer *buffers)
     return ret;
 }
 
-void SwapChain::createSwapChain()
+VkResult SwapChain::createSwapChain()
 {
     SwapChainSupportDetails swapChainSupport =
         querySwapChainSupport(device.getPhysicalDevice(), device.getSurface());
+    if (swapChainSupport.result != VK_SUCCESS)
+    {
+        return swapChainSupport.result;
+    }
+    if (swapChainSupport.formats.empty() || swapChainSupport.presentModes.empty())
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
 
     VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
     VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
@@ -180,6 +215,10 @@ void SwapChain::createSwapChain()
                                              // VK_IMAGE_USAGE_TRANSFER_DST_BIT flag.
 
     jhb::Device::QueueFamilyIndexes indices = device.findQueueFamilies(device.getPhysicalDevice());
+    if (!indices.graphicsFamily || !indices.presentFamily)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
     uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
     if (indices.graphicsFamily != indices.presentFamily)
@@ -204,23 +243,38 @@ void SwapChain::createSwapChain()
                                   ? VK_NULL_HANDLE
                                   : oldSwapchain->swapChain; // TODO : cause of window resizing
 
-    if (vkCreateSwapchainKHR(device.getLogicalDevice(), &createInfo, nullptr, &swapChain) !=
-        VK_SUCCESS)
+    VkResult result =
+        vkCreateSwapchainKHR(device.getLogicalDevice(), &createInfo, nullptr, &swapChain);
+    if (result != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create swap chain!");
+        return result;
     }
 
     // retrieve swapchain images
-    vkGetSwapchainImagesKHR(device.getLogicalDevice(), swapChain, &imageCount, nullptr);
+    result = vkGetSwapchainImagesKHR(device.getLogicalDevice(), swapChain, &imageCount, nullptr);
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+    if (imageCount == 0)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
     swapChainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(device.getLogicalDevice(), swapChain, &imageCount,
-                            swapChainImages.data());
+    result = vkGetSwapchainImagesKHR(device.getLogicalDevice(), swapChain, &imageCount,
+                                     swapChainImages.data());
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+    swapChainImages.resize(imageCount);
 
     swapChainImageFormat = surfaceFormat.format;
     swapChainExtent = extent;
+    return VK_SUCCESS;
 }
 
-void SwapChain::createImageViews()
+VkResult SwapChain::createImageViews()
 {
     swapChainImageviews.resize(swapChainImages.size());
     for (size_t i = 0; i < swapChainImages.size(); i++)
@@ -236,20 +290,21 @@ void SwapChain::createImageViews()
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
 
-        if (vkCreateImageView(device.getLogicalDevice(), &viewInfo, nullptr,
-                              &swapChainImageviews[i]) != VK_SUCCESS)
+        const auto result = vkCreateImageView(device.getLogicalDevice(), &viewInfo, nullptr,
+                                              &swapChainImageviews[i]);
+        if (result != VK_SUCCESS)
         {
-            throw std::runtime_error("failed to create texture image view!");
+            return result;
         }
     }
+    return VK_SUCCESS;
 }
 
-void SwapChain::createSyncObjects()
+VkResult SwapChain::createSyncObjects()
 {
     imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    renderFinishedSemaphores.resize(swapChainImages.size());
     inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-    imagesInFlight.resize(swapChainImages.size(), VK_NULL_HANDLE);
 
     computeFences.resize(MAX_FRAMES_IN_FLIGHT);
     computeSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -263,20 +318,39 @@ void SwapChain::createSyncObjects()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        if (vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
-                              &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
-                              &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-            vkCreateFence(device.getLogicalDevice(), &fenceInfo, nullptr, &inFlightFences[i]) !=
-                VK_SUCCESS ||
-            vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
-                              &computeSemaphores[i]) != VK_SUCCESS ||
-            vkCreateFence(device.getLogicalDevice(), &fenceInfo, nullptr, &computeFences[i]) !=
-                VK_SUCCESS)
+        auto result = vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
+                                        &imageAvailableSemaphores[i]);
+        if (result != VK_SUCCESS)
         {
-            throw std::runtime_error("failed to create synchronization objects for a frame!");
+            return result;
+        }
+        result = vkCreateFence(device.getLogicalDevice(), &fenceInfo, nullptr, &inFlightFences[i]);
+        if (result != VK_SUCCESS)
+        {
+            return result;
+        }
+        result = vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
+                                   &computeSemaphores[i]);
+        if (result != VK_SUCCESS)
+        {
+            return result;
+        }
+        result = vkCreateFence(device.getLogicalDevice(), &fenceInfo, nullptr, &computeFences[i]);
+        if (result != VK_SUCCESS)
+        {
+            return result;
         }
     }
+    for (auto &semaphore : renderFinishedSemaphores)
+    {
+        const auto result =
+            vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr, &semaphore);
+        if (result != VK_SUCCESS)
+        {
+            return result;
+        }
+    }
+    return VK_SUCCESS;
 }
 
 jhb::SwapChain::SwapChainSupportDetails SwapChain::querySwapChainSupport(VkPhysicalDevice device,
@@ -285,25 +359,50 @@ jhb::SwapChain::SwapChainSupportDetails SwapChain::querySwapChainSupport(VkPhysi
     SwapChainSupportDetails details;
 
     // process all three properties of detatils below section
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+    details.result =
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+    if (details.result != VK_SUCCESS)
+    {
+        return details;
+    }
 
-    uint32_t formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+    uint32_t formatCount = 0;
+    details.result = vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+    if (details.result != VK_SUCCESS)
+    {
+        return details;
+    }
 
     if (formatCount != 0)
     {
         details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
+        details.result = vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount,
+                                                              details.formats.data());
+        if (details.result != VK_SUCCESS)
+        {
+            return details;
+        }
+        details.formats.resize(formatCount);
     }
 
-    uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+    uint32_t presentModeCount = 0;
+    details.result =
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+    if (details.result != VK_SUCCESS)
+    {
+        return details;
+    }
 
     if (presentModeCount != 0)
     {
         details.presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount,
-                                                  details.presentModes.data());
+        details.result = vkGetPhysicalDeviceSurfacePresentModesKHR(
+            device, surface, &presentModeCount, details.presentModes.data());
+        if (details.result != VK_SUCCESS)
+        {
+            return details;
+        }
+        details.presentModes.resize(presentModeCount);
     }
 
     return details;

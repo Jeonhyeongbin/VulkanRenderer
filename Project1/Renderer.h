@@ -54,6 +54,11 @@ class Renderer
     VkCommandBuffer beginFrame();
     void endFrame();
 
+    VkResult status() const
+    {
+        return status_;
+    }
+
     // Dynamic rendering only; frame acquisition/submission stays in beginFrame/endFrame.
     bool isRendering() const
     {
@@ -120,9 +125,9 @@ class Renderer
     }
 
   private:
-    void createCommandBuffers();
+    VkResult createCommandBuffers();
     void freeCommandBuffers();
-    void recreateSwapChain();
+    VkResult recreateSwapChain();
 
     // init top to bottom
     Window &window;
@@ -137,5 +142,6 @@ class Renderer
     bool isFrameStarted{false};
     bool isRendering_{false};
     uint64_t swapChainGeneration_{0};
+    VkResult status_{VK_SUCCESS};
 };
 } // namespace jhb

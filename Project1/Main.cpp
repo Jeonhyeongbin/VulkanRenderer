@@ -136,7 +136,11 @@ static void appThreadFunc(struct android_app* app)
 		// inputController는 Run() 내부에서 atomic으로 설정되므로 여기서 따로 저장 불필요
 
 		LOGI("JHBApplication::Run() 시작");
-		application.Run();
+		const auto result = application.Run();
+		if (result != VK_SUCCESS)
+		{
+			LOGE("Renderer failed: VkResult=%d", static_cast<int>(result));
+		}
 
 		LOGI("JHBApplication::Run() 종료");
 	}
@@ -204,7 +208,12 @@ int main() {
 		// swapchain, framebuffer, color, depth attachment are to fixed with window size
 		// every time window resize, you must create new swapcahin and others...
 		jhb::JHBApplication app;
-		app.Run();
+		const auto result = app.Run();
+		if (result != VK_SUCCESS)
+		{
+			std::cerr << "Renderer failed: VkResult=" << static_cast<int>(result) << std::endl;
+			return EXIT_FAILURE;
+		}
 	}
 	catch (const std::exception& e) {
 		std::cerr << e.what() << std::endl;

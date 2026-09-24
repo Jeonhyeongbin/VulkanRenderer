@@ -1181,7 +1181,8 @@ namespace jhb {
 		bool swapChainAdequate = false;
 		if (extensionsSupported) {
 			SwapChain::SwapChainSupportDetails swapChainSupport = SwapChain::querySwapChainSupport(device, surface);
-			swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+			swapChainAdequate = swapChainSupport.result == VK_SUCCESS &&
+				!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
 		}
 
 		return indexes.graphicsFamily.has_value() && indexes.presentFamily.has_value() && extensionsSupported && swapChainAdequate;

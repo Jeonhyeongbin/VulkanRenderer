@@ -6,8 +6,16 @@ namespace jhb
 {
 Renderer::Renderer(Window &window, Device &device) : window(window), device(device)
 {
-    recreateSwapChain();
-    createCommandBuffers();
+    status_ = recreateSwapChain();
+    if (status_ != VK_SUCCESS)
+    {
+        return;
+    }
+    status_ = createCommandBuffers();
+    if (status_ != VK_SUCCESS)
+    {
+        return;
+    }
     window.resetWindowResizedFlag();
 }
 
@@ -17,7 +25,7 @@ Renderer::~Renderer()
     freeCommandBuffers();
 }
 
-void Renderer::createCommandBuffers()
+VkResult Renderer::createCommandBuffers()
 {
     commandBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
@@ -27,21 +35,27 @@ void Renderer::createCommandBuffers()
     allocInfo.commandPool = device.getCommnadPool();
     allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
-    if (vkAllocateCommandBuffers(device.getLogicalDevice(), &allocInfo, commandBuffers.data()) !=
-        VK_SUCCESS)
+    const auto result =
+        vkAllocateCommandBuffers(device.getLogicalDevice(), &allocInfo, commandBuffers.data());
+    if (result != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to allocate command buffers!");
+        commandBuffers.clear();
     }
+    return result;
 }
 
 void Renderer::freeCommandBuffers()
 {
+    if (commandBuffers.empty())
+    {
+        return;
+    }
     vkFreeCommandBuffers(device.getLogicalDevice(), device.getCommnadPool(),
                          static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
     commandBuffers.clear();
 }
 
-void Renderer::recreateSwapChain()
+VkResult Renderer::recreateSwapChain()
 {
     extent = window.getExtent();
     while (extent.width == 0 || extent.height == 0)
@@ -52,24 +66,26 @@ void Renderer::recreateSwapChain()
 #endif
     }
 
-    vkDeviceWaitIdle(
-        device.getLogicalDevice()); // wait until current swapchain is no longer being used
+    const auto wait = vkDeviceWaitIdle(device.getLogicalDevice());
+    if (wait != VK_SUCCESS)
+    {
+        return wait;
+    }
 
-    if (swapChain == nullptr)
+    std::shared_ptr<SwapChain> previous = std::move(swapChain);
+    auto next = std::make_unique<SwapChain>(device, extent, previous);
+    const auto result = next->init();
+    if (result != VK_SUCCESS)
     {
-        swapChain = std::make_unique<SwapChain>(device, extent);
+        // Creating a replacement can retire the old swapchain even on failure.
+        // Do not restore it and continue rendering; the caller terminates the loop.
+        return result;
     }
-    else
-    {
-        std::shared_ptr<SwapChain> oldSwapChain = std::move(swapChain);
-        swapChain = std::make_unique<SwapChain>(device, extent, oldSwapChain);
-    }
+    swapChain = std::move(next);
 
     ++swapChainGeneration_;
 
-    // if new swap chain created, there is no longer create new commandbuffer
-    // if render pass compatible than pipeline doesn't need to recreate
-    // todo
+    return VK_SUCCESS;
 }
 
 void Renderer::excuteComputeDispatch(const VkCommandBuffer *buffers)
@@ -79,6 +95,10 @@ void Renderer::excuteComputeDispatch(const VkCommandBuffer *buffers)
 
 VkCommandBuffer Renderer::beginFrame()
 {
+    if (status_ != VK_SUCCESS)
+    {
+        return VK_NULL_HANDLE;
+    }
     assert(!isFrameStarted && "Can't call beginFrame while already in progress");
 
     // wasWindowResized()를 acquireNextImage() 보다 먼저 체크한다.
@@ -92,7 +112,7 @@ VkCommandBuffer Renderer::beginFrame()
         // Android에서 "freeAllBuffers: buffers were freed while being dequeued!" + SIGSEGV가
         // 발생한다.
         window.resetWindowResizedFlag();
-        recreateSwapChain();
+        status_ = recreateSwapChain();
         return nullptr;
     }
 
@@ -103,7 +123,7 @@ VkCommandBuffer Renderer::beginFrame()
         // OUT_OF_DATE: 이미지가 획득되지 않았으므로 즉시 재생성 가능
         // window.getExtent()로 최신 크기를 전달하고 플래그도 함께 리셋한다.
         window.resetWindowResizedFlag();
-        recreateSwapChain();
+        status_ = recreateSwapChain();
         return nullptr;
     }
 
@@ -153,7 +173,7 @@ void Renderer::endFrame()
         window.wasWindowResized())
     {
         window.resetWindowResizedFlag();
-        recreateSwapChain();
+        status_ = recreateSwapChain();
     }
     else if (result != VK_SUCCESS)
     {
@@ -161,6 +181,10 @@ void Renderer::endFrame()
     }
 
     isFrameStarted = false;
+    if (status_ != VK_SUCCESS)
+    {
+        return;
+    }
     currentFrameIndex = static_cast<int>(swapChain->currentFrame);
 }
 

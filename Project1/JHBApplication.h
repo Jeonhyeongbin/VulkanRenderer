@@ -39,7 +39,7 @@ class JHBApplication
     JHBApplication(JHBApplication &&) = delete;
     JHBApplication &operator=(const JHBApplication &) = delete;
 
-    void Run();
+    VkResult Run();
 
 #ifdef ANDROID
     void setAndroidApp(struct android_app *app)
