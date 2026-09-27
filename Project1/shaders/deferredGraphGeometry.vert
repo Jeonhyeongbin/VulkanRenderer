@@ -82,7 +82,9 @@ void main(){
 
 	fraguv = uv;
 	fragNormalWorld = normalize(transpose(inverse(mat3(push.model))) * normalize(normal * rotMat));
-	fragTangent = normalize(vec4(transpose(inverse(mat3(push.model)))* normalize(tangent.xyz* rotMat), 0));
+	// A zero tangent requests the derivative-based fallback in the fragment shader.
+	fragTangent = vec4(mat3(push.model) * (tangent.xyz * rotMat),
+                      tangent.w * sign(determinant(mat3(push.model))));
 	fragPosWorld = positionWorld.xyz;
 	fragColor = color;
 	outlightpos = ubo.pointLights[0].position.xyz;

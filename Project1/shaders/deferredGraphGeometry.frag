@@ -19,8 +19,12 @@ layout (set = 3, binding = 3) uniform sampler2D samplerEmissiveMap;
 layout (set = 3, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
 
 
-layout (constant_id = 0) const bool ALPHA_MASK = false;
-layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
+layout(push_constant) uniform MaterialConstants {
+    layout(offset = 64) vec4 baseColor;
+    vec4 emissive;
+    vec4 metallicRoughnessAlpha; // metallic, roughness, mask enabled, cutoff
+    vec4 normalOcclusion;       // normal scale, AO strength, double-sided, unused
+} material;
 // Scene supplies neutral fallback textures for absent maps.
 layout (constant_id = 2) const bool isMetallicRoughness = true;
 layout (constant_id = 3) const bool isEmissive = true;
@@ -31,7 +35,8 @@ layout (constant_id = 4) const bool isOcclusion = true;
 
 vec4 SRGBtoLINEAR(vec4 srgbIn)
 {
-	vec3 linOut = pow(srgbIn.xyz,vec3(2.2));
+	vec3 linOut = mix(pow((srgbIn.rgb + 0.055) / 1.055, vec3(2.4)),
+                     srgbIn.rgb / 12.92, lessThanEqual(srgbIn.rgb, vec3(0.04045)));
 	return vec4(linOut,srgbIn.w);
 }
 
@@ -50,20 +55,42 @@ layout (location = 4) out vec4 outEmmisive;
 vec3 calculateNormal()
 {
 	vec3 N = normalize(fragNormalWorld);
-	vec3 T = normalize(fragtangent.xyz);
-	vec3 B = cross(N, T);
+    if (material.normalOcclusion.z > 0.5 && !gl_FrontFacing) N = -N;
+	vec3 T;
+    vec3 B;
+    if (abs(fragtangent.w) > 0.5 && dot(fragtangent.xyz, fragtangent.xyz) > 1e-10)
+    {
+        T = normalize(fragtangent.xyz - N * dot(N, fragtangent.xyz));
+        B = cross(N, T) * sign(fragtangent.w);
+    }
+    else
+    {
+        // glTF meshes without TANGENT: derive the basis from the actual UVs.
+        vec3 dx = dFdx(fragPosWorld), dy = dFdy(fragPosWorld);
+        vec2 du = dFdx(fraguv), dv = dFdy(fraguv);
+        float det = du.x * dv.y - du.y * dv.x;
+        if (abs(det) < 1e-10) return N;
+        vec3 rawT = (dx * dv.y - dy * du.y) / det;
+        vec3 rawB = (dy * du.x - dx * dv.x) / det;
+        T = rawT - N * dot(N, rawT);
+        if (dot(T, T) < 1e-10) return N;
+        T = normalize(T);
+        B = cross(N, T) * (dot(cross(N, T), rawB) < 0.0 ? -1.0 : 1.0);
+    }
 	mat3 TBN = mat3(T, B, N);
 
-	vec3 normaltext =normalize(texture(samplerNormalMap, fraguv).xyz*2.0 - 1.0);
+	vec3 normaltext = texture(samplerNormalMap, fraguv).xyz * 2.0 - 1.0;
+    normaltext.xy *= material.normalOcclusion.x;
+    normaltext = normalize(normaltext);
 	return TBN*normaltext;
 }
 
 void main() {
     outMaterial = vec4(1.0, 1.0, 0.0, 1.0);
     outEmmisive = vec4(0.0);
-	outAlbedo = texture(samplerColorMap, fraguv) * vec4(fragColor, 1.0);
-	if (ALPHA_MASK) {
-		if (outAlbedo.a < ALPHA_MASK_CUTOFF) {
+	outAlbedo = SRGBtoLINEAR(texture(samplerColorMap, fraguv)) * vec4(fragColor, 1.0) * material.baseColor;
+	if (material.metallicRoughnessAlpha.z > 0.5) {
+		if (outAlbedo.a < material.metallicRoughnessAlpha.w) {
 			discard;
 		}
 	}
@@ -76,7 +103,7 @@ void main() {
 
 	if(isMetallicRoughness)
 	{
-		outMaterial.gb = texture(samplerMetallicRoughnessMap, fraguv).gb;
+		outMaterial.gb = texture(samplerMetallicRoughnessMap, fraguv).gb * material.metallicRoughnessAlpha.yx;
 	}
 	else{
 		outMaterial.b = 0;
@@ -86,13 +113,13 @@ void main() {
 	outMaterial.r=1;
 	if(isOcclusion)
 	{
-		outMaterial.r = texture(samplerOcclusionMap, fraguv).r;
+		outMaterial.r = mix(1.0, texture(samplerOcclusionMap, fraguv).r, material.normalOcclusion.y);
 	}
 
 	outEmmisive.rgb = vec3(0);
 	if(isEmissive)
 	{
-		outEmmisive.rgb = texture(samplerEmissiveMap , fraguv).rgb;
+		outEmmisive.rgb = SRGBtoLINEAR(texture(samplerEmissiveMap, fraguv)).rgb * material.emissive.rgb;
 	}
 	
 	// Write color attachments to avoid undefined behaviour (validation error)

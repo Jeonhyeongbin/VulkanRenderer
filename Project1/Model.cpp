@@ -471,6 +471,8 @@ void jhb::Model::loadMaterials(tinygltf::Model& input)
 		materials[i].alphaMode = glTFMaterial.alphaMode;
 		materials[i].alphaCutOff = (float)glTFMaterial.alphaCutoff;
 		materials[i].doubleSided = glTFMaterial.doubleSided;
+		materials[i].normalScale = float(glTFMaterial.normalTexture.scale);
+		materials[i].occlusionStrength = float(glTFMaterial.occlusionTexture.strength);
 	}
 }
 
@@ -559,35 +561,22 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 	// It's either made up from translation, rotation, scale or a 4x4 matrix
 	node->matrix = glm::mat4(1.0f);
 	if (inputNode.translation.size() == 3) {
-		node->matrix = glm::translate(node->matrix, glm::vec3(*inputNode.translation.data()));
+		node->matrix = glm::translate(node->matrix, glm::vec3(inputNode.translation[0], inputNode.translation[1], inputNode.translation[2]));
 	}
 	if (inputNode.rotation.size() == 4) {
-		glm::quat q = glm::quat{ glm::mat4(*inputNode.rotation.data())};
+		glm::quat q{float(inputNode.rotation[3]), float(inputNode.rotation[0]), float(inputNode.rotation[1]), float(inputNode.rotation[2])};
 		node->matrix *= glm::mat4(q);
 	}
 	if (inputNode.scale.size() == 3) {
-		node->matrix = glm::scale(node->matrix, glm::vec3(*inputNode.scale.data()));
+		node->matrix = glm::scale(node->matrix, glm::vec3(inputNode.scale[0], inputNode.scale[1], inputNode.scale[2]));
 	}
 	if (inputNode.matrix.size() == 16) {
-		node->matrix = glm::mat4(*inputNode.matrix.data());
+		for (int column = 0; column < 4; ++column)
+            for (int row = 0; row < 4; ++row)
+                node->matrix[column][row] = float(inputNode.matrix[column * 4 + row]);
 	}
 
-	// make inverse root model matrix
-	inverseRootModelMatrix = glm::mat4(1.0f);
-	if (inputNode.translation.size() == 3) {
-		inverseRootModelMatrix = glm::translate(inverseRootModelMatrix, -glm::vec3(*inputNode.translation.data()));
-	}
-	if (inputNode.rotation.size() == 4) { 
-		glm::quat q = glm::quat{ glm::mat4(*inputNode.rotation.data()) };
-		inverseRootModelMatrix *= glm::transpose(glm::mat4(q));
-	}
-	if (inputNode.scale.size() == 3) {
-		inverseRootModelMatrix = glm::scale(inverseRootModelMatrix, glm::vec3(*inputNode.scale.data()));
-	}
-	if (inputNode.matrix.size() == 16) {
-		inverseRootModelMatrix = glm::inverse(glm::mat4(*inputNode.matrix.data()));
-	}
-	rootModelMatrix = node->matrix;
+	// rootModelMatrix is Scene placement, not a copy of a glTF node transform.
 	// Load node's children
 	if (inputNode.children.size() > 0) {
 		for (size_t i = 0; i < inputNode.children.size(); i++) {
@@ -772,7 +761,8 @@ void jhb::Model::drawGraphGeometryOnly(VkCommandBuffer commandBuffer,
 }
 
 void jhb::Model::drawGraphGeometry(VkCommandBuffer commandBuffer,
-                                    VkPipelineLayout pipelineLayout, int frameIndex)
+                                    VkPipelineLayout pipelineLayout, int frameIndex,
+                                    bool pushMaterialConstants)
 {
     if (frameIndex < 0 || frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
     {
@@ -794,7 +784,10 @@ void jhb::Model::drawGraphGeometry(VkCommandBuffer commandBuffer,
         }
 
         const glm::mat4 modelMatrix = parentTransform * node->matrix;
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+        const VkShaderStageFlags stages = pushMaterialConstants
+            ? VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
+            : VK_SHADER_STAGE_VERTEX_BIT;
+        vkCmdPushConstants(commandBuffer, pipelineLayout, stages,
                            0, sizeof(modelMatrix), &modelMatrix);
 
         for (const auto& primitive : node->mesh.primitives)
@@ -805,6 +798,19 @@ void jhb::Model::drawGraphGeometry(VkCommandBuffer commandBuffer,
             }
 
             const auto& material = materials.at(primitive.materialIndex);
+            if (pushMaterialConstants)
+            {
+                // Matches the four vec4s at offset 64 in the G-buffer fragment shader.
+                const std::array<glm::vec4, 4> constants = {
+                    material.baseColorFactor, material.emissiveFactor,
+                    glm::vec4(material.metallicFactor, material.roughnessFactor,
+                              material.alphaMode == "MASK" ? 1.0f : 0.0f, material.alphaCutOff),
+                    glm::vec4(material.normalScale, material.occlusionStrength,
+                              material.doubleSided ? 1.0f : 0.0f, 0.0f)};
+                static_assert(sizeof(constants) == 64);
+                vkCmdPushConstants(commandBuffer, pipelineLayout, stages,
+                                   64, sizeof(constants), constants.data());
+            }
             const auto set = material.descriptorSets.at(frameIndex);
             if (set == VK_NULL_HANDLE)
             {

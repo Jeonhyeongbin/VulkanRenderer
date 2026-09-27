@@ -85,7 +85,7 @@ void Scene::loadDefaultScene()
     {
         const std::array<VkClearColorValue, 4> colors = {
             VkClearColorValue{{1, 1, 1, 1}}, VkClearColorValue{{0.5f, 0.5f, 1, 1}},
-            VkClearColorValue{{0, 0, 0, 1}}, VkClearColorValue{{1, 1, 0, 1}}};
+            VkClearColorValue{{1, 1, 1, 1}}, VkClearColorValue{{1, 1, 1, 1}}};
         rg::ImageDesc desc;
         desc.format = VK_FORMAT_R8G8B8A8_UNORM;
         desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -116,6 +116,15 @@ void Scene::loadDefaultScene()
     object.model->updateInstanceBuffer(1, {glm::vec3(0)}, {glm::vec3(0)});
     object.model->firstid = object.getId();
     GameObjectManager::GetSingleton().AddGameObject(std::move(object));
+
+    auto sponza = GameObject::createGameObject();
+    sponza.model = loadGLTF("Models/sponza/Sponza.gltf");
+    // Keep the helmet at the origin, above the atrium floor.
+    sponza.model->rootModelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0, -2, 0));
+    sponza.model->inverseRootModelMatrix = glm::inverse(sponza.model->rootModelMatrix);
+    sponza.model->updateInstanceBuffer(1, {glm::vec3(0)}, {glm::vec3(0)});
+    sponza.model->firstid = sponza.getId();
+    GameObjectManager::GetSingleton().AddGameObject(std::move(sponza));
 }
 
 std::array<VkDescriptorImageInfo, 5> Scene::materialImages(const Model &model,
@@ -172,7 +181,7 @@ std::shared_ptr<Model> Scene::loadGLTF(const std::string &filename)
         model->loadMaterials(glTFInput);
         model->materials.emplace_back(); // glTF primitives may omit their material.
         model->loadTextures(glTFInput);
-        model->loadImages(glTFInput, VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT);
+        model->loadImages(glTFInput, VK_SAMPLER_ADDRESS_MODE_REPEAT);
         const auto sceneIndex = glTFInput.defaultScene < 0 ? 0 : glTFInput.defaultScene;
         if (static_cast<size_t>(sceneIndex) >= glTFInput.scenes.size())
         {
@@ -185,6 +194,8 @@ std::shared_ptr<Model> Scene::loadGLTF(const std::string &filename)
             model->loadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
         }
 
+        // Retain legacy tangent generation for the forward PBR path. Its w stays
+        // zero so the G-buffer can use the more robust derivative-based fallback.
         if (!model->hasTangent)
         {
             for (size_t i = 0; i + 2 < indexBuffer.size(); i += 3)

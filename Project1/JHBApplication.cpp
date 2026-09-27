@@ -201,7 +201,7 @@ void JHBApplication::init()
     if (GlobalScene->pointLights().empty())
     {
         GlobalScene->pointLights().push_back(
-            {{-3.0f, -3.0f, -3.0f}, {1.0f, 1.0f, 1.0f}, 40.0f, 0.1f});
+            {{-3.0f, 3.0f, -3.0f}, {1.0f, 1.0f, 1.0f}, 40.0f, 0.1f});
     }
 #ifndef ANDROID
     imguiPass = std::make_unique<ImGuiPass>();
@@ -491,7 +491,7 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
             const auto layout = resources.pipeline(pass.pipelineHandle).layout;
             for (const auto &model : sceneModels)
             {
-                model->drawGraphGeometry(cmd, layout, frameIndex);
+                model->drawGraphGeometry(cmd, layout, frameIndex, true);
             }
         });
     const auto geometryPipeline = graph.passes().back().pipelineHandle;

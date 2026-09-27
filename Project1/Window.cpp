@@ -94,7 +94,7 @@ void jhb::Window::mouseMove(float x, float y, float dt, GameObject& camera)
 	glm::normalize(deltaPose);
 
 	const float cameraRotSpeed = 0.02f;
-	camera.transform.rotation.x += deltaPose.y * cameraRotSpeed;
+	camera.transform.rotation.x -= deltaPose.y * cameraRotSpeed;
 	camera.transform.rotation.y -= deltaPose.x * cameraRotSpeed;
 
 	// for not upside down

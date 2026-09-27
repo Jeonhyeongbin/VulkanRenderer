@@ -38,12 +38,6 @@ layout (location = 0) out vec4 outColor;
 
 #define PI 3.1415926535897932384626433832795
 
-vec4 SRGBtoLINEAR(vec4 srgbIn)
-{
-	vec3 linOut = pow(srgbIn.xyz,vec3(2.2));
-	return vec4(linOut,srgbIn.w);
-}
-
 // From http://filmicgames.com/archives/75
 vec3 Uncharted2Tonemap(vec3 x)
 {
@@ -83,16 +77,17 @@ vec3 F_Schlick(float cosTheta, vec3 F0)
 
 vec3 SpecularAndDiffuseContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float roughness, vec4 LColor, vec4 albedo)
 {
+	float distanceSquared = max(dot(L, L), 0.0001);
+	L *= inversesqrt(distanceSquared);
 	// Precalculate vectors and dot products
 	vec3 H = normalize (V + L);
 	float dotNH = clamp(dot(N, H), 0.0, 1.0);
-	float dotNV = clamp(abs(dot(N, V)), 0.001, 1.0);
-	float dotNL = clamp(dot(N, L), 0.001, 1.0);
+	float dotNV = max(dot(N, V), 0.001);
+	float dotNL = max(dot(N, L), 0.0);
 
 	vec3 color = vec3(0.0);
 
-	float dist = length(L);
-	float attenuation = 1.0 / (dist * dist);
+	float attenuation = 1.0 / distanceSquared;
 	vec3 radiance = LColor.rgb * LColor.w * attenuation;
 
 	if (dotNL > 0.0) {
@@ -101,9 +96,9 @@ vec3 SpecularAndDiffuseContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metal
 		// G = Geometric shadowing term (Microfacets shadowing)
 		float G = G_SchlicksmithGGX(dotNL, dotNV, roughness);
 		// F = Fresnel factor (Reflectance depending on angle of incidence)
-		vec3 F = F_Schlick(dotNV, F0);
+		vec3 F = F_Schlick(max(dot(V, H), 0.0), F0);
 		vec3 spec = D * F * G / (4.0 * dotNL * dotNV);
-		vec3 diffuse = ((albedo.rgb) * (vec3(1.0)-F0) * (1.0 - metallic))/PI;
+		vec3 diffuse = albedo.rgb * (1.0 - metallic) / PI;
 		diffuse*=(1.0 - F);
 		color += (diffuse + spec) * radiance* dotNL;
 	}
@@ -115,16 +110,17 @@ vec3 getIBLContribution(vec3 V, vec3 N, vec3 R,float roughness, float metallic, 
 {
 	vec3 f0 = vec3(0.04);
 
-	vec3 diffuseColor = baseColor.rgb * (vec3(1.0) - f0);
+	vec3 diffuseColor = baseColor.rgb * (vec3(1.0) - f0) * (1.0 - metallic);
 	vec3 specularColor = mix(f0, baseColor.rgb, metallic); 
 
-	// hard coding mip levels. need to dynamic data using ubo.
-	float lod = roughness * 7;
+	// Use the generated prefilter chain's actual mip count.
+	float lod = roughness * float(textureQueryLevels(prefilteredMap) - 1);
 
 	vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
 
-	vec3 specularLight = textureLod(prefilteredMap, R, lod).rgb; // same as reflection
-	vec3 diffuseLight = texture(samplerIrradiance, N).rgb; // same as irradiance
+	// Match the skybox's conversion from Scene directions to pisa cube directions.
+	vec3 specularLight = textureLod(prefilteredMap, R * vec3(1, -1, 1), lod).rgb;
+	vec3 diffuseLight = texture(samplerIrradiance, N * vec3(1, -1, 1)).rgb;
 
 	// Specular reflectance
 	vec3 specular = specularLight * (specularColor * brdf.x + brdf.y);
@@ -143,7 +139,7 @@ void main() {
 	vec3 occlusionMaterialRoughness = texelFetch(inputMaterial, ivec2(gl_FragCoord.xy), 0).rgb;
 	vec3 fragPosWorld = texelFetch(inputPosition, ivec2(gl_FragCoord.xy), 0).xyz;
 	float metallic = occlusionMaterialRoughness.b;
-	float roughness = occlusionMaterialRoughness.g;
+	float roughness = clamp(occlusionMaterialRoughness.g, 0.045, 1.0);
 	float occulsion = texelFetch(inputMaterial, ivec2(gl_FragCoord.xy), 0).r;
 
 	vec3 N = normalize(texelFetch(inputNormal, ivec2(gl_FragCoord.xy), 0).xyz*2-1);
@@ -160,23 +156,12 @@ void main() {
 	vec3 Lo = vec3(0.0);
 
 	// per light
-	vec3 L = normalize(ubo.pointLights[0].position.xyz - fragPosWorld);
-	Lo += SpecularAndDiffuseContribution(L, V, N, F0, metallic, roughness, ubo.pointLights[0].color, albedo);
-
 	vec3 iblColor = getIBLContribution(V, N, R, roughness, metallic, albedo.rgb);
-
-	vec3 color = iblColor+ Lo;
-
-	// Tone mapping
-	color = Uncharted2Tonemap(color * ubo.exposure);
-	color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));
-	// Gamma correction
-	color = pow(color, vec3(1.0f / ubo.gamma));
 
 	// Shadow
 	vec3 lightVec = fragPosWorld - ubo.pointLights[0].position.xyz;
 	float dist = length(lightVec);
-	lightVec=normalize(lightVec);
+	lightVec /= max(dist, 0.0001);
 
     float shadow = 0.f;
 	int range =1;
@@ -194,12 +179,17 @@ void main() {
 	}
 	shadow /=27;
 
-	const float u_OcclusionStrength = 1.0f;
-	color = mix( color, color * occulsion, u_OcclusionStrength);
-
-	vec3 emission = SRGBtoLINEAR(texelFetch(inputEmmisive, ivec2(gl_FragCoord.xy), 0)).rgb;
-	color+=emission;
-
-	outColor = vec4(color, 1.0);
-	outColor *= shadow;
+    // Only light 0 owns the current shadow cube. Preserve unshadowed IBL/emission.
+    for (int i = 0; i < min(ubo.numLights, 10); ++i) {
+        vec3 L = ubo.pointLights[i].position.xyz - fragPosWorld;
+        Lo += SpecularAndDiffuseContribution(L, V, N, F0, metallic, roughness,
+                                             ubo.pointLights[i].color, albedo)
+              * (i == 0 ? shadow : 1.0);
+    }
+    vec3 emission = texelFetch(inputEmmisive, ivec2(gl_FragCoord.xy), 0).rgb;
+    vec3 color = Lo + iblColor * occulsion + emission;
+    color = Uncharted2Tonemap(max(color, vec3(0.0)) * ubo.exposure);
+    color /= Uncharted2Tonemap(vec3(11.2));
+    // Keep linear output; the sRGB swapchain performs the display conversion.
+    outColor = vec4(color, 1.0);
 }

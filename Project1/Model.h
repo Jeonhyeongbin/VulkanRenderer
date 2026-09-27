@@ -54,7 +54,7 @@ namespace jhb {
 	// 재질마다 각기 다른 파이프라인을 쓰도록 (alpha나 재질이 양면일수도 있으므로 )
 	struct Material {
 		glm::vec4 baseColorFactor = glm::vec4(1.0f);
-		glm::vec4 emissiveFactor = glm::vec4(1.0f);
+		glm::vec4 emissiveFactor = glm::vec4(0.0f);
 
 		uint32_t baseColorTextureIndex{UINT32_MAX};
 		uint32_t normalTextureIndex{UINT32_MAX};
@@ -66,7 +66,9 @@ namespace jhb {
 		float metallicFactor{1.0f};
 
 		std::string alphaMode = "OPAQUE";
-		float alphaCutOff;
+		float alphaCutOff{0.5f};
+		float normalScale{1.0f};
+		float occlusionStrength{1.0f};
 		bool doubleSided = false;
 		std::vector<VkDescriptorSet> descriptorSets{SwapChain::MAX_FRAMES_IN_FLIGHT}; // same type descriptor set for each frame
 		std::unique_ptr<class Pipeline> pipeline = nullptr;
@@ -169,7 +171,7 @@ namespace jhb {
         // Geometry-only graph draw: model push constant at offset 0, no material/pipeline binding.
         void drawGraphGeometryOnly(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
         void drawGraphGeometry(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
-                               int frameIndex);
+                               int frameIndex, bool pushMaterialConstants = false);
 		void buildIndriectNode(Node* node, std::vector<VkDrawIndexedIndirectCommand>& indirectCommandsBuffer);
 		void drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, Node* node);
 		void buildIndirectCommand(std::vector<VkDrawIndexedIndirectCommand>& indirectCommandBuffer);
