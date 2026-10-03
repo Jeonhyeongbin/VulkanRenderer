@@ -591,6 +591,13 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 		// Iterate through all primitives of this node's mesh
 		for (size_t i = 0; i < mesh.primitives.size(); i++) {
 			const tinygltf::Primitive& glTFPrimitive = mesh.primitives[i];
+			if (glTFPrimitive.indices < 0 ||
+				static_cast<size_t>(glTFPrimitive.indices) >= input.accessors.size())
+			{
+				std::cerr << "Skipping glTF primitive: missing or invalid index accessor in "
+					<< inputNode.name << std::endl;
+				continue;
+			}
 			uint32_t firstIndex = static_cast<uint32_t>(indexBuffer.size());
 			uint32_t vertexStart = static_cast<uint32_t>(vertexBuffer.size());
 			uint32_t indexCount = 0;
@@ -917,7 +924,7 @@ void jhb::Model::drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pip
 
 void jhb::Image::loadTexture2D(Device& device, const std::string& filepath, VkSamplerAddressMode samplerMode)
 {
-	int texWidth, texHeight, texChannels;
+	int texWidth = 0, texHeight = 0, texChannels = 0;
 
 	if (filepath.size() <= 0)
 		return;
@@ -939,11 +946,12 @@ void jhb::Image::loadTexture2D(Device& device, const std::string& filepath, VkSa
 	auto pixels = stbi_load(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 #endif
 
-	VkDeviceSize imageSize = texWidth * texHeight * 4; // 4byte per pixel
-	int mipleves = static_cast<uint32_t>(floor(log2(std::max(texWidth, texHeight))) + 1.0);
 	if (!pixels) {
 		throw std::runtime_error("failed to load texture image!");
 	}
+
+	VkDeviceSize imageSize = static_cast<VkDeviceSize>(texWidth) * texHeight * 4;
+	int mipleves = static_cast<uint32_t>(floor(log2(std::max(texWidth, texHeight))) + 1.0);
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -1319,34 +1327,46 @@ void jhb::Model::createObjectSphere(const std::vector<Vertex> vertices)
 
 void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& rotations, float roughness, float metallic)
 {
+	if (_instanceCount == 0 || positions.size() != _instanceCount ||
+		rotations.size() != _instanceCount)
+	{
+		std::cerr << "Instance count must be nonzero and match positions and rotations." << std::endl;
+		return;
+	}
+
+	// Called before recording draws. Finish previous uses before overwriting or replacing the buffer.
+	if (instanceBuffer && vkDeviceWaitIdle(device.getLogicalDevice()) != VK_SUCCESS)
+	{
+		std::cerr << "Failed to wait before updating instance buffer." << std::endl;
+		return;
+	}
+
+	const VkDeviceSize dataSize = static_cast<VkDeviceSize>(sizeof(InstanceData)) * _instanceCount;
+	if (!instanceBuffer || instanceBuffer->getBufferSize() < dataSize)
+	{
+		auto newBuffer = std::make_unique<Buffer>(device, sizeof(InstanceData), _instanceCount,
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		if (newBuffer->map() != VK_SUCCESS)
+		{
+			std::cerr << "Failed to map instance buffer." << std::endl;
+			return;
+		}
+		instanceBuffer = std::move(newBuffer);
+	}
+
 	instanceCount = _instanceCount;
-	if (instanceBuffer == nullptr)
-	{
-		instanceBuffer = std::make_unique<Buffer>(device, sizeof(InstanceData), instanceCount, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT , VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-		instanceBuffer->map();
-	}
-
 	instanceData.resize(instanceCount);
-
-	for (float i = 0; i < instanceCount; i++)
+	for (uint32_t i = 0; i < instanceCount; ++i)
 	{
-		instanceData[i].r = i; // this is instance id offset
-	}
-	for (int i = 0; i < positions.size(); i++)
-	{
+		instanceData[i].r = static_cast<float>(i); // instance id offset
 		instanceData[i].pos = positions[i];
-	}
-	for (int i = 0; i < rotations.size(); i++)
-	{
 		instanceData[i].rot = rotations[i];
 	}
 
-
-
-	//Buffer stagingBuffer(device, sizeof(InstanceData), 64, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	instanceBuffer->writeToBuffer(instanceData.data(), instanceBuffer->getBufferSize(), 0);
-	instanceBuffer->flush();
-
-	//device.copyBuffer(stagingBuffer.getBuffer(), instanceBuffer->getBuffer(), instanceBuffer->getBufferSize());
-	//stagingBuffer.unmap();
+	instanceBuffer->writeToBuffer(instanceData.data(), dataSize, 0);
+	if (instanceBuffer->flush() != VK_SUCCESS)
+	{
+		std::cerr << "Failed to flush instance buffer." << std::endl;
+	}
 }

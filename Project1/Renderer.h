@@ -51,13 +51,10 @@ class Renderer
 
     void excuteComputeDispatch(const VkCommandBuffer *buffers);
 
-    VkCommandBuffer beginFrame();
-    void endFrame();
-
-    VkResult status() const
-    {
-        return status_;
-    }
+    VkResult init();
+    // VK_NOT_READY skips this frame; commandBuffer is valid only on VK_SUCCESS.
+    VkResult beginFrame(VkCommandBuffer &commandBuffer);
+    VkResult endFrame();
 
     // Dynamic rendering only; frame acquisition/submission stays in beginFrame/endFrame.
     bool isRendering() const
@@ -142,6 +139,5 @@ class Renderer
     bool isFrameStarted{false};
     bool isRendering_{false};
     uint64_t swapChainGeneration_{0};
-    VkResult status_{VK_SUCCESS};
 };
 } // namespace jhb

@@ -37,17 +37,6 @@ namespace jhb
 {
 JHBApplication::JHBApplication()
 {
-    // Renderer construction can fail without throwing. Run() returns that error.
-    if (renderer.status() != VK_SUCCESS)
-    {
-        return;
-    }
-    uboBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    viewDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-
-    GlobalScene = std::make_unique<Scene>(device);
-
-    init();
 }
 
 JHBApplication::~JHBApplication()
@@ -62,10 +51,16 @@ JHBApplication::~JHBApplication()
 
 VkResult JHBApplication::Run()
 {
-    if (renderer.status() != VK_SUCCESS)
+    auto result = renderer.init();
+    if (result != VK_SUCCESS)
     {
-        return renderer.status();
+        return result;
     }
+    uboBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    viewDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    GlobalScene = std::make_unique<Scene>(device);
+    init();
+
     auto viewerObject = GameObject::createGameObject();
     viewerObject.transform.translation = {0.0f, 0.0f, -4.0f};
     viewerObject.transform.rotation = {0.0f, glm::radians(90.0f), 0.0f};
@@ -125,6 +120,16 @@ VkResult JHBApplication::Run()
     while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
     {
         glfwPollEvents(); // may block
+        if (glfwWindowShouldClose(&window.GetGLFWwindow()))
+        {
+            break;
+        }
+        const auto windowExtent = window.getExtent();
+        if (windowExtent.width == 0 || windowExtent.height == 0)
+        {
+            glfwWaitEventsTimeout(0.1);
+            continue;
+        }
         glfwGetCursorPos(&window.GetGLFWwindow(), &x, &y);
 #endif
         auto newTime = std::chrono::high_resolution_clock::now();
@@ -133,15 +138,16 @@ VkResult JHBApplication::Run()
                 .count();
         currentTime = newTime;
 
-        auto commandBuffer = renderer.beginFrame();
-        if (commandBuffer ==
-            nullptr) // begine frame return null pointer if swap chain need recreated
+        VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+        result = renderer.beginFrame(commandBuffer);
+        if (result == VK_NOT_READY)
         {
-            if (renderer.status() != VK_SUCCESS)
-            {
-                break;
-            }
+            result = VK_SUCCESS;
             continue;
+        }
+        if (result != VK_SUCCESS)
+        {
+            break;
         }
 
         int frameIndex = renderer.getFrameIndex();
@@ -161,8 +167,13 @@ VkResult JHBApplication::Run()
         window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
         updateViewBuffer(frameIndex);
         recordFrame(commandBuffer);
-        renderer.endFrame();
-        if (renderer.status() != VK_SUCCESS)
+        result = renderer.endFrame();
+        if (result == VK_NOT_READY)
+        {
+            result = VK_SUCCESS;
+            continue;
+        }
+        if (result != VK_SUCCESS)
         {
             break;
         }
@@ -174,7 +185,7 @@ VkResult JHBApplication::Run()
     inputController.store(nullptr);
 #endif
     const auto idle = vkDeviceWaitIdle(device.getLogicalDevice());
-    return renderer.status() != VK_SUCCESS ? renderer.status() : idle;
+    return result != VK_SUCCESS ? result : idle;
 }
 
 void JHBApplication::init()

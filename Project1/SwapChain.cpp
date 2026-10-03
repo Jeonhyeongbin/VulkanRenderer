@@ -81,7 +81,7 @@ VkResult SwapChain::acquireNextImage(uint32_t *imageIndex)
                                       VK_TRUE, std::numeric_limits<uint64_t>::max());
     if (wait != VK_SUCCESS)
     {
-        throw std::runtime_error("Failed to wait for frame slot completion");
+        return wait;
     }
 
     VkResult result = vkAcquireNextImageKHR(
@@ -124,14 +124,16 @@ VkResult SwapChain::submitCommandBuffers(const VkCommandBuffer *buffers, uint32_
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkResetFences(device.getLogicalDevice(), 1, &inFlightFences[currentFrame]) != VK_SUCCESS)
+    const auto reset = vkResetFences(device.getLogicalDevice(), 1, &inFlightFences[currentFrame]);
+    if (reset != VK_SUCCESS)
     {
-        throw std::runtime_error("Failed to reset frame fence before submission");
+        return reset;
     }
-    if (vkQueueSubmit(device.getGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame]) !=
-        VK_SUCCESS)
+    const auto submit = vkQueueSubmit(device.getGraphicsQueue(), 1, &submitInfo,
+                                      inFlightFences[currentFrame]);
+    if (submit != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to submit draw command buffer!");
+        return submit;
     }
 
     VkPresentInfoKHR presentInfo = {};

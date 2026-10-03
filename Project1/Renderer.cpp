@@ -6,17 +6,16 @@ namespace jhb
 {
 Renderer::Renderer(Window &window, Device &device) : window(window), device(device)
 {
-    status_ = recreateSwapChain();
-    if (status_ != VK_SUCCESS)
+}
+
+VkResult Renderer::init()
+{
+    const auto result = recreateSwapChain();
+    if (result != VK_SUCCESS)
     {
-        return;
+        return result;
     }
-    status_ = createCommandBuffers();
-    if (status_ != VK_SUCCESS)
-    {
-        return;
-    }
-    window.resetWindowResizedFlag();
+    return createCommandBuffers();
 }
 
 Renderer::~Renderer()
@@ -57,13 +56,13 @@ void Renderer::freeCommandBuffers()
 
 VkResult Renderer::recreateSwapChain()
 {
+    // Keep the request until recreation succeeds, including OUT_OF_DATE requests.
+    window.setWindowResizedFlag();
     extent = window.getExtent();
-    while (extent.width == 0 || extent.height == 0)
+    if (extent.width == 0 || extent.height == 0)
     {
-        extent = window.getExtent();
-#ifndef ANDROID
-        glfwWaitEvents();
-#endif
+        // Retry from the next frame so the application can still process exit requests.
+        return VK_NOT_READY;
     }
 
     const auto wait = vkDeviceWaitIdle(device.getLogicalDevice());
@@ -82,6 +81,7 @@ VkResult Renderer::recreateSwapChain()
         return result;
     }
     swapChain = std::move(next);
+    window.resetWindowResizedFlag();
 
     ++swapChainGeneration_;
 
@@ -93,12 +93,9 @@ void Renderer::excuteComputeDispatch(const VkCommandBuffer *buffers)
     swapChain->submitComputeCommandBuffers(buffers);
 }
 
-VkCommandBuffer Renderer::beginFrame()
+VkResult Renderer::beginFrame(VkCommandBuffer &commandBuffer)
 {
-    if (status_ != VK_SUCCESS)
-    {
-        return VK_NULL_HANDLE;
-    }
+    commandBuffer = VK_NULL_HANDLE;
     assert(!isFrameStarted && "Can't call beginFrame while already in progress");
 
     // wasWindowResized()를 acquireNextImage() 보다 먼저 체크한다.
@@ -107,13 +104,8 @@ VkCommandBuffer Renderer::beginFrame()
     // 드라이버 상태가 오염되어 다음 프레임에서 SIGSEGV가 발생할 수 있다.
     if (window.wasWindowResized())
     {
-        // 재생성 전에 플래그를 리셋해야 한다.
-        // 리셋하지 않으면 beginFrame이 매 프레임 return nullptr를 반복하는 무한루프에 빠지고
-        // Android에서 "freeAllBuffers: buffers were freed while being dequeued!" + SIGSEGV가
-        // 발생한다.
-        window.resetWindowResizedFlag();
-        status_ = recreateSwapChain();
-        return nullptr;
+        const auto result = recreateSwapChain();
+        return result == VK_SUCCESS ? VK_NOT_READY : result;
     }
 
     auto result = swapChain->acquireNextImage(&currentImageIndex);
@@ -121,71 +113,70 @@ VkCommandBuffer Renderer::beginFrame()
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
         // OUT_OF_DATE: 이미지가 획득되지 않았으므로 즉시 재생성 가능
-        // window.getExtent()로 최신 크기를 전달하고 플래그도 함께 리셋한다.
-        window.resetWindowResizedFlag();
-        status_ = recreateSwapChain();
-        return nullptr;
+        result = recreateSwapChain();
+        return result == VK_SUCCESS ? VK_NOT_READY : result;
     }
 
     if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
     {
-        throw std::runtime_error("failed to acquire swap chain image!");
+        return result;
     }
 
     // VK_SUBOPTIMAL_KHR: 이미지는 획득됨 — 이번 프레임을 그대로 진행하고
     // endFrame()에서 present 후 재생성한다.
-    currentFrameIndex = static_cast<int>(swapChain->currentFrame);
-    isFrameStarted = true;
-    auto commandBuffer = getCurrentCommandBuffer();
-
-    if (vkResetCommandBuffer(commandBuffer, 0) != VK_SUCCESS)
+    if (result == VK_SUBOPTIMAL_KHR)
     {
-        throw std::runtime_error("Failed to reset the frame command buffer");
+        window.setWindowResizedFlag();
+    }
+    currentFrameIndex = static_cast<int>(swapChain->currentFrame);
+    const auto frameCommandBuffer = commandBuffers[currentFrameIndex];
+
+    result = vkResetCommandBuffer(frameCommandBuffer, 0);
+    if (result != VK_SUCCESS)
+    {
+        return result;
     }
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+    result = vkBeginCommandBuffer(frameCommandBuffer, &beginInfo);
+    if (result != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to begin recording command buffer!");
+        return result;
     }
-    return commandBuffer;
+    isFrameStarted = true;
+    commandBuffer = frameCommandBuffer;
+    return VK_SUCCESS;
 }
 
-void Renderer::endFrame()
+VkResult Renderer::endFrame()
 {
     assert(isFrameStarted && "Can't call endFrame while frame is not in progress!!");
     auto commandBuffer = getCurrentCommandBuffer();
 
-    if (isRendering_)
+    assert(!isRendering_ && "End the dynamic rendering pass before ending the frame");
+
+    isFrameStarted = false;
+    auto result = vkEndCommandBuffer(commandBuffer);
+    if (result != VK_SUCCESS)
     {
-        throw std::logic_error("End the dynamic rendering pass before ending the frame");
+        return result;
     }
 
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
+    result = swapChain->submitCommandBuffers(&commandBuffer, &currentImageIndex);
+    if (result != VK_SUCCESS && result != VK_ERROR_OUT_OF_DATE_KHR &&
+        result != VK_SUBOPTIMAL_KHR)
     {
-        throw std::runtime_error("failed to record command buffer!");
+        return result;
     }
-
-    auto result = swapChain->submitCommandBuffers(&commandBuffer, &currentImageIndex);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
         window.wasWindowResized())
     {
-        window.resetWindowResizedFlag();
-        status_ = recreateSwapChain();
-    }
-    else if (result != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to present swap chain image!");
-    }
-
-    isFrameStarted = false;
-    if (status_ != VK_SUCCESS)
-    {
-        return;
+        return recreateSwapChain();
     }
     currentFrameIndex = static_cast<int>(swapChain->currentFrame);
+    return VK_SUCCESS;
 }
 
 } // namespace jhb
