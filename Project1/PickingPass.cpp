@@ -65,7 +65,8 @@ void PickingPass::pushBaseId(VkCommandBuffer commandBuffer, VkPipelineLayout lay
     {
         throw std::invalid_argument("Picking ID zero is reserved for background");
     }
-    vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 64, sizeof(baseId),
+    vkCmdPushConstants(commandBuffer, layout,
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 80, sizeof(baseId),
                        &baseId);
 }
 } // namespace jhb

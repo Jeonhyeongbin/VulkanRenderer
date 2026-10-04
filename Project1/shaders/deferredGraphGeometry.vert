@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "instanceRotation.glsl"
 layout(location=0) in vec3 position;
 layout(location=1) in vec3 color;
 layout(location=2) in vec3 normal;
@@ -45,33 +47,7 @@ layout(push_constant) uniform Push{
 } push;
 
 void main(){
-		mat3 mx, my, mz;
-	
-	// rotate around x
-	float s = sin(instanceRot.x );
-	float c = cos(instanceRot.x);
-
-	mx[0] = vec3(c, s, 0.0);
-	mx[1] = vec3(-s, c, 0.0);
-	mx[2] = vec3(0.0, 0.0, 1.0);
-	
-	// rotate around y
-	s = sin(instanceRot.y);
-	c = cos(instanceRot.y);
-
-	my[0] = vec3(c, 0.0, s);
-	my[1] = vec3(0.0, 1.0, 0.0);
-	my[2] = vec3(-s, 0.0, c);
-	
-	// rot around z
-	s = sin(instanceRot.z);
-	c = cos(instanceRot.z);	
-	
-	mz[0] = vec3(1.0, 0.0, 0.0);
-	mz[1] = vec3(0.0, c, s);
-	mz[2] = vec3(0.0, -s, c);
-	
-	mat3 rotMat = mz * my * mx;
+	mat3 rotMat = instanceRotation(instanceRot);
 
 	fragroughness = roughness;
 	fragmetallic = metallic;

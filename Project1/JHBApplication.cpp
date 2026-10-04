@@ -488,11 +488,12 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
     ShadowPass{}.addPass(
         graph, {shadowCubes[frameIndex], shadowDepths[frameIndex]},
         {GlobalScene->pointLights().front().position, 0.1f, 200.0f},
-        [this](VkCommandBuffer cmd, const rg::RenderPass &pass, const rg::GraphResources &resources)
+        [this, frameIndex](VkCommandBuffer cmd, const rg::RenderPass &pass, const rg::GraphResources &resources)
         {
             for (const auto &model : sceneModels)
             {
-                model->drawGraphGeometryOnly(cmd, resources.pipeline(pass.pipelineHandle).layout);
+                model->drawGraphAlphaGeometry(cmd, resources.pipeline(pass.pipelineHandle).layout,
+                                             frameIndex);
             }
         });
     gbufferPasses[frameIndex]->addPass(
@@ -570,14 +571,14 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
         }
         PickingPass{}.addPass(
             graph, pickingImages[frameIndex],
-            [draws = std::move(draws)](VkCommandBuffer cmd, const rg::RenderPass &pass,
+            [draws = std::move(draws), frameIndex](VkCommandBuffer cmd, const rg::RenderPass &pass,
                                        const rg::GraphResources &resources)
             {
                 const auto layout = resources.pipeline(pass.pipelineHandle).layout;
                 for (const auto &[model, baseId] : draws)
                 {
                     PickingPass::pushBaseId(cmd, layout, baseId);
-                    model->drawGraphGeometryOnly(cmd, layout);
+                    model->drawGraphAlphaGeometry(cmd, layout, frameIndex);
                 }
             },
             PickingPass::Readback{readback.graphBuffer, *pickPixel});

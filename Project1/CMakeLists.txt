@@ -168,6 +168,8 @@ if(GLSLC_EXECUTABLE)
             OUTPUT  ${SPV_OUTPUT}
             COMMAND ${GLSLC_EXECUTABLE} "${SHADER_FILE}" -o "${SPV_OUTPUT}"
             DEPENDS ${SHADER_FILE}
+                    "${CMAKE_CURRENT_SOURCE_DIR}/shaders/instanceRotation.glsl"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/shaders/materialAlpha.glsl"
             COMMENT "셰이더 컴파일: ${SHADER_NAME} -> ${SHADER_NAME}.spv"
             VERBATIM
         )

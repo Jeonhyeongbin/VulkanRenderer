@@ -715,28 +715,24 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 	}
 }
 
-void jhb::Model::drawGraphGeometryOnly(VkCommandBuffer commandBuffer,
-                                      VkPipelineLayout pipelineLayout)
+void jhb::Model::drawGraphAlphaGeometry(VkCommandBuffer commandBuffer,
+                                      VkPipelineLayout pipelineLayout, int frameIndex)
 {
+    struct AlphaConstants
+    {
+        float baseColorAlpha;
+        float alphaMaskEnabled;
+        float alphaCutoff;
+        float padding;
+    };
+    static_assert(sizeof(AlphaConstants) == 16);
+
     if (!instanceBuffer)
     {
         throw std::invalid_argument("Graph shadow geometry requires an instance buffer");
     }
     bind(commandBuffer);
-    if (nodes.empty())
-    {
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(rootModelMatrix), &rootModelMatrix);
-        if (hasIndexBuffer)
-        {
-            vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, 0);
-        }
-        else
-        {
-            vkCmdDraw(commandBuffer, vertexCount, instanceCount, 0, 0);
-        }
-        return;
-    }
+    const VkShaderStageFlags stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     const auto drawNode = [&](const auto &self, const Node *node,
                               const glm::mat4 &parentTransform) -> void
@@ -746,12 +742,21 @@ void jhb::Model::drawGraphGeometryOnly(VkCommandBuffer commandBuffer,
             return;
         }
         const auto modelMatrix = parentTransform * node->matrix;
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+        vkCmdPushConstants(commandBuffer, pipelineLayout, stages,
                            0, sizeof(modelMatrix), &modelMatrix);
         for (const auto &primitive : node->mesh.primitives)
         {
             if (primitive.indexCount != 0)
             {
+                const auto &material = materials.at(primitive.materialIndex);
+                AlphaConstants alpha{};
+                alpha.baseColorAlpha = material.baseColorFactor.a;
+                alpha.alphaMaskEnabled = material.alphaMode == "MASK" ? 1.0f : 0.0f;
+                alpha.alphaCutoff = material.alphaCutOff;
+                vkCmdPushConstants(commandBuffer, pipelineLayout, stages, 64, sizeof(alpha), &alpha);
+                const auto set = material.descriptorSets.at(frameIndex);
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                        pipelineLayout, 3, 1, &set, 0, nullptr);
                 vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount,
                                  primitive.firstIndex, 0, 0);
             }

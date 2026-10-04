@@ -169,7 +169,8 @@ namespace jhb {
 		void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex);
         // Graph pipeline is already bound. Material descriptors use set 3.
         // Geometry-only graph draw: model push constant at offset 0, no material/pipeline binding.
-        void drawGraphGeometryOnly(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+        void drawGraphAlphaGeometry(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
+                                   int frameIndex);
         void drawGraphGeometry(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
                                int frameIndex, bool pushMaterialConstants = false);
 		void buildIndriectNode(Node* node, std::vector<VkDrawIndexedIndirectCommand>& indirectCommandsBuffer);
