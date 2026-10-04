@@ -25,6 +25,7 @@
 #include <unordered_set>
 #include <cstring>
 #include <limits>
+#include <iostream>
 #ifdef ANDROID
 #include <thread>
 #include <chrono>
@@ -241,6 +242,20 @@ void JHBApplication::prepareIBL()
         desc.mipLevels = mips;
         desc.arrayLayers = cube ? 6 : 1;
         desc.imageType = cube ? rg::ImageType::CubeMap : rg::ImageType::Image2D;
+        if (usage & VK_IMAGE_USAGE_SAMPLED_BIT)
+        {
+            VkFormatProperties properties{};
+            vkGetPhysicalDeviceFormatProperties(device.getPhysicalDevice(), format, &properties);
+            if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)
+            {
+                desc.filter = VK_FILTER_LINEAR;
+                desc.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+            }
+            else
+            {
+                std::cerr << name << ": linear filtering unsupported; keeping nearest filtering.\n";
+            }
+        }
         return graph.createTexture(name, desc);
     };
     iblTextures.brdfLut = create("ibl/brdf-lut", 512, VK_FORMAT_R16G16_SFLOAT,

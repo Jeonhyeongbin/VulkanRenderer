@@ -359,7 +359,8 @@ TextureId RenderGraph::createTexture(std::string debugName, const ImageDesc &ima
             d.format != imageDesc.format || d.usage != imageDesc.usage ||
             d.depth != imageDesc.depth || d.arrayLayers != imageDesc.arrayLayers ||
             d.mipLevels != imageDesc.mipLevels || d.aspectFlags != imageDesc.aspectFlags ||
-            d.imageType != imageDesc.imageType)
+            d.imageType != imageDesc.imageType || d.filter != imageDesc.filter ||
+            d.mipmapMode != imageDesc.mipmapMode)
         {
             throw std::invalid_argument("Texture cache name reused with a different description");
         }

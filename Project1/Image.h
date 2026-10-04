@@ -26,6 +26,8 @@ struct ImageDesc
     VkImageAspectFlags aspectFlags{VK_IMAGE_ASPECT_COLOR_BIT};
     VkImageUsageFlags usage{0};
     uint32_t mipLevels{1};
+    VkFilter filter{VK_FILTER_NEAREST};
+    VkSamplerMipmapMode mipmapMode{VK_SAMPLER_MIPMAP_MODE_NEAREST};
 };
 
 struct Image

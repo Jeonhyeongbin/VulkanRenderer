@@ -137,8 +137,8 @@ rg::Texture Device::createTexture(const rg::ImageDesc &d, std::string_view name)
             t.image.layerViews.push_back(view);
         }
         VkSamplerCreateInfo si{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-        si.magFilter = si.minFilter = VK_FILTER_NEAREST;
-        si.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        si.magFilter = si.minFilter = d.filter;
+        si.mipmapMode = d.mipmapMode;
         si.addressModeU = si.addressModeV = si.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         si.maxLod = float(d.mipLevels);
         checked(vkCreateSampler(handle(), &si, nullptr, &t.sampler), "Create graph sampler");
