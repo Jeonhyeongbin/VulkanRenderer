@@ -35,6 +35,6 @@ void main()
 {
     vec4 worldPosition = push.model * vec4(position * instanceRotation(instanceRot) + instancePos, 1.0);
     gl_Position = ubo.projection * ubo.view * worldPosition;
-    objectId = push.baseId + uint(gl_InstanceIndex);
+    objectId = push.baseId == 0u ? 0u : push.baseId + uint(gl_InstanceIndex);
     outUV = uv;
 }

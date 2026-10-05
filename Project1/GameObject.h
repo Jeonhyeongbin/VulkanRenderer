@@ -56,6 +56,7 @@ namespace jhb {
         std::shared_ptr<Model> model{};
         glm::vec3 color{};
         TransformComponent transform{};
+        bool selectable = true;
     public:
         uint32_t instanceCount = 1;
         std::unique_ptr<Buffer> instanceBuffer = nullptr;

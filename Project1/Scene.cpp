@@ -16,6 +16,7 @@ Scene::Scene(Device &device) : device_(device)
 std::vector<Scene::PickTarget> Scene::pickingTargets(const std::shared_ptr<Model> &model) const
 {
     std::vector<PickTarget> targets;
+    bool hasSelectableInstance = false;
     const auto &objects = GameObjectManager::GetSingleton().gameObjects;
     for (uint32_t instance = 0; instance < model->instanceCount; ++instance)
     {
@@ -30,6 +31,12 @@ std::vector<Scene::PickTarget> Scene::pickingTargets(const std::shared_ptr<Model
             throw std::logic_error("Picking requires an object mapping for every model instance");
         }
         targets.push_back({static_cast<uint32_t>(id), model});
+        hasSelectableInstance |= found->second.selectable;
+    }
+    // 인스턴스 번호와 목록 위치는 유지한다. 개별 선택 여부는 selectedObject에서 확인한다.
+    if (!hasSelectableInstance)
+    {
+        targets.clear();
     }
     return targets;
 }
@@ -50,12 +57,45 @@ std::optional<uint32_t> Scene::selectedObject() const
         const auto model = selection_->model.lock();
         const auto &objects = GameObjectManager::GetSingleton().gameObjects;
         const auto found = objects.find(selection_->objectId);
-        if (model && found != objects.end() && found->second.model == model)
+        if (model && found != objects.end() && found->second.model == model &&
+            found->second.selectable)
         {
             return selection_->objectId;
         }
     }
     return std::nullopt;
+}
+
+void Scene::rotateSelectedObject(float angleRadians)
+{
+    const auto selected = selectedObject();
+    if (!selected || angleRadians == 0.0f)
+    {
+        return;
+    }
+
+    auto &object = GameObjectManager::GetSingleton().gameObjects.at(*selected);
+    auto &model = object.model;
+    if (*selected < model->firstid ||
+        *selected - model->firstid >= model->instanceData.size())
+    {
+        return;
+    }
+
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> rotations;
+    for (const auto &instance : model->instanceData)
+    {
+        positions.push_back(instance.pos);
+        rotations.push_back(instance.rot);
+    }
+
+    const auto instanceIndex = *selected - model->firstid;
+    // 이 헬멧은 glTF에서 X축 90도 회전된다.
+    // 기존 쉐이더의 rot.x(로컬 Z 회전)가 이 모델의 월드 수직축에 해당한다.
+    rotations[instanceIndex].x += angleRadians;
+    model->updateInstanceBuffer(model->instanceCount, positions, rotations);
+    object.transform.rotation = model->instanceData[instanceIndex].rot;
 }
 
 Scene::~Scene()
@@ -73,7 +113,7 @@ Scene::~Scene()
             ++it;
         }
     }
-    for (auto &texture : materialFallbacks_)
+    for (auto &texture : defaultTextures_)
     {
         device_.destroyTexture(texture);
     }
@@ -81,7 +121,7 @@ Scene::~Scene()
 
 void Scene::loadDefaultScene()
 {
-    if (materialFallbacks_.empty())
+    if (defaultTextures_.empty())
     {
         const std::array<VkClearColorValue, 4> colors = {
             VkClearColorValue{{1, 1, 1, 1}}, VkClearColorValue{{0.5f, 0.5f, 1, 1}},
@@ -89,11 +129,11 @@ void Scene::loadDefaultScene()
         rg::ImageDesc desc;
         desc.format = VK_FORMAT_R8G8B8A8_UNORM;
         desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        materialFallbacks_.reserve(colors.size());
+        defaultTextures_.reserve(colors.size());
         for (const auto &color : colors)
         {
-            materialFallbacks_.push_back(device_.createTexture(desc, "material/fallback"));
-            auto &texture = materialFallbacks_.back();
+            defaultTextures_.push_back(device_.createTexture(desc, "material/defaultTexture"));
+            auto &texture = defaultTextures_.back();
             auto cmd = device_.beginSingleTimeCommands();
             const VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
             device_.transitionImageLayout(cmd, texture.image.image, VK_IMAGE_LAYOUT_UNDEFINED,
@@ -113,12 +153,14 @@ void Scene::loadDefaultScene()
     }
     auto object = GameObject::createGameObject();
     object.model = loadGLTF("Models/DamagedHelmet/DamagedHelmet.gltf");
+    object.selectable = true;
     object.model->updateInstanceBuffer(1, {glm::vec3(0)}, {glm::vec3(0)});
     object.model->firstid = object.getId();
     GameObjectManager::GetSingleton().AddGameObject(std::move(object));
 
     auto sponza = GameObject::createGameObject();
     sponza.model = loadGLTF("Models/sponza/Sponza.gltf");
+    sponza.selectable = false;
     // Keep the helmet at the origin, above the atrium floor.
     sponza.model->rootModelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0, -2, 0));
     sponza.model->inverseRootModelMatrix = glm::inverse(sponza.model->rootModelMatrix);
@@ -130,7 +172,7 @@ void Scene::loadDefaultScene()
 std::array<VkDescriptorImageInfo, 5> Scene::materialImages(const Model &model,
                                                            const Material &material) const
 {
-    const auto image = [&](uint32_t index, size_t fallback)
+    const auto image = [&](uint32_t index, size_t defaultTextureIndex)
     {
         if (index < model.textures.size())
         {
@@ -145,7 +187,7 @@ std::array<VkDescriptorImageInfo, 5> Scene::materialImages(const Model &model,
                 }
             }
         }
-        return materialFallbacks_.at(fallback).descriptorInfo;
+        return defaultTextures_.at(defaultTextureIndex).descriptorInfo;
     };
     return {image(material.baseColorTextureIndex, 0), image(material.normalTextureIndex, 1),
             image(material.occlusionTextureIndex, 0), image(material.emissiveTextureIndex, 2),

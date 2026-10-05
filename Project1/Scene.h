@@ -33,6 +33,7 @@ class Scene
     std::vector<PickTarget> pickingTargets(const std::shared_ptr<Model> &model) const;
     void select(std::optional<PickTarget> target);
     std::optional<uint32_t> selectedObject() const;
+    void rotateSelectedObject(float angleRadians);
 
     struct PointLightData
     {
@@ -78,6 +79,6 @@ class Scene
     std::vector<std::shared_ptr<Model>> models_;
     std::shared_ptr<Model> environmentCube_;
     std::vector<PointLightData> pointLights_;
-    std::vector<rg::Texture> materialFallbacks_;
+    std::vector<rg::Texture> defaultTextures_;
 };
 } // namespace jhb

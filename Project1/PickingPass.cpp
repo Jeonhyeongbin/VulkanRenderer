@@ -61,10 +61,7 @@ void PickingPass::addPass(rg::RenderGraph &graph, const Resources &r,
 void PickingPass::pushBaseId(VkCommandBuffer commandBuffer, VkPipelineLayout layout,
                              uint32_t baseId)
 {
-    if (baseId == 0)
-    {
-        throw std::invalid_argument("Picking ID zero is reserved for background");
-    }
+    // 0은 선택 불가능한 배경 모델에 사용한다. 깊이 기록은 유지한다.
     vkCmdPushConstants(commandBuffer, layout,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 80, sizeof(baseId),
                        &baseId);

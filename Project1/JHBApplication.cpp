@@ -559,11 +559,20 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
     if (!resized && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
         !ImGui::GetIO().WantCaptureMouse)
     {
+        // 새 피킹 결과가 올 때까지 이전 선택 대상을 움직이지 않는다.
+        GlobalScene->select(std::nullopt);
         int width = 0, height = 0;
         glfwGetWindowSize(&window.GetGLFWwindow(), &width, &height);
         const auto mouse = ImGui::GetIO().MousePos;
         pickPixel =
             PickingPass::pixel(mouse.x, mouse.y, width, height, renderer.getSwapChainExtent());
+    }
+    if (!resized && !ImGui::GetIO().WantCaptureMouse &&
+        ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+    {
+        constexpr float rotationRadiansPerPixel = 0.01f;
+        GlobalScene->rotateSelectedObject(
+            ImGui::GetIO().MouseDelta.x * rotationRadiansPerPixel);
     }
     imguiContext->endFrame();
     imguiPass->addPass(graph, previewColor, imguiContext->drawFunction());
@@ -580,7 +589,10 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
             {
                 throw std::overflow_error("Too many picking instances");
             }
-            draws.emplace_back(model, static_cast<uint32_t>(readback.targets.size() + 1));
+            // 선택 불가능한 모델도 깊이를 그리되 ID는 0(선택 없음)을 기록한다.
+            const uint32_t baseId = targets.empty()
+                ? 0u : static_cast<uint32_t>(readback.targets.size() + 1);
+            draws.emplace_back(model, baseId);
             readback.targets.insert(readback.targets.end(), targets.begin(), targets.end());
         }
         PickingPass{}.addPass(
