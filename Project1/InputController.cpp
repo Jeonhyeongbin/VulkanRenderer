@@ -88,6 +88,7 @@ void jhb::InputController::OnButtonPressed(GLFWwindow* window, int button, int a
 
 glm::vec3 jhb::InputController::move(float dt, GameObject& gameObject)
 {
+	std::lock_guard<std::mutex> lock(touchMutex);
 	// ── 오른쪽 드래그: 카메라 회전 ──
 	glm::vec3 rotate{ 0 };
 	rotate.y -= touchDeltaX * 0.8f; // 좌우 반전
@@ -115,13 +116,11 @@ glm::vec3 jhb::InputController::move(float dt, GameObject& gameObject)
 
 	// ── 왼쪽 드래그: 카메라 이동 ──
 	// 수평 델타 → 좌우, 수직 델타 → 앞뒤
-	if (isMoveTouching)
-	{
-		const float moveScale = 0.015f;
-		gameObject.transform.translation += rightDir   * ( moveDeltaX * moveScale);
-		gameObject.transform.translation += forwardDir * (-moveDeltaY * moveScale); // 위로 드래그 = 앞으로
-		moveDeltaX = moveDeltaY = 0.f;
-	}
+	// 손을 뗐어도 아직 사용하지 않은 이동량은 한 번 반영한다.
+	const float moveScale = 0.015f;
+	gameObject.transform.translation += rightDir   * ( moveDeltaX * moveScale);
+	gameObject.transform.translation += forwardDir * (-moveDeltaY * moveScale); // 위로 드래그 = 앞으로
+	moveDeltaX = moveDeltaY = 0.f;
 
 	// ── 두 손가락 핀치: 줌인/줌아웃 ──
 	if (std::abs(pinchDelta) > std::numeric_limits<float>::epsilon())

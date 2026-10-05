@@ -62,9 +62,8 @@ class JHBApplication
         androidAppRunning.store(false);
     }
 
-    // Main.cpp handleInputEvent에서 터치를 전달하기 위한 포인터
-    // 앱 스레드(Run)에서 쓰고 이벤트 스레드(handleInputEvent)에서 읽으므로 atomic 사용
-    std::atomic<class InputController *> inputController{nullptr};
+    // Atomic shared_ptr access keeps the controller alive during event callbacks.
+    std::shared_ptr<class InputController> inputController;
 #endif
 
   private:

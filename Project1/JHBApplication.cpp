@@ -52,6 +52,9 @@ JHBApplication::~JHBApplication()
 
 VkResult JHBApplication::Run()
 {
+#ifdef ANDROID
+    if (!androidAppRunning.load()) return VK_SUCCESS;
+#endif
     auto result = renderer.init();
     if (result != VK_SUCCESS)
     {
@@ -68,8 +71,9 @@ VkResult JHBApplication::Run()
 #ifndef ANDROID
     InputController cameraController{device.getWindow().GetGLFWwindow(), viewerObject};
 #else
-    InputController cameraController{viewerObject};
-    inputController.store(&cameraController); // Main.cpp handleInputEvent에서 사용 (atomic)
+    auto cameraController = std::make_shared<InputController>();
+    // 이벤트 스레드에도 같은 입력 객체를 공유한다.
+    std::atomic_store(&inputController, cameraController);
 #endif
     double x = 0, y = 0;
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -77,7 +81,7 @@ VkResult JHBApplication::Run()
 #ifndef ANDROID
     auto forwardDir = cameraController.move(&window.GetGLFWwindow(), 0, viewerObject);
 #else
-    auto forwardDir = cameraController.move(0, viewerObject);
+    auto forwardDir = cameraController->move(0, viewerObject);
 #endif
     window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
     float aspect = renderer.getAspectRatio();
@@ -93,10 +97,6 @@ VkResult JHBApplication::Run()
         // 이벤트 처리는 android_main 이벤트 스레드가 전담한다.
         // 이 스레드(앱 스레드)에서 ALooper_pollAll을 호출하면 안 된다.
         // (ALooper는 android_main 스레드가 소유)
-        if (androidApp->destroyRequested)
-        {
-            break;
-        }
 
         // ── 30fps 프레임 캡 (발열 감소) ──────────────────────────────────
         // 이전 프레임 끝에서 33.3ms가 지나지 않았으면 sleep으로 CPU를 쉬게 한다.
@@ -115,8 +115,8 @@ VkResult JHBApplication::Run()
         // ────────────────────────────────────────────────────────────────
 
         // 터치 입력에서 커서 위치 업데이트
-        x = cameraController.getTouchX();
-        y = cameraController.getTouchY();
+        x = cameraController->getTouchX();
+        y = cameraController->getTouchY();
 #else
     while (!glfwWindowShouldClose(&window.GetGLFWwindow()))
     {
@@ -161,7 +161,7 @@ VkResult JHBApplication::Run()
 #ifndef ANDROID
         auto forwardDir = cameraController.move(&window.GetGLFWwindow(), frameTime, viewerObject);
 #else
-        auto forwardDir = cameraController.move(frameTime, viewerObject);
+        auto forwardDir = cameraController->move(frameTime, viewerObject);
 #endif
         window.getCamera()->setViewDirection(viewerObject.transform.translation, forwardDir);
         float aspect = renderer.getAspectRatio();
@@ -180,10 +180,9 @@ VkResult JHBApplication::Run()
         }
     }
 
-    // Run() 루프 종료 후 dangling pointer 방지
-    // (cameraController는 이 함수가 반환되면 소멸됨)
+    // Event callbacks holding a shared_ptr may finish safely after unpublishing it.
 #ifdef ANDROID
-    inputController.store(nullptr);
+    std::atomic_store(&inputController, std::shared_ptr<InputController>{});
 #endif
     const auto idle = vkDeviceWaitIdle(device.getLogicalDevice());
     return result != VK_SUCCESS ? result : idle;

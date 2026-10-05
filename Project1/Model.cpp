@@ -488,15 +488,15 @@ void jhb::Image::generateMipmap(Device& device, VkImage image, int mipLevels, ui
 		imageBlit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		imageBlit.srcSubresource.layerCount = 1;
 		imageBlit.srcSubresource.mipLevel = i - 1;
-		imageBlit.srcOffsets[1].x = int32_t(width >> (i - 1));
-		imageBlit.srcOffsets[1].y = int32_t(height >> (i - 1));
+		imageBlit.srcOffsets[1].x = int32_t(std::max(1u, width >> (i - 1)));
+		imageBlit.srcOffsets[1].y = int32_t(std::max(1u, height >> (i - 1)));
 		imageBlit.srcOffsets[1].z = 1;
 
 		imageBlit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		imageBlit.dstSubresource.layerCount = 1;
 		imageBlit.dstSubresource.mipLevel = i;
-		imageBlit.dstOffsets[1].x = int32_t(width >> i);
-		imageBlit.dstOffsets[1].y = int32_t(height >> i);
+		imageBlit.dstOffsets[1].x = int32_t(std::max(1u, width >> i));
+		imageBlit.dstOffsets[1].y = int32_t(std::max(1u, height >> i));
 		imageBlit.dstOffsets[1].z = 1;
 
 
@@ -652,7 +652,12 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 				for (size_t v = 0; v < vertexCount; v++) {
 					Vertex vert{};
 					vert.position = glm::vec4(glm::vec3(positionBuffer[3*v], positionBuffer[3*v+1], positionBuffer[3*v+2]), 1.0f);
-					vert.normal = glm::normalize(glm::vec3(normalsBuffer ? glm::vec3(normalsBuffer[3 * v], normalsBuffer[3 * v + 1], normalsBuffer[3 * v + 2]) : glm::vec3(0.0f)));
+					vert.normal = glm::vec3(0.0f);
+					if (normalsBuffer)
+					{
+						vert.normal = glm::normalize(glm::vec3(
+							normalsBuffer[3 * v], normalsBuffer[3 * v + 1], normalsBuffer[3 * v + 2]));
+					}
 					vert.uv = texCoordsBuffer1 ? glm::vec2(texCoordsBuffer1[v * 2], texCoordsBuffer1[v * 2 + 1]) : glm::vec3(0.0f);
 					vert.color = glm::vec3(1.f);
 					vert.tangent = tangentsBuffer ? glm::vec4(tangentsBuffer[v * 4], tangentsBuffer[v * 4 + 1], tangentsBuffer[v * 4 + 2], tangentsBuffer[v * 4 + 3]) : glm::vec4(0.0f);

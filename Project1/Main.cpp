@@ -5,6 +5,7 @@
 #include <android/native_window.h>
 #include <thread>
 #include <atomic>
+#include <mutex>
 #include <cmath>
 #include "JHBApplication.h"
 #include "InputController.h"
@@ -20,28 +21,39 @@
 // ALooper는 android_main 스레드에서만 사용 가능하므로
 // Run()에서는 ALooper_pollAll을 호출하지 않는다.
 // -------------------------------------------------------
-static std::atomic<jhb::JHBApplication*> g_app{nullptr};
-// g_inputController는 제거 — g_app->inputController(atomic)를 통해 직접 접근
+static jhb::JHBApplication* g_app = nullptr;
+static std::mutex g_appMutex;
+static std::thread g_renderThread;
+static std::atomic<bool> g_stopRequested{false};
+static void appThreadFunc(struct android_app* app);
+
+static void stopRenderThread()
+{
+	g_stopRequested.store(true);
+	{
+		std::lock_guard<std::mutex> lock(g_appMutex);
+		if (g_app) g_app->stopAndroidApp();
+	}
+	// No callback lock while waiting for the renderer to unpublish itself.
+	if (g_renderThread.joinable()) g_renderThread.join();
+}
 
 static void handleAppCommand(struct android_app* app, int32_t cmd)
 {
 	switch (cmd) {
 	case APP_CMD_INIT_WINDOW:
-		// 표면이 재생성됐을 때 (화면 복귀 등)
-		if (g_app.load() && app->window) {
-			g_app.load()->setAndroidApp(app);
+		if (app->window) {
+			stopRenderThread();
+			g_stopRequested.store(false);
+			g_renderThread = std::thread(appThreadFunc, app);
 		}
 		break;
 	case APP_CMD_TERM_WINDOW:
-		// 표면이 파괴되기 전 렌더 스레드 정지 요청
-		if (g_app.load()) {
-			g_app.load()->stopAndroidApp();
-		}
+		// Finish Vulkan work before native_app_glue releases the window.
+		stopRenderThread();
 		break;
 	case APP_CMD_DESTROY:
-		if (g_app.load()) {
-			g_app.load()->stopAndroidApp();
-		}
+		stopRenderThread();
 		break;
 	default:
 		break;
@@ -61,9 +73,10 @@ static float getPinchDistance(AInputEvent* event)
 static int32_t handleInputEvent(struct android_app* app, AInputEvent* event)
 {
 	if (AInputEvent_getType(event) != AINPUT_EVENT_TYPE_MOTION) return 0;
-	jhb::JHBApplication* jhbApp = g_app.load();
+	std::lock_guard<std::mutex> appLock(g_appMutex);
+	jhb::JHBApplication* jhbApp = g_app;
 	if (!jhbApp) return 0;
-	jhb::InputController* ic = jhbApp->inputController.load();
+	auto ic = std::atomic_load(&jhbApp->inputController);
 	if (!ic) return 0;
 
 	int32_t action       = AMotionEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK;
@@ -124,19 +137,22 @@ static int32_t handleInputEvent(struct android_app* app, AInputEvent* event)
 // -------------------------------------------------------
 static void appThreadFunc(struct android_app* app)
 {
+	std::unique_ptr<jhb::JHBApplication> application;
 	try {
 		jhb::Window::SetPendingNativeWindow(app->window);
 		jhb::setAndroidAssetManager(app->activity->assetManager);
 
 		LOGI("JHBApplication 초기화 시작 (앱 스레드)");
-		jhb::JHBApplication application;
-		g_app.store(&application);
-
-		application.setAndroidApp(app);
-		// inputController는 Run() 내부에서 atomic으로 설정되므로 여기서 따로 저장 불필요
+		application = std::make_unique<jhb::JHBApplication>();
+		application->setAndroidApp(app);
+		{
+			std::lock_guard<std::mutex> lock(g_appMutex);
+			g_app = application.get();
+			if (g_stopRequested.load()) application->stopAndroidApp();
+		}
 
 		LOGI("JHBApplication::Run() 시작");
-		const auto result = application.Run();
+		const auto result = application->Run();
 		if (result != VK_SUCCESS)
 		{
 			LOGE("Renderer failed: VkResult=%d", static_cast<int>(result));
@@ -151,7 +167,11 @@ static void appThreadFunc(struct android_app* app)
 		LOGE("앱 스레드 알 수 없는 예외");
 	}
 
-	g_app.store(nullptr);
+	{
+		std::lock_guard<std::mutex> lock(g_appMutex);
+		g_app = nullptr;
+	}
+	// application is destroyed only after all callbacks have released g_appMutex.
 }
 
 void android_main(struct android_app* app)
@@ -161,17 +181,7 @@ void android_main(struct android_app* app)
 	app->onAppCmd     = handleAppCommand;
 	app->onInputEvent = handleInputEvent;
 
-	// ANativeWindow가 준비될 때까지 이벤트를 처리하며 대기
-	while (app->window == nullptr) {
-		int events;
-		android_poll_source* source;
-		ALooper_pollAll(0, nullptr, &events, (void**)&source);
-		if (source) source->process(app, source);
-	}
-
-	// 앱 로직을 별도 스레드에서 시작
-	// → android_main은 계속 ALooper_pollAll을 실행하여 ANR 방지
-	std::thread appThread(appThreadFunc, app);
+	// INIT_WINDOW starts the renderer; TERM_WINDOW stops it before releasing the surface.
 
 	// -------------------------------------------------------
 	// 이벤트 전담 루프 (android_main 스레드)
@@ -180,21 +190,13 @@ void android_main(struct android_app* app)
 	// -------------------------------------------------------
 	while (!app->destroyRequested) {
 		int events;
-		android_poll_source* source;
+		android_poll_source* source = nullptr;
 		// 1ms 타임아웃: 이벤트 없어도 앱 종료 플래그를 확인하기 위해
-		ALooper_pollAll(1, nullptr, &events, (void**)&source);
+		ALooper_pollOnce(1, nullptr, &events, (void**)&source);
 		if (source) source->process(app, source);
 	}
 
-	// destroyRequested가 설정됐으므로 앱 스레드에도 종료 요청
-	jhb::JHBApplication* appPtr = g_app.load();
-	if (appPtr) {
-		appPtr->stopAndroidApp();
-	}
-
-	// 앱 스레드가 완전히 정리될 때까지 대기
-	// (이 join이 끝나야 android_app 구조체가 안전하게 해제된다)
-	appThread.join();
+	stopRenderThread();
 	LOGI("android_main 종료");
 }
 
