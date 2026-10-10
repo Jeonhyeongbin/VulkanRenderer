@@ -167,7 +167,11 @@ VkResult JHBApplication::Run()
         float aspect = renderer.getAspectRatio();
         window.getCamera()->setPerspectiveProjection(aspect, 0.1f, 200.f);
         updateViewBuffer(frameIndex);
-        recordFrame(commandBuffer);
+        result = recordFrame(commandBuffer);
+        if (result != VK_SUCCESS)
+        {
+            break;
+        }
         result = renderer.endFrame();
         if (result == VK_NOT_READY)
         {
@@ -319,9 +323,9 @@ void JHBApplication::collectSceneModels()
     {
         if (object.model && !object.model->nodes.empty() && seen.insert(object.model.get()).second)
         {
-            if (!object.model->instanceBuffer)
+            if (object.model->instanceData.empty())
             {
-                throw std::logic_error("Prepare scene instance buffers before graph rendering");
+                throw std::logic_error("Prepare scene instance data before graph rendering");
             }
             sceneModels.push_back(object.model);
         }
@@ -490,7 +494,7 @@ void JHBApplication::ensureFrameGraph()
     graphGeneration = generation;
 }
 
-void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
+VkResult JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
 {
     recordIBL(commandBuffer);
     const bool resized = frameGraph && graphGeneration != renderer.getSwapChainGeneration();
@@ -577,6 +581,15 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
     imguiContext->endFrame();
     imguiPass->addPass(graph, previewColor, imguiContext->drawFunction());
 #endif
+    // beginFrame waited for this slot. Apply the latest drag input before graph.render.
+    for (const auto &model : sceneModels)
+    {
+        const auto result = model->uploadInstances(frameIndex);
+        if (result != VK_SUCCESS)
+        {
+            return result;
+        }
+    }
     if (pickPixel)
     {
         auto &readback = pickingReadbacks[frameIndex];
@@ -641,6 +654,7 @@ void JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
     vk_sync::imagePipelineBarrier(
         commandBuffer, presentImage.image, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
         vk_sync::AccessType::ColorAttachmentWrite, vk_sync::AccessType::Present, false);
+    return VK_SUCCESS;
 }
 
 void JHBApplication::consumePicking(int frameIndex)

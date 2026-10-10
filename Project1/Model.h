@@ -8,6 +8,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #include <glm/glm.hpp>
+#include <array>
 
 #include "SwapChain.h"
 
@@ -147,6 +148,7 @@ namespace jhb {
 
 		void drawInPickPhase(VkCommandBuffer buffer, VkPipelineLayout pipelineLayout, VkPipeline pipeline, int frameIndex);
 		void bind(VkCommandBuffer buffer);
+		void bind(VkCommandBuffer buffer, int frameIndex);
 
 		void createVertexBuffer(const std::vector<Vertex>& vertices);
 		void createIndexBuffer(const std::vector<uint32_t>& indices);
@@ -180,7 +182,10 @@ namespace jhb {
 		void PickingPhasedrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node* node, int frameIndex, VkPipeline pipeline);
 		void calculateTangent(glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3, glm::vec3 pos1, glm::vec3 pos2, glm::vec3 pos3, glm::vec4& tangent);
 		void createObjectSphere(const std::vector<Vertex> vertices);
-		void updateInstanceBuffer(uint32_t _instanceCount, const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& rotations, float roughness =0, float metallic=0);
+		// Update CPU data; uploadInstances() performs the GPU upload for the current slot.
+		void updateInstances(uint32_t _instanceCount, const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& rotations, float roughness =0, float metallic=0);
+		// Call once after the frame slot fence wait, before any draws using this model.
+		VkResult uploadInstances(int frameIndex);
 
 	public:
 		// only for no gftl model
@@ -205,8 +210,9 @@ namespace jhb {
 		uint32_t instanceCount = 1;
 		uint32_t firstid = 0;
 
-		std::unique_ptr<Buffer> instanceBuffer = nullptr;
 		std::vector<InstanceData> instanceData;
+	private:
+		std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> instanceBuffers_;
 
 	public:
 		std::vector<Material> materials;

@@ -94,7 +94,7 @@ void Scene::rotateSelectedObject(float angleRadians)
     // 이 헬멧은 glTF에서 X축 90도 회전된다.
     // 기존 쉐이더의 rot.x(로컬 Z 회전)가 이 모델의 월드 수직축에 해당한다.
     rotations[instanceIndex].x += angleRadians;
-    model->updateInstanceBuffer(model->instanceCount, positions, rotations);
+    model->updateInstances(model->instanceCount, positions, rotations);
     object.transform.rotation = model->instanceData[instanceIndex].rot;
 }
 
@@ -154,7 +154,7 @@ void Scene::loadDefaultScene()
     auto object = GameObject::createGameObject();
     object.model = loadGLTF("Models/DamagedHelmet/DamagedHelmet.gltf");
     object.selectable = true;
-    object.model->updateInstanceBuffer(1, {glm::vec3(0)}, {glm::vec3(0)});
+    object.model->updateInstances(1, {glm::vec3(0)}, {glm::vec3(0)});
     object.model->firstid = object.getId();
     GameObjectManager::GetSingleton().AddGameObject(std::move(object));
 
@@ -164,7 +164,7 @@ void Scene::loadDefaultScene()
     // Keep the helmet at the origin, above the atrium floor.
     sponza.model->rootModelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0, -2, 0));
     sponza.model->inverseRootModelMatrix = glm::inverse(sponza.model->rootModelMatrix);
-    sponza.model->updateInstanceBuffer(1, {glm::vec3(0)}, {glm::vec3(0)});
+    sponza.model->updateInstances(1, {glm::vec3(0)}, {glm::vec3(0)});
     sponza.model->firstid = sponza.getId();
     GameObjectManager::GetSingleton().AddGameObject(std::move(sponza));
 }

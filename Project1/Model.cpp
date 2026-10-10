@@ -181,16 +181,22 @@ void jhb::Model::bind(VkCommandBuffer commandBuffer)
 	VkDeviceSize offsets[] = { 0 };
 	// combine command buffer and vertex Buffer
 	vkCmdBindVertexBuffers(commandBuffer, 0,  1, buffers, offsets);
-	if (instanceBuffer)
-	{
-		VkBuffer instance[] = {instanceBuffer->getBuffer()};
-		vkCmdBindVertexBuffers(commandBuffer, 1, 1, instance, offsets);
-	}
 
 	if (hasIndexBuffer)
 	{
 		vkCmdBindIndexBuffer(commandBuffer, indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	}
+}
+
+void jhb::Model::bind(VkCommandBuffer commandBuffer, int frameIndex)
+{
+    bind(commandBuffer);
+    assert(frameIndex >= 0 && frameIndex < SwapChain::MAX_FRAMES_IN_FLIGHT);
+    const auto &instanceBuffer = instanceBuffers_[frameIndex];
+    assert(instanceBuffer && "Upload this frame's instances before drawing");
+    const VkBuffer buffer = instanceBuffer->getBuffer();
+    const VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(commandBuffer, 1, 1, &buffer, &offset);
 }
 
 void jhb::Model::createVertexBuffer(const std::vector<Vertex>& vertices)
@@ -732,11 +738,7 @@ void jhb::Model::drawGraphAlphaGeometry(VkCommandBuffer commandBuffer,
     };
     static_assert(sizeof(AlphaConstants) == 16);
 
-    if (!instanceBuffer)
-    {
-        throw std::invalid_argument("Graph shadow geometry requires an instance buffer");
-    }
-    bind(commandBuffer);
+    bind(commandBuffer, frameIndex);
     const VkShaderStageFlags stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     const auto drawNode = [&](const auto &self, const Node *node,
@@ -790,7 +792,7 @@ void jhb::Model::drawGraphGeometry(VkCommandBuffer commandBuffer,
         throw std::invalid_argument("Graph PBR currently requires a glTF model with materials");
     }
 
-    bind(commandBuffer);
+    bind(commandBuffer, frameIndex);
 
     const auto drawNode = [&](const auto& self, const Node* node,
                               const glm::mat4& parentTransform) -> void
@@ -1335,7 +1337,7 @@ void jhb::Model::createObjectSphere(const std::vector<Vertex> vertices)
 	sphere.radius = (float)(sqrt(pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2) + pow(abs(sphere.maxcoordinate.x - sphere.mincoordinate.x), 2)));
 }
 
-void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& rotations, float roughness, float metallic)
+void jhb::Model::updateInstances(uint32_t _instanceCount, const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& rotations, float roughness, float metallic)
 {
 	if (_instanceCount == 0 || positions.size() != _instanceCount ||
 		rotations.size() != _instanceCount)
@@ -1344,27 +1346,7 @@ void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, const std::vector
 		return;
 	}
 
-	// Called before recording draws. Finish previous uses before overwriting or replacing the buffer.
-	if (instanceBuffer && vkDeviceWaitIdle(device.getLogicalDevice()) != VK_SUCCESS)
-	{
-		std::cerr << "Failed to wait before updating instance buffer." << std::endl;
-		return;
-	}
-
-	const VkDeviceSize dataSize = static_cast<VkDeviceSize>(sizeof(InstanceData)) * _instanceCount;
-	if (!instanceBuffer || instanceBuffer->getBufferSize() < dataSize)
-	{
-		auto newBuffer = std::make_unique<Buffer>(device, sizeof(InstanceData), _instanceCount,
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-		if (newBuffer->map() != VK_SUCCESS)
-		{
-			std::cerr << "Failed to map instance buffer." << std::endl;
-			return;
-		}
-		instanceBuffer = std::move(newBuffer);
-	}
-
+	// Update CPU data only. uploadInstances() copies it to the reusable frame slot.
 	instanceCount = _instanceCount;
 	instanceData.resize(instanceCount);
 	for (uint32_t i = 0; i < instanceCount; ++i)
@@ -1374,9 +1356,32 @@ void jhb::Model::updateInstanceBuffer(uint32_t _instanceCount, const std::vector
 		instanceData[i].rot = rotations[i];
 	}
 
-	instanceBuffer->writeToBuffer(instanceData.data(), dataSize, 0);
-	if (instanceBuffer->flush() != VK_SUCCESS)
-	{
-		std::cerr << "Failed to flush instance buffer." << std::endl;
-	}
+}
+
+VkResult jhb::Model::uploadInstances(int frameIndex)
+{
+    if (frameIndex < 0 || frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT ||
+        instanceCount == 0 || instanceData.size() != instanceCount)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    auto &buffer = instanceBuffers_[frameIndex];
+    const VkDeviceSize dataSize = sizeof(InstanceData) * static_cast<VkDeviceSize>(instanceCount);
+    if (!buffer || buffer->getBufferSize() < dataSize)
+    {
+        auto next = std::make_unique<Buffer>(device, sizeof(InstanceData), instanceCount,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        const auto result = next->map();
+        if (result != VK_SUCCESS)
+        {
+            return result;
+        }
+        // This slot's fence has completed, so its old buffer is no longer in use.
+        buffer = std::move(next);
+    }
+
+    buffer->writeToBuffer(instanceData.data(), dataSize, 0);
+    return buffer->flush();
 }

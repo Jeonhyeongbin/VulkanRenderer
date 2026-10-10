@@ -75,7 +75,7 @@ class JHBApplication
     void releaseDescriptors();
     void updateViewBuffer(int frameIndex);
     void ensureFrameGraph();
-    void recordFrame(VkCommandBuffer commandBuffer);
+    VkResult recordFrame(VkCommandBuffer commandBuffer);
     void consumePicking(int frameIndex);
 
   private:
