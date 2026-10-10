@@ -17,6 +17,8 @@
 #include "Model.h"
 #ifndef ANDROID
 #include "External/Imgui/imgui.h"
+#include "External/ImGuizmo/ImGuizmo.h"
+#include <glm/gtc/type_ptr.hpp>
 #endif
 #include "GameObjectManager.h"
 #include "Scene.h"
@@ -153,7 +155,11 @@ VkResult JHBApplication::Run()
 
         int frameIndex = renderer.getFrameIndex();
         consumePicking(frameIndex);
-        if (window.GetMousePressed())
+        if (window.GetMousePressed()
+#ifndef ANDROID
+            && !ImGuizmo::IsUsing()
+#endif
+        )
         {
             window.mouseMove(x, y, frameTime, viewerObject);
         }
@@ -544,6 +550,7 @@ VkResult JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
     imguiContext->configureTarget(graph.resources().texture(previewColor).texture.image.desc.format,
                                   static_cast<uint32_t>(renderer.GetSwapChain().getImageCount()));
     imguiContext->beginFrame();
+    ImGuizmo::BeginFrame();
     ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f), ImGuiCond_Appearing);
     ImGui::SetNextWindowSize(ImVec2(300.0f, 300.0f), ImGuiCond_FirstUseEver);
     ImGui::Begin("settings", nullptr, ImGuiWindowFlags_MenuBar);
@@ -559,9 +566,34 @@ VkResult JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
     }
     ImGui::SliderFloat("roughness", &uiRoughness, 0.1f, 1.0f);
     ImGui::SliderFloat("metallic", &uiMetallic, 0.1f, 1.0f);
+    ImGui::TextUnformatted("Rotation gizmo");
+    if (ImGui::RadioButton("Local", gizmoLocal)) gizmoLocal = true;
+    ImGui::SameLine();
+    if (ImGui::RadioButton("World", !gizmoLocal)) gizmoLocal = false;
+    ImGui::TextUnformatted("Select an object, then drag a rotation ring.");
     ImGui::End();
+    bool gizmoCapturesMouse = false;
+    if (auto *transform = GlobalScene->selectedTransform())
+    {
+        const auto &io = ImGui::GetIO();
+        ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
+        ImGuizmo::SetOrthographic(false);
+        ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+        // The scene uses a negative-height Vulkan viewport, matching ImGuizmo's Y mapping.
+        // ImGuizmo itself requests WantCaptureMouse while hovered; do not disable it for that.
+        ImGuizmo::Enable(!resized && !window.GetMousePressed() &&
+                         (ImGuizmo::IsUsing() ||
+                          (!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) &&
+                           !ImGui::IsAnyItemActive())));
+        ImGuizmo::Manipulate(glm::value_ptr(window.getCamera()->getView()),
+                             glm::value_ptr(window.getCamera()->getProjection()),
+                             ImGuizmo::ROTATE,
+                             gizmoLocal ? ImGuizmo::LOCAL : ImGuizmo::WORLD,
+                             glm::value_ptr(*transform));
+        gizmoCapturesMouse = ImGuizmo::IsOver() || ImGuizmo::IsUsing();
+    }
     if (!resized && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
-        !ImGui::GetIO().WantCaptureMouse)
+        !ImGui::GetIO().WantCaptureMouse && !gizmoCapturesMouse)
     {
         // 새 피킹 결과가 올 때까지 이전 선택 대상을 움직이지 않는다.
         GlobalScene->select(std::nullopt);
@@ -570,13 +602,6 @@ VkResult JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
         const auto mouse = ImGui::GetIO().MousePos;
         pickPixel =
             PickingPass::pixel(mouse.x, mouse.y, width, height, renderer.getSwapChainExtent());
-    }
-    if (!resized && !ImGui::GetIO().WantCaptureMouse &&
-        ImGui::IsMouseDragging(ImGuiMouseButton_Left))
-    {
-        constexpr float rotationRadiansPerPixel = 0.01f;
-        GlobalScene->rotateSelectedObject(
-            ImGui::GetIO().MouseDelta.x * rotationRadiansPerPixel);
     }
     imguiContext->endFrame();
     imguiPass->addPass(graph, previewColor, imguiContext->drawFunction());

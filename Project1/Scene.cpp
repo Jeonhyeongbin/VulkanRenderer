@@ -66,12 +66,12 @@ std::optional<uint32_t> Scene::selectedObject() const
     return std::nullopt;
 }
 
-void Scene::rotateSelectedObject(float angleRadians)
+glm::mat4 *Scene::selectedTransform()
 {
     const auto selected = selectedObject();
-    if (!selected || angleRadians == 0.0f)
+    if (!selected)
     {
-        return;
+        return nullptr;
     }
 
     auto &object = GameObjectManager::GetSingleton().gameObjects.at(*selected);
@@ -79,23 +79,11 @@ void Scene::rotateSelectedObject(float angleRadians)
     if (*selected < model->firstid ||
         *selected - model->firstid >= model->instanceData.size())
     {
-        return;
-    }
-
-    std::vector<glm::vec3> positions;
-    std::vector<glm::vec3> rotations;
-    for (const auto &instance : model->instanceData)
-    {
-        positions.push_back(instance.pos);
-        rotations.push_back(instance.rot);
+        return nullptr;
     }
 
     const auto instanceIndex = *selected - model->firstid;
-    // 이 헬멧은 glTF에서 X축 90도 회전된다.
-    // 기존 쉐이더의 rot.x(로컬 Z 회전)가 이 모델의 월드 수직축에 해당한다.
-    rotations[instanceIndex].x += angleRadians;
-    model->updateInstances(model->instanceCount, positions, rotations);
-    object.transform.rotation = model->instanceData[instanceIndex].rot;
+    return &model->instanceData[instanceIndex].transform;
 }
 
 Scene::~Scene()

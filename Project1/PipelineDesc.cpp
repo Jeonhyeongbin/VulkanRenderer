@@ -74,14 +74,16 @@ PipelineDescBuilder &PipelineDescBuilder::defaultMeshVertexInput()
     defaultVertexInput();
     desc_.vertexBindings.push_back({1, sizeof(Model::InstanceData), VK_VERTEX_INPUT_RATE_INSTANCE});
     const std::vector<VkVertexInputAttributeDescription> instanceAttributes = {
-        {5, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Model::InstanceData, pos)},
-        {6, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Model::InstanceData, rot)},
-        {7, 1, VK_FORMAT_R32_SFLOAT, offsetof(Model::InstanceData, scale)},
-        {8, 1, VK_FORMAT_R32_SFLOAT, offsetof(Model::InstanceData, roughness)},
-        {9, 1, VK_FORMAT_R32_SFLOAT, offsetof(Model::InstanceData, metallic)},
-        {10, 1, VK_FORMAT_R32_SFLOAT, offsetof(Model::InstanceData, r)},
-        {11, 1, VK_FORMAT_R32_SFLOAT, offsetof(Model::InstanceData, g)},
-        {12, 1, VK_FORMAT_R32_SFLOAT, offsetof(Model::InstanceData, b)}};
+        // GLSL mat4 occupies four consecutive vec4 locations (its columns).
+        {5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Model::InstanceData, transform)},
+        {6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Model::InstanceData, transform) + sizeof(glm::vec4)},
+        {7, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Model::InstanceData, transform) + 2 * sizeof(glm::vec4)},
+        {8, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Model::InstanceData, transform) + 3 * sizeof(glm::vec4)},
+        {9, 1, VK_FORMAT_R32_SFLOAT, offsetof(Model::InstanceData, roughness)},
+        {10, 1, VK_FORMAT_R32_SFLOAT, offsetof(Model::InstanceData, metallic)},
+        {11, 1, VK_FORMAT_R32_SFLOAT, offsetof(Model::InstanceData, r)},
+        {12, 1, VK_FORMAT_R32_SFLOAT, offsetof(Model::InstanceData, g)},
+        {13, 1, VK_FORMAT_R32_SFLOAT, offsetof(Model::InstanceData, b)}};
     desc_.vertexAttributes.insert(desc_.vertexAttributes.end(), instanceAttributes.begin(),
                                   instanceAttributes.end());
     return *this;

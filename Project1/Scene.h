@@ -33,7 +33,8 @@ class Scene
     std::vector<PickTarget> pickingTargets(const std::shared_ptr<Model> &model) const;
     void select(std::optional<PickTarget> target);
     std::optional<uint32_t> selectedObject() const;
-    void rotateSelectedObject(float angleRadians);
+    // Borrowed only for immediate editing; Model owns the instance transform.
+    glm::mat4 *selectedTransform();
 
     struct PointLightData
     {

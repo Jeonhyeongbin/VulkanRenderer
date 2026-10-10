@@ -775,7 +775,7 @@ void jhb::Model::drawGraphAlphaGeometry(VkCommandBuffer commandBuffer,
     };
     for (const auto *node : nodes)
     {
-        drawNode(drawNode, node, rootModelMatrix);
+        drawNode(drawNode, node, glm::mat4(1.0f));
     }
 }
 
@@ -850,7 +850,7 @@ void jhb::Model::drawGraphGeometry(VkCommandBuffer commandBuffer,
 
     for (const auto* node : nodes)
     {
-        drawNode(drawNode, node, rootModelMatrix);
+        drawNode(drawNode, node, glm::mat4(1.0f));
     }
 }
 
@@ -1352,8 +1352,10 @@ void jhb::Model::updateInstances(uint32_t _instanceCount, const std::vector<glm:
 	for (uint32_t i = 0; i < instanceCount; ++i)
 	{
 		instanceData[i].r = static_cast<float>(i); // instance id offset
-		instanceData[i].pos = positions[i];
-		instanceData[i].rot = rotations[i];
+		auto transform = glm::translate(rootModelMatrix, positions[i]);
+		transform = glm::rotate(transform, rotations[i].x, glm::vec3(1, 0, 0));
+		transform = glm::rotate(transform, rotations[i].y, glm::vec3(0, 1, 0));
+		instanceData[i].transform = glm::rotate(transform, rotations[i].z, glm::vec3(0, 0, 1));
 	}
 
 }

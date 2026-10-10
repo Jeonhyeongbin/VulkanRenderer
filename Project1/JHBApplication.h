@@ -129,6 +129,7 @@ class JHBApplication
     std::unique_ptr<class ImGuiPass> imguiPass;
     std::unique_ptr<class ImGuiContext> imguiContext;
     float uiRoughness{0.1f}, uiMetallic{0.1f};
+    bool gizmoLocal{true};
 #endif
 
   private:

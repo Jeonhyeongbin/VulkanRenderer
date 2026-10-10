@@ -60,6 +60,7 @@ set(MAIN_SOURCES
 )
 
 set(IMGUI_SOURCES
+    External/ImGuizmo/ImGuizmo.cpp
     External/Imgui/imgui.cpp
     External/Imgui/imgui_demo.cpp
     External/Imgui/imgui_draw.cpp
@@ -68,6 +69,10 @@ set(IMGUI_SOURCES
     External/Imgui/imgui_tables.cpp
     External/Imgui/imgui_widgets.cpp
 )
+
+# ImGuizmo 1.83 must enable operators before imgui.h with ImGui 1.90.
+set_source_files_properties(External/ImGuizmo/ImGuizmo.cpp PROPERTIES
+    COMPILE_DEFINITIONS IMGUI_DEFINE_MATH_OPERATORS)
 
 # -------------------------------------------------------
 # 실행 파일 타겟

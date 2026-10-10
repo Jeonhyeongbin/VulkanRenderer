@@ -122,12 +122,10 @@ namespace jhb {
 	class Model{
 	public:
 		struct InstanceData {
-			glm::vec3 pos;
-			glm::vec3 rot;
-			float scale{ 0.0f };
+			glm::mat4 transform{1.0f};
 			float roughness = 0.0f;
 			float metallic = 0.0f;
-			float r, g, b;
+			float r{0.0f}, g{0.0f}, b{0.0f};
 		};
 
 		Model(Device& device);

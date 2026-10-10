@@ -1,19 +1,15 @@
 #version 450
-#extension GL_GOOGLE_include_directive : require
-#include "instanceRotation.glsl"
 layout(location=0) in vec3 position;
 layout(location=1) in vec3 color;
 layout(location=2) in vec3 normal;
 layout(location=3) in vec2 uv;
 layout(location=4) in vec4 tangent;
-layout (location = 5) in vec3 instancePos;
-layout (location = 6) in vec3 instanceRot;
-layout (location = 7) in float instanceScale;
-layout (location = 8) in float roughness;
-layout (location = 9) in float metallic;
-layout (location = 10) in float r;
-layout (location = 11) in float g;
-layout (location = 12) in float b;
+layout(location = 5) in mat4 instanceTransform;
+layout(location = 9) in float roughness;
+layout(location = 10) in float metallic;
+layout(location = 11) in float r;
+layout(location = 12) in float g;
+layout(location = 13) in float b;
 
 layout(location=0) out vec3 fragColor;
 layout(location=1) out vec3 fragPosWorld;
@@ -47,18 +43,18 @@ layout(push_constant) uniform Push{
 } push;
 
 void main(){
-	mat3 rotMat = instanceRotation(instanceRot);
+	mat4 model = instanceTransform * push.model;
 
 	fragroughness = roughness;
 	fragmetallic = metallic;
 	fr = r;
 	fg = g;
 	fb = b;
-	vec4 positionWorld = push.model* vec4(position*rotMat + instancePos, 1.0);
+	vec4 positionWorld = model * vec4(position, 1.0);
 
 	fraguv = uv;
-	fragNormalWorld = normalize(transpose(inverse(mat3(push.model))) * normalize(normal * rotMat));
-	vec3 tangentWorld = mat3(push.model) * (tangent.xyz * rotMat);
+	fragNormalWorld = normalize(transpose(inverse(mat3(model))) * normal);
+	vec3 tangentWorld = mat3(model) * tangent.xyz;
 	fragTangent = vec4(tangentWorld, tangent.w);
 	fragPosWorld = positionWorld.xyz;
 	fragColor = color;
