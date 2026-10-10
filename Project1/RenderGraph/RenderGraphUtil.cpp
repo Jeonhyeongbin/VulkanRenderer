@@ -77,8 +77,9 @@ void RenderGraph::finishPass(PassBuilder &&b)
 
 void RenderGraph::createReadResourcesDescriptorSet(RenderPass &p)
 {
-    if (p.reads.empty() || p.readResourcesDescriptorSet)
+    if (p.reads.empty())
     {
+        p.readResourcesDescriptorSet.reset();
         return;
     }
     const auto &pipeline = resources_.pipeline(p.pipelineHandle);
@@ -97,9 +98,13 @@ void RenderGraph::createReadResourcesDescriptorSet(RenderPass &p)
 
     // The vector index is the shader set number, not a binding number.
     // Set 0 is reserved for bindless resources; set 1 is the per-frame view.
-    auto set = DescriptorSet::allocate(
-        device_.handle(), pipeline.descriptorSetLayouts.at(kDescriptorSetIndexInputResources),
-        types, device_.descriptorPoolFlags());
+    if (!p.readResourcesDescriptorSet)
+    {
+        p.readResourcesDescriptorSet = DescriptorSet::allocate(
+            device_.handle(), pipeline.descriptorSetLayouts.at(kDescriptorSetIndexInputResources),
+            types, device_.descriptorPoolFlags());
+    }
+    const auto &set = *p.readResourcesDescriptorSet;
     for (uint32_t i = 0; i < p.reads.size(); ++i)
     {
         VkWriteDescriptorSet w{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
@@ -138,13 +143,13 @@ void RenderGraph::createReadResourcesDescriptorSet(RenderPass &p)
         }
         vkUpdateDescriptorSets(device_.handle(), 1, &w, 0, nullptr);
     }
-    p.readResourcesDescriptorSet = std::move(set);
 }
 
 void RenderGraph::createUniformDescriptorSet(RenderPass &p)
 {
-    if (p.uniforms.empty() || p.uniformsDescriptorSet)
+    if (p.uniforms.empty())
     {
+        p.uniformsDescriptorSet.reset();
         return;
     }
     const auto &pipeline = resources_.pipeline(p.pipelineHandle);
@@ -165,9 +170,13 @@ void RenderGraph::createUniformDescriptorSet(RenderPass &p)
             }
         }
     }
-    auto set =
-        DescriptorSet::allocate(device_.handle(), pipeline.descriptorSetLayouts.at(binding.set),
-                                types, device_.descriptorPoolFlags());
+    if (!p.uniformsDescriptorSet)
+    {
+        p.uniformsDescriptorSet = DescriptorSet::allocate(
+            device_.handle(), pipeline.descriptorSetLayouts.at(binding.set),
+            types, device_.descriptorPoolFlags());
+    }
+    const auto &set = *p.uniformsDescriptorSet;
     const auto &b = resources_.buffer(p.uniformBuffer.value()).buffer;
     VkDescriptorBufferInfo info{b.buffer, 0, b.size};
     VkWriteDescriptorSet w{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
@@ -177,7 +186,6 @@ void RenderGraph::createUniformDescriptorSet(RenderPass &p)
     w.descriptorCount = 1;
     w.pBufferInfo = &info;
     vkUpdateDescriptorSets(device_.handle(), 1, &w, 0, nullptr);
-    p.uniformsDescriptorSet = std::move(set);
 }
 
 void RenderGraph::updateUniformBuffer(RenderPass &p)

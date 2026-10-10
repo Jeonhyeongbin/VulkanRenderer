@@ -91,14 +91,14 @@ void jhb::Window::mouseMove(float x, float y, float dt, GameObject& camera)
 
 	auto pos = glm::vec2(x, y);
 	auto deltaPose = pos - prevPos;
-	glm::normalize(deltaPose);
 
 	const float cameraRotSpeed = 0.02f;
 	camera.transform.rotation.x -= deltaPose.y * cameraRotSpeed;
 	camera.transform.rotation.y -= deltaPose.x * cameraRotSpeed;
 
 	// for not upside down
-	camera.transform.rotation.x = glm::clamp(camera.transform.rotation.x, -80.f, 80.f);
+	// Radians, matching InputController::move(). Keep mouse distance as the input.
+	camera.transform.rotation.x = glm::clamp(camera.transform.rotation.x, -1.f, 1.f);
 	camera.transform.rotation.y = glm::mod(camera.transform.rotation.y, glm::two_pi<float>());
 	prevPos = pos;
 }

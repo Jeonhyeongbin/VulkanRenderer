@@ -280,7 +280,7 @@ void PassBuilder::build()
 }
 
 RenderGraph::RenderGraph(Device &device, uint32_t framesInFlight)
-    : device_{device}, passes_(framesInFlight)
+    : device_{device}, descriptorCache_(framesInFlight), passes_(framesInFlight)
 {
     if (framesInFlight == 0)
     {
@@ -294,6 +294,7 @@ RenderGraph::RenderGraph(Device &device, uint32_t framesInFlight)
 
 RenderGraph::~RenderGraph()
 {
+    descriptorCache_.clear();
     for (auto &framePasses : passes_)
     {
         framePasses.clear();
@@ -329,6 +330,16 @@ void RenderGraph::newFrame(std::size_t currentFrame)
 
 void RenderGraph::clear()
 {
+    // clear() is called after beginFrame() has waited for this slot.
+    auto &cache = descriptorCache_[currentFrame_];
+    cache.clear();
+    for (auto &pass : passes_[currentFrame_])
+    {
+        cache.push_back({pass.name, pass.pipelineHandle,
+                         pass.uniforms.empty() ? std::string{} : pass.uniforms.begin()->second.first,
+                         std::move(pass.readResourcesDescriptorSet),
+                         std::move(pass.uniformsDescriptorSet)});
+    }
     passes_[currentFrame_].clear();
 }
 
@@ -466,11 +477,26 @@ void RenderGraph::prepare()
         resources_.pipelines[i] = std::move(pipeline);
     }
 
-    for (auto &pass : passes_[currentFrame_])
+    auto &cache = descriptorCache_[currentFrame_];
+    for (size_t index = 0; index < passes_[currentFrame_].size(); ++index)
     {
+        auto &pass = passes_[currentFrame_][index];
         if (pass.externalGraphics)
         {
             continue;
+        }
+        if (index < cache.size() && cache[index].name == pass.name &&
+            cache[index].pipelineHandle == pass.pipelineHandle)
+        {
+            if (!pass.readResourcesDescriptorSet)
+            {
+                pass.readResourcesDescriptorSet.swap(cache[index].reads);
+            }
+            if (!pass.uniformsDescriptorSet && !pass.uniforms.empty() &&
+                cache[index].uniformName == pass.uniforms.begin()->second.first)
+            {
+                pass.uniformsDescriptorSet.swap(cache[index].uniforms);
+            }
         }
         createReadResourcesDescriptorSet(pass);
         createUniformDescriptorSet(pass);

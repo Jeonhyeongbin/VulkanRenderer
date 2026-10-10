@@ -314,6 +314,16 @@ class RenderGraph
     void bindDescriptorSet(VkCommandBuffer commandBuffer, const Pipeline &pipeline,
                            uint32_t setIndex, VkDescriptorSet descriptorSet) const;
     Device &device_;
+    struct CachedDescriptors
+    {
+        std::string name;
+        PipelineId pipelineHandle{};
+        std::string uniformName;
+        std::optional<DescriptorSet> reads;
+        std::optional<DescriptorSet> uniforms;
+    };
+    // Reused only after the caller has waited for this frame slot's fence.
+    std::vector<std::vector<CachedDescriptors>> descriptorCache_;
     std::vector<std::vector<RenderPass>> passes_;
     GraphResources resources_;
     std::vector<PipelineDesc> pipelineDescs_;
