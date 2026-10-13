@@ -5,34 +5,22 @@
 ## 필수 환경
 
 - Windows 10/11 (64-bit)
-- Visual Studio 2022 (C++ 데스크톱 개발 워크로드 포함)
-- [Vulkan SDK](https://vulkan.lunarg.com/sdk/home)
-- [CMake 3.15 이상](https://cmake.org/download/)
+- Visual Studio 2022 (C++ 데스크톱 개발 워크로드, MSVC 및 Windows SDK 포함)
+- [Vulkan SDK](https://vulkan.lunarg.com/sdk/home) 설치 및 `VULKAN_SDK` 환경 변수 설정
+- [CMake](https://cmake.org/download/) (`Visual Studio 17 2022` 생성기 지원 버전, PATH 등록 필요)
+
+설치 후에는 터미널이나 VS Code를 다시 열어 환경 변수 변경을 반영하세요.
 
 ---
 
-## 빌드 방법
+## Windows 빌드 및 실행 
 
-```bash
-cd Project1
-mkdir build
-cd build
-cmake .. -G "Visual Studio 17 2022"
-cmake --build . --config Debug
+저장소 루트의 [`BuildAndRun.bat`](./BuildAndRun.bat)을 더블클릭하세요.
+
+```powershell
+.\BuildAndRun.bat
 ```
-
-빌드 결과물은 `Project1/build/bin/Debug/` 에 생성됩니다.
-
 ---
-
-## 실행 방법
-
-exe를 더블클릭하지 말고 **반드시 Project1 폴더에서 실행**해야 합니다.
-
-```bash
-cd Project1
-.\build\bin\Debug\VulkanRenderer.exe
-```
 
 
 
