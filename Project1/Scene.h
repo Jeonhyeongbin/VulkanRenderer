@@ -24,6 +24,25 @@ struct Vertex;
 class Scene
 {
   public:
+    // std430: four vec4s followed by eight uints (96-byte array stride).
+    struct GpuMaterial
+    {
+        glm::vec4 baseColor;
+        glm::vec4 emissive;
+        glm::vec4 metallicRoughnessAlpha; // metallic, roughness, alpha-mask enabled, cutoff
+        glm::vec4 normalOcclusion;       // normal scale, AO strength, double-sided, unused
+        uint32_t baseColorTexture;
+        uint32_t normalTexture;
+        uint32_t occlusionTexture;
+        uint32_t emissiveTexture;
+        uint32_t metallicRoughnessTexture;
+        uint32_t padding[3]{};
+    };
+    static_assert(sizeof(GpuMaterial) == 96);
+
+    VkResult collectMaterialResources(const std::vector<std::shared_ptr<Model>> &models,
+                                     std::vector<VkDescriptorImageInfo> &images,
+                                     std::vector<GpuMaterial> &materials);
     struct PickTarget
     {
         uint32_t objectId;

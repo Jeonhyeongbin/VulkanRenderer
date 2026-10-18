@@ -182,6 +182,52 @@ std::array<VkDescriptorImageInfo, 5> Scene::materialImages(const Model &model,
             image(material.metallicRoughnessTextureIndex, 3)};
 }
 
+VkResult Scene::collectMaterialResources(const std::vector<std::shared_ptr<Model>> &models,
+                                        std::vector<VkDescriptorImageInfo> &images,
+                                        std::vector<GpuMaterial> &materials)
+{
+    images.clear();
+    materials.clear();
+    images.push_back(defaultTextures_.at(0).descriptorInfo);
+    for (const auto &model : models)
+    {
+        for (auto &material : model->materials)
+        {
+            const auto textures = materialImages(*model, material);
+            std::array<uint32_t, 5> indices{};
+            for (size_t i = 0; i < textures.size(); ++i)
+            {
+                const auto &texture = textures[i];
+                size_t index = 0;
+                for (; index < images.size(); ++index)
+                {
+                    if (images[index].imageView == texture.imageView &&
+                        images[index].sampler == texture.sampler &&
+                        images[index].imageLayout == texture.imageLayout)
+                        break;
+                }
+                if (index == images.size())
+                {
+                    if (images.size() == rg::kBindlessTextureCapacity)
+                        return VK_ERROR_TOO_MANY_OBJECTS;
+                    images.push_back(texture);
+                }
+                indices[i] = static_cast<uint32_t>(index);
+            }
+            material.gpuMaterialIndex = static_cast<uint32_t>(materials.size());
+            materials.push_back({material.baseColorFactor, material.emissiveFactor,
+                glm::vec4(material.metallicFactor, material.roughnessFactor,
+                          material.alphaMode == "MASK" ? 1.0f : 0.0f, material.alphaCutOff),
+                glm::vec4(material.normalScale, material.occlusionStrength,
+                          material.doubleSided ? 1.0f : 0.0f, 0.0f),
+                indices[0], indices[1], indices[2], indices[3], indices[4]});
+        }
+    }
+    if (materials.empty()) materials.emplace_back();
+    images.resize(rg::kBindlessTextureCapacity, images.front());
+    return VK_SUCCESS;
+}
+
 std::shared_ptr<Model> Scene::loadGLTF(const std::string &filename)
 {
     tinygltf::Model glTFInput;

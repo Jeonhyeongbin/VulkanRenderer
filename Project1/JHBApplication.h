@@ -71,7 +71,7 @@ class JHBApplication
     void collectSceneModels();
     void prepareIBL();
     void recordIBL(VkCommandBuffer commandBuffer);
-    void prepareDescriptors(const rg::Pipeline &pipeline);
+    VkResult prepareDescriptors(const rg::Pipeline &pipeline);
     void releaseDescriptors();
     void updateViewBuffer(int frameIndex);
     void ensureFrameGraph();
@@ -90,7 +90,8 @@ class JHBApplication
 
   private:
     std::vector<rg::DescriptorSet> viewDescriptorSets;
-    std::vector<rg::DescriptorSet> materialDescriptorSets;
+    rg::DescriptorSet bindlessDescriptorSet;
+    std::unique_ptr<Buffer> materialBuffer;
     std::vector<std::shared_ptr<Model>> sceneModels;
 
     struct IBLTextures

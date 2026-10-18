@@ -268,6 +268,21 @@ rg::Pipeline Device::createPipeline(const rg::PipelineDesc &description)
             VkDescriptorSetLayoutCreateInfo ci{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
             ci.bindingCount = static_cast<uint32_t>(bindings.size());
             ci.pBindings = bindings.data();
+            std::vector<VkDescriptorBindingFlags> bindingFlags(bindings.size(), 0);
+            VkDescriptorSetLayoutBindingFlagsCreateInfo flags{
+                VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
+            if (set == rg::kDescriptorSetIndexBindless && !bindings.empty())
+            {
+                // Use the larger descriptor-indexing limits, not the legacy sampler limit.
+                // The application still writes this table only before GPU use.
+                ci.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+                for (size_t i = 0; i < bindings.size(); ++i)
+                    if (bindings[i].descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                        bindingFlags[i] = VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+                flags.bindingCount = static_cast<uint32_t>(bindingFlags.size());
+                flags.pBindingFlags = bindingFlags.data();
+                ci.pNext = &flags;
+            }
             VkDescriptorSetLayout layout{};
             checked(vkCreateDescriptorSetLayout(handle(), &ci, nullptr, &layout),
                     "Create graph set layout");
@@ -636,6 +651,38 @@ namespace jhb {
 #endif
 	}
 
+    VkResult Device::checkBindlessSupport() const
+    {
+        VkPhysicalDeviceDescriptorIndexingFeatures indexing{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES};
+        VkPhysicalDeviceFeatures2 features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+        features.pNext = &indexing;
+        vkGetPhysicalDeviceFeatures2(physicalDevice, &features);
+        if (!features.features.shaderSampledImageArrayDynamicIndexing ||
+            !indexing.descriptorBindingSampledImageUpdateAfterBind)
+            return VK_ERROR_FEATURE_NOT_PRESENT;
+
+        VkPhysicalDeviceDescriptorIndexingProperties limits{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES};
+        VkPhysicalDeviceProperties2 properties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+        properties.pNext = &limits;
+        vkGetPhysicalDeviceProperties2(physicalDevice, &properties);
+        // Reserve four sampled images for the PBR pass's IBL/shadow inputs.
+        const uint32_t textures = rg::kBindlessTextureCapacity + 4;
+        if (limits.maxPerStageDescriptorUpdateAfterBindSamplers < textures ||
+            limits.maxPerStageDescriptorUpdateAfterBindSampledImages < textures ||
+            limits.maxDescriptorSetUpdateAfterBindSamplers < textures ||
+            limits.maxDescriptorSetUpdateAfterBindSampledImages < textures ||
+            limits.maxPerStageDescriptorUpdateAfterBindStorageBuffers < 1 ||
+            limits.maxDescriptorSetUpdateAfterBindStorageBuffers < 1 ||
+            limits.maxPerStageDescriptorUpdateAfterBindUniformBuffers < 1 ||
+            limits.maxDescriptorSetUpdateAfterBindUniformBuffers < 1 ||
+            limits.maxPerStageUpdateAfterBindResources < textures + 2 ||
+            limits.maxUpdateAfterBindDescriptorsInAllPools < rg::kBindlessTextureCapacity + 1)
+            return VK_ERROR_FEATURE_NOT_PRESENT;
+        return VK_SUCCESS;
+    }
+
 	void Device::createLogicalDevice()
 	{
 		QueueFamilyIndexes familyindexs = findQueueFamilies(physicalDevice);
@@ -660,13 +707,23 @@ namespace jhb {
         if (properties.apiVersion < VK_API_VERSION_1_3)
             throw std::runtime_error("RenderGraph requires Vulkan 1.3");
         VkPhysicalDeviceDynamicRenderingFeatures dynamic{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
+        VkPhysicalDeviceDescriptorIndexingFeatures indexing{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES};
+        // Unsupported hardware is reported by Run() as a VkResult.
+        if (checkBindlessSupport() == VK_SUCCESS)
+        {
+            indexing.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+        }
         VkPhysicalDeviceFeatures2 supported{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
         supported.pNext = &dynamic;
         vkGetPhysicalDeviceFeatures2(physicalDevice, &supported);
         if (!dynamic.dynamicRendering) throw std::runtime_error("Device lacks dynamic rendering");
         VkPhysicalDeviceFeatures deviceFeatures{};
         deviceFeatures.independentBlend = supported.features.independentBlend;
+        deviceFeatures.shaderSampledImageArrayDynamicIndexing =
+            supported.features.shaderSampledImageArrayDynamicIndexing;
         dynamic.dynamicRendering = VK_TRUE;
+        dynamic.pNext = &indexing;
 
 		// Create the logical device
 		VkDeviceCreateInfo deviceCreateInfo{};

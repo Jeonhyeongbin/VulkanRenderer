@@ -96,9 +96,6 @@ void jhb::Window::mouseMove(float x, float y, float dt, GameObject& camera)
 	camera.transform.rotation.x -= deltaPose.y * cameraRotSpeed;
 	camera.transform.rotation.y -= deltaPose.x * cameraRotSpeed;
 
-	// for not upside down
-	// Radians, matching InputController::move(). Keep mouse distance as the input.
-	camera.transform.rotation.x = glm::clamp(camera.transform.rotation.x, -1.f, 1.f);
-	camera.transform.rotation.y = glm::mod(camera.transform.rotation.y, glm::two_pi<float>());
+	// InputController::move() limits the angles after all rotation input is applied.
 	prevPos = pos;
 }

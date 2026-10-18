@@ -57,7 +57,13 @@ VkResult JHBApplication::Run()
 #ifdef ANDROID
     if (!androidAppRunning.load()) return VK_SUCCESS;
 #endif
-    auto result = renderer.init();
+    auto result = device.checkBindlessSupport();
+    if (result != VK_SUCCESS)
+    {
+        std::cerr << "Bindless materials require sampled-image descriptor indexing and capacity 1024\n";
+        return result;
+    }
+    result = renderer.init();
     if (result != VK_SUCCESS)
     {
         return result;
@@ -338,11 +344,11 @@ void JHBApplication::collectSceneModels()
     }
 }
 
-void JHBApplication::prepareDescriptors(const rg::Pipeline &pipeline)
+VkResult JHBApplication::prepareDescriptors(const rg::Pipeline &pipeline)
 {
     if (descriptorsReady)
     {
-        return;
+        return VK_SUCCESS;
     }
     for (int frame = 0; frame < SwapChain::MAX_FRAMES_IN_FLIGHT; ++frame)
     {
@@ -351,38 +357,43 @@ void JHBApplication::prepareDescriptors(const rg::Pipeline &pipeline)
             pipeline.allocateDescriptorSet(device.getLogicalDevice(), rg::kDescriptorSetIndexView);
         set.writeBuffer(0, uboBuffers[frame]->descriptorInfo());
     }
-    for (const auto &model : sceneModels)
-    {
-        for (auto &material : model->materials)
-        {
-            auto images = GlobalScene->materialImages(*model, material);
-            for (int frame = 0; frame < SwapChain::MAX_FRAMES_IN_FLIGHT; ++frame)
-            {
-                auto set = pipeline.allocateDescriptorSet(device.getLogicalDevice(), 3);
-                for (uint32_t binding = 0; binding < images.size(); ++binding)
-                {
-                    set.writeImage(binding, images[binding]);
-                }
-                // Model keeps a non-owning handle for its existing draw interface.
-                material.descriptorSets.at(frame) = set.handle;
-                materialDescriptorSets.push_back(std::move(set));
-            }
-        }
-    }
+    std::vector<VkDescriptorImageInfo> images;
+    std::vector<Scene::GpuMaterial> materials;
+    auto result = GlobalScene->collectMaterialResources(sceneModels, images, materials);
+    if (result != VK_SUCCESS) return result;
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
+    if (materials.size() > properties.limits.maxStorageBufferRange / sizeof(Scene::GpuMaterial))
+        return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+
+    materialBuffer = std::make_unique<Buffer>(device, sizeof(Scene::GpuMaterial),
+        static_cast<uint32_t>(materials.size()), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+    result = materialBuffer->map();
+    if (result != VK_SUCCESS) return result;
+    materialBuffer->writeToBuffer(materials.data());
+    result = materialBuffer->flush();
+    if (result != VK_SUCCESS) return result;
+
+    bindlessDescriptorSet = pipeline.allocateDescriptorSet(device.getLogicalDevice(),
+        rg::kDescriptorSetIndexBindless, VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT);
+    VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+    write.dstSet = bindlessDescriptorSet.handle;
+    write.dstBinding = 0;
+    write.descriptorCount = static_cast<uint32_t>(images.size());
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.pImageInfo = images.data();
+    vkUpdateDescriptorSets(device.getLogicalDevice(), 1, &write, 0, nullptr);
+    bindlessDescriptorSet.writeBuffer(1, materialBuffer->descriptorInfo(),
+                                      VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
     descriptorsReady = true;
+    return VK_SUCCESS;
 }
 
 void JHBApplication::releaseDescriptors()
 {
-    for (const auto &model : sceneModels)
-    {
-        for (auto &material : model->materials)
-        {
-            std::fill(material.descriptorSets.begin(), material.descriptorSets.end(),
-                      VK_NULL_HANDLE);
-        }
-    }
-    materialDescriptorSets.clear();
+    bindlessDescriptorSet.reset();
+    materialBuffer.reset();
     for (auto &set : viewDescriptorSets)
     {
         set.reset();
@@ -527,7 +538,7 @@ VkResult JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
             const auto layout = resources.pipeline(pass.pipelineHandle).layout;
             for (const auto &model : sceneModels)
             {
-                model->drawGraphGeometry(cmd, layout, frameIndex, true);
+                model->drawGraphGeometry(cmd, layout, frameIndex);
             }
         });
     const auto geometryPipeline = graph.passes().back().pipelineHandle;
@@ -651,7 +662,8 @@ VkResult JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
     }
     presentPass->addPass(previewColor);
     graph.prepare();
-    prepareDescriptors(graph.resources().pipeline(geometryPipeline));
+    const auto descriptorResult = prepareDescriptors(graph.resources().pipeline(geometryPipeline));
+    if (descriptorResult != VK_SUCCESS) return descriptorResult;
 
     // The acquired image index is independent of the frame-in-flight slot.
     auto &swapChain = renderer.GetSwapChain();
@@ -665,6 +677,7 @@ VkResult JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
     presentImage.desc.format = swapChain.getSwapChainImageFormat();
     presentImage.desc.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     rg::RenderContext context;
+    context.bindlessDescriptorSet = bindlessDescriptorSet.handle;
     for (const auto &set : viewDescriptorSets)
     {
         context.viewDescriptorSets.push_back(set.handle);

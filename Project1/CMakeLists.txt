@@ -2,6 +2,7 @@
 # VulkanRenderer - Project1
 # ============================================================
 cmake_minimum_required(VERSION 3.15)
+project(VulkanRenderer LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -175,6 +176,7 @@ if(GLSLC_EXECUTABLE)
             DEPENDS ${SHADER_FILE}
                     "${CMAKE_CURRENT_SOURCE_DIR}/shaders/instanceRotation.glsl"
                     "${CMAKE_CURRENT_SOURCE_DIR}/shaders/materialAlpha.glsl"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/shaders/materialResources.glsl"
             COMMENT "셰이더 컴파일: ${SHADER_NAME} -> ${SHADER_NAME}.spv"
             VERBATIM
         )

@@ -71,7 +71,9 @@ namespace jhb {
 		float normalScale{1.0f};
 		float occlusionStrength{1.0f};
 		bool doubleSided = false;
-		std::vector<VkDescriptorSet> descriptorSets{SwapChain::MAX_FRAMES_IN_FLIGHT}; // same type descriptor set for each frame
+		uint32_t gpuMaterialIndex{0};
+		// Legacy drawNode only; RenderGraph no longer allocates or binds these sets.
+		std::vector<VkDescriptorSet> descriptorSets{SwapChain::MAX_FRAMES_IN_FLIGHT};
 		std::unique_ptr<class Pipeline> pipeline = nullptr;
 	};
 
@@ -172,7 +174,7 @@ namespace jhb {
         void drawGraphAlphaGeometry(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
                                    int frameIndex);
         void drawGraphGeometry(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
-                               int frameIndex, bool pushMaterialConstants = false);
+                               int frameIndex);
 		void buildIndriectNode(Node* node, std::vector<VkDrawIndexedIndirectCommand>& indirectCommandsBuffer);
 		void drawNodeNotexture(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkPipelineLayout pipelineLayout, Node* node);
 		void buildIndirectCommand(std::vector<VkDrawIndexedIndirectCommand>& indirectCommandBuffer);

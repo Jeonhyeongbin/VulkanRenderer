@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "materialResources.glsl"
 
 layout (location = 0) in vec3 fragColor;
 layout (location = 1) in vec3 fragPosWorld;
@@ -18,11 +20,6 @@ layout (location = 10) in vec3 lightPos;
 layout (set = 2, binding = 0) uniform sampler2D samplerBRDFLUT;
 layout (set = 2, binding = 1) uniform samplerCube samplerIrradiance;
 layout (set = 2, binding = 2) uniform samplerCube prefilteredMap;
-layout (set = 3, binding = 0) uniform sampler2D samplerColorMap;
-layout (set = 3, binding = 1) uniform sampler2D samplerNormalMap;
-layout (set = 3, binding = 2) uniform sampler2D samplerOcclusionMap;
-layout (set = 3, binding = 3) uniform sampler2D samplerEmissiveMap;
-layout (set = 3, binding = 4) uniform sampler2D samplerMetallicRoughnessMap;
 layout (set = 2, binding = 3) uniform samplerCube shadowMap;
 struct PointLight{
 	vec4 position; // w is  just for allign

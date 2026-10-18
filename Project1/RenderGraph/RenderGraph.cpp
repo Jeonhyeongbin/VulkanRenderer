@@ -618,7 +618,9 @@ void RenderGraph::render(Renderer &renderer, VkCommandBuffer commandBuffer, Rend
 
         prepareRenderPass(renderer, commandBuffer, pass, colorAttachments, depthAttachment, extent);
 
-        if (pipeline && context.bindlessDescriptorSet != VK_NULL_HANDLE)
+        if (pipeline && context.bindlessDescriptorSet != VK_NULL_HANDLE &&
+            std::any_of(pipeline->desc.bindings.begin(), pipeline->desc.bindings.end(),
+                        [](const auto &b) { return b.set == kDescriptorSetIndexBindless; }))
         {
             bindDescriptorSet(commandBuffer, *pipeline, kDescriptorSetIndexBindless,
                               context.bindlessDescriptorSet);

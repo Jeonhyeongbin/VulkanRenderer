@@ -729,15 +729,6 @@ void jhb::Model::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model
 void jhb::Model::drawGraphAlphaGeometry(VkCommandBuffer commandBuffer,
                                       VkPipelineLayout pipelineLayout, int frameIndex)
 {
-    struct AlphaConstants
-    {
-        float baseColorAlpha;
-        float alphaMaskEnabled;
-        float alphaCutoff;
-        float padding;
-    };
-    static_assert(sizeof(AlphaConstants) == 16);
-
     bind(commandBuffer, frameIndex);
     const VkShaderStageFlags stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
@@ -756,14 +747,8 @@ void jhb::Model::drawGraphAlphaGeometry(VkCommandBuffer commandBuffer,
             if (primitive.indexCount != 0)
             {
                 const auto &material = materials.at(primitive.materialIndex);
-                AlphaConstants alpha{};
-                alpha.baseColorAlpha = material.baseColorFactor.a;
-                alpha.alphaMaskEnabled = material.alphaMode == "MASK" ? 1.0f : 0.0f;
-                alpha.alphaCutoff = material.alphaCutOff;
-                vkCmdPushConstants(commandBuffer, pipelineLayout, stages, 64, sizeof(alpha), &alpha);
-                const auto set = material.descriptorSets.at(frameIndex);
-                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                        pipelineLayout, 3, 1, &set, 0, nullptr);
+                vkCmdPushConstants(commandBuffer, pipelineLayout, stages, 64,
+                                   sizeof(material.gpuMaterialIndex), &material.gpuMaterialIndex);
                 vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount,
                                  primitive.firstIndex, 0, 0);
             }
@@ -780,8 +765,7 @@ void jhb::Model::drawGraphAlphaGeometry(VkCommandBuffer commandBuffer,
 }
 
 void jhb::Model::drawGraphGeometry(VkCommandBuffer commandBuffer,
-                                    VkPipelineLayout pipelineLayout, int frameIndex,
-                                    bool pushMaterialConstants)
+                                    VkPipelineLayout pipelineLayout, int frameIndex)
 {
     if (frameIndex < 0 || frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
     {
@@ -803,9 +787,7 @@ void jhb::Model::drawGraphGeometry(VkCommandBuffer commandBuffer,
         }
 
         const glm::mat4 modelMatrix = parentTransform * node->matrix;
-        const VkShaderStageFlags stages = pushMaterialConstants
-            ? VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-            : VK_SHADER_STAGE_VERTEX_BIT;
+        const VkShaderStageFlags stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
         vkCmdPushConstants(commandBuffer, pipelineLayout, stages,
                            0, sizeof(modelMatrix), &modelMatrix);
 
@@ -817,27 +799,8 @@ void jhb::Model::drawGraphGeometry(VkCommandBuffer commandBuffer,
             }
 
             const auto& material = materials.at(primitive.materialIndex);
-            if (pushMaterialConstants)
-            {
-                // Matches the four vec4s at offset 64 in the G-buffer fragment shader.
-                const std::array<glm::vec4, 4> constants = {
-                    material.baseColorFactor, material.emissiveFactor,
-                    glm::vec4(material.metallicFactor, material.roughnessFactor,
-                              material.alphaMode == "MASK" ? 1.0f : 0.0f, material.alphaCutOff),
-                    glm::vec4(material.normalScale, material.occlusionStrength,
-                              material.doubleSided ? 1.0f : 0.0f, 0.0f)};
-                static_assert(sizeof(constants) == 64);
-                vkCmdPushConstants(commandBuffer, pipelineLayout, stages,
-                                   64, sizeof(constants), constants.data());
-            }
-            const auto set = material.descriptorSets.at(frameIndex);
-            if (set == VK_NULL_HANDLE)
-            {
-                throw std::logic_error("Graph geometry requires prepared material descriptors");
-            }
-
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                    pipelineLayout, 3, 1, &set, 0, nullptr);
+            vkCmdPushConstants(commandBuffer, pipelineLayout, stages, 64,
+                               sizeof(material.gpuMaterialIndex), &material.gpuMaterialIndex);
             vkCmdDrawIndexed(commandBuffer, primitive.indexCount, instanceCount,
                              primitive.firstIndex, 0, 0);
         }

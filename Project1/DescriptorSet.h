@@ -7,6 +7,8 @@ namespace jhb::rg
 constexpr uint32_t kDescriptorSetIndexBindless = 0;
 constexpr uint32_t kDescriptorSetIndexView = 1;
 constexpr uint32_t kDescriptorSetIndexInputResources = 2;
+// Must match materialResources.glsl. Unused entries contain a default texture.
+constexpr uint32_t kBindlessTextureCapacity = 1024;
 
 struct DescriptorBinding
 {

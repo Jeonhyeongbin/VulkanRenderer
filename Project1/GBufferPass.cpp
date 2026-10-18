@@ -47,15 +47,13 @@ GBufferPass::GBufferPass(rg::RenderGraph &graph, VkExtent2D extent,
     geometryPipeline.depthStencilAttachmentFormat = depthFormat;
     geometryPipeline.depthTest = true;
     geometryPipeline.depthWrite = true;
-    geometryPipeline.pushConstantSize = 128;
+    geometryPipeline.pushConstantSize = 68;
     geometryPipeline.pushConstantStages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     geometryPipeline.bindings = {
+        {0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, rg::kBindlessTextureCapacity,
+         VK_SHADER_STAGE_FRAGMENT_BIT},
+        {0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
         {1, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS}};
-    for (uint32_t i = 0; i < 5; ++i)
-    {
-        geometryPipeline.bindings.push_back(
-            {3, i, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
-    }
     geometryPipeline_ = graph_.createPipeline(std::move(geometryPipeline));
 }
 

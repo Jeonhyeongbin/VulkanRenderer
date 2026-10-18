@@ -118,6 +118,7 @@ namespace jhb {
           void endDebugLabel(VkCommandBuffer) const override;
           VkDescriptorPoolCreateFlags descriptorPoolFlags() const noexcept override;
           ~Device();
+          VkResult checkBindlessSupport() const;
 
           // Not copyable or movable
           Device(const Device &) = delete;
