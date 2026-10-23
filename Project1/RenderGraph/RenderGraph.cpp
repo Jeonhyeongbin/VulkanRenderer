@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <iostream>
 #include <stdexcept>
 
 namespace jhb::rg
@@ -455,7 +456,7 @@ void RenderGraph::addExternalGraphicsPass(std::string name, TextureId color, Ren
     passes_[currentFrame_].push_back(std::move(pass));
 }
 
-void RenderGraph::prepare()
+VkResult RenderGraph::prepare()
 {
     // Builder descriptions may be drafts without attachment formats. Only create
     // the finalized pipelines actually referenced by this frame's passes.
@@ -498,19 +499,81 @@ void RenderGraph::prepare()
                 pass.uniformsDescriptorSet.swap(cache[index].uniforms);
             }
         }
-        createReadResourcesDescriptorSet(pass);
-        createUniformDescriptorSet(pass);
+        auto result = createReadResourcesDescriptorSet(pass);
+        if (result != VK_SUCCESS)
+        {
+            return result;
+        }
+
+        result = createUniformDescriptorSet(pass);
+        if (result != VK_SUCCESS)
+        {
+            return result;
+        }
+
         updateUniformBuffer(pass);
     }
+
+    return VK_SUCCESS;
 }
 
-void RenderGraph::render(Renderer &renderer, VkCommandBuffer commandBuffer, RenderContext &context,
+VkResult RenderGraph::render(Renderer &renderer, VkCommandBuffer commandBuffer, RenderContext &context,
                          const Image &presentImage)
 {
     if (!renderer.isFrameInProgress() || commandBuffer != renderer.getCurrentCommandBuffer() ||
         renderer.isRendering())
     {
         throw std::logic_error("Graph execution requires a recording frame outside rendering");
+    }
+
+    // Validate every pass before recording barriers or drawing any pass in this graph.
+    for (const auto &pass : passes_[currentFrame_])
+    {
+        if (pass.externalGraphics)
+        {
+            continue; // External renderers manage their own descriptor bindings.
+        }
+
+        const auto &pipeline = resources_.pipeline(pass.pipelineHandle);
+        for (const auto &binding : pipeline.desc.bindings)
+        {
+            VkDescriptorSet set = VK_NULL_HANDLE;
+            if (binding.set == kDescriptorSetIndexBindless)
+            {
+                set = context.bindlessDescriptorSet;
+            }
+            else if (binding.set == kDescriptorSetIndexView)
+            {
+                if (currentFrame_ < context.viewDescriptorSets.size())
+                {
+                    set = context.viewDescriptorSets[currentFrame_];
+                }
+            }
+            else if (binding.set == kDescriptorSetIndexInputResources)
+            {
+                if (pass.readResourcesDescriptorSet)
+                {
+                    set = pass.readResourcesDescriptorSet->handle;
+                }
+            }
+            else if (pass.uniformsDescriptorSet && !pass.uniforms.empty())
+            {
+                const auto uniform = pipeline.namedBindings.find(pass.uniforms.begin()->second.first);
+                if (uniform != pipeline.namedBindings.end() && uniform->second.set == binding.set)
+                {
+                    set = pass.uniformsDescriptorSet->handle;
+                }
+            }
+
+            if (set == VK_NULL_HANDLE || binding.set >= pipeline.descriptorSetLayouts.size() ||
+                pipeline.descriptorSetLayouts[binding.set] == VK_NULL_HANDLE)
+            {
+                std::cerr << "RenderGraph pass '" << pass.name
+                          << "': required descriptor set " << binding.set
+                          << " or its layout is missing\n";
+                return VK_ERROR_INITIALIZATION_FAILED;
+            }
+        }
     }
 
     for (const auto &pass : passes_[currentFrame_])
@@ -618,18 +681,16 @@ void RenderGraph::render(Renderer &renderer, VkCommandBuffer commandBuffer, Rend
 
         prepareRenderPass(renderer, commandBuffer, pass, colorAttachments, depthAttachment, extent);
 
-        if (pipeline && context.bindlessDescriptorSet != VK_NULL_HANDLE &&
+        if (pipeline &&
             std::any_of(pipeline->desc.bindings.begin(), pipeline->desc.bindings.end(),
                         [](const auto &b) { return b.set == kDescriptorSetIndexBindless; }))
         {
             bindDescriptorSet(commandBuffer, *pipeline, kDescriptorSetIndexBindless,
                               context.bindlessDescriptorSet);
         }
-        if (pipeline && pipeline->descriptorSetLayouts.size() > kDescriptorSetIndexView &&
+        if (pipeline &&
             std::any_of(pipeline->desc.bindings.begin(), pipeline->desc.bindings.end(),
-                        [](const auto &b) { return b.set == kDescriptorSetIndexView; }) &&
-            currentFrame_ < context.viewDescriptorSets.size() &&
-            context.viewDescriptorSets[currentFrame_] != VK_NULL_HANDLE)
+                        [](const auto &b) { return b.set == kDescriptorSetIndexView; }))
         {
             bindDescriptorSet(commandBuffer, *pipeline, kDescriptorSetIndexView,
                               context.viewDescriptorSets[currentFrame_]);
@@ -683,6 +744,8 @@ void RenderGraph::render(Renderer &renderer, VkCommandBuffer commandBuffer, Rend
         }
         device_.endDebugLabel(commandBuffer);
     }
+
+    return VK_SUCCESS;
 }
 
 } // namespace jhb::rg

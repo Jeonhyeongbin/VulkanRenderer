@@ -186,8 +186,8 @@ inline PipelineDescBuilder PipelineDesc::builder()
 
 struct Pipeline
 {
-    // Layouts belong to this pipeline; the returned set owns only its pool/allocation.
-    DescriptorSet allocateDescriptorSet(VkDevice device, uint32_t setIndex,
+    // Layouts belong to this pipeline; output owns only its pool/allocation.
+    VkResult allocateDescriptorSet(VkDevice device, uint32_t setIndex, DescriptorSet &output,
                                         VkDescriptorPoolCreateFlags flags = 0) const;
     VkPipeline handle{VK_NULL_HANDLE};
     VkPipelineLayout layout{VK_NULL_HANDLE};

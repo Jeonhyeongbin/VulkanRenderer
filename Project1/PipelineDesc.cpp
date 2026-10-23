@@ -5,14 +5,16 @@
 
 namespace jhb::rg
 {
-DescriptorSet Pipeline::allocateDescriptorSet(VkDevice device, uint32_t setIndex,
+VkResult Pipeline::allocateDescriptorSet(VkDevice device, uint32_t setIndex, DescriptorSet &output,
                                               VkDescriptorPoolCreateFlags flags) const
 {
-    const auto setLayout = descriptorSetLayouts.at(setIndex);
-    if (setLayout == VK_NULL_HANDLE)
+    if (setIndex >= descriptorSetLayouts.size() ||
+        descriptorSetLayouts[setIndex] == VK_NULL_HANDLE)
     {
-        throw std::logic_error("Prepare pipeline layouts before allocating descriptor sets");
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
+
+    const auto setLayout = descriptorSetLayouts[setIndex];
     std::vector<VkDescriptorType> types;
     for (const auto &binding : desc.bindings)
     {
@@ -21,7 +23,7 @@ DescriptorSet Pipeline::allocateDescriptorSet(VkDevice device, uint32_t setIndex
             types.insert(types.end(), binding.count, binding.type);
         }
     }
-    return DescriptorSet::allocate(device, setLayout, types, flags);
+    return DescriptorSet::allocate(device, setLayout, types, output, flags);
 }
 
 namespace

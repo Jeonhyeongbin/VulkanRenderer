@@ -71,7 +71,11 @@ VkResult JHBApplication::Run()
     uboBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     viewDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     GlobalScene = std::make_unique<Scene>(device);
-    init();
+    result = init();
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
 
     auto viewerObject = GameObject::createGameObject();
     viewerObject.transform.translation = {0.0f, 0.0f, -4.0f};
@@ -204,7 +208,7 @@ VkResult JHBApplication::Run()
     return result != VK_SUCCESS ? result : idle;
 }
 
-void JHBApplication::init()
+VkResult JHBApplication::init()
 {
     for (int frame = 0; frame < SwapChain::MAX_FRAMES_IN_FLIGHT; ++frame)
     {
@@ -224,7 +228,12 @@ void JHBApplication::init()
 
     GlobalScene->loadDefaultScene();
     collectSceneModels();
-    prepareIBL();
+    const auto result = prepareIBL();
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+
     if (GlobalScene->pointLights().empty())
     {
         GlobalScene->pointLights().push_back(
@@ -237,9 +246,10 @@ void JHBApplication::init()
         device, VK_FORMAT_R16G16B16A16_SFLOAT,
         static_cast<uint32_t>(renderer.GetSwapChain().getImageCount()));
 #endif
+    return VK_SUCCESS;
 }
 
-void JHBApplication::prepareIBL()
+VkResult JHBApplication::prepareIBL()
 {
     iblGraph = std::make_unique<rg::RenderGraph>(device, 1);
     auto &graph = *iblGraph;
@@ -299,18 +309,23 @@ void JHBApplication::prepareIBL()
         graph, {iblTextures.environment, irradianceScratch, iblTextures.irradiance}, drawCube);
     PrefilterPass{}.addPass(
         graph, {iblTextures.environment, prefilterScratch, iblTextures.prefilter}, drawCube);
-    graph.prepare();
+    return graph.prepare();
 }
 
-void JHBApplication::recordIBL(VkCommandBuffer commandBuffer)
+VkResult JHBApplication::recordIBL(VkCommandBuffer commandBuffer)
 {
     if (iblRecorded)
     {
-        return;
+        return VK_SUCCESS;
     }
     rg::RenderContext context;
     // No presentation pass: all initialization attachments belong to the IBL graph.
-    iblGraph->render(renderer, commandBuffer, context, {});
+    const auto result = iblGraph->render(renderer, commandBuffer, context, {});
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+
     for (const auto id : {iblTextures.brdfLut, iblTextures.irradiance, iblTextures.prefilter})
     {
         auto &output = iblGraph->resources().texture(id);
@@ -324,6 +339,7 @@ void JHBApplication::recordIBL(VkCommandBuffer commandBuffer)
     // Recorded, not CPU-fence-complete. The frame graph follows in the same command buffer.
     // Retain the initialization graph/pools/scratch until shutdown after GPU idle.
     iblRecorded = true;
+    return VK_SUCCESS;
 }
 
 void JHBApplication::collectSceneModels()
@@ -353,30 +369,55 @@ VkResult JHBApplication::prepareDescriptors(const rg::Pipeline &pipeline)
     for (int frame = 0; frame < SwapChain::MAX_FRAMES_IN_FLIGHT; ++frame)
     {
         auto &set = viewDescriptorSets[frame];
-        set =
-            pipeline.allocateDescriptorSet(device.getLogicalDevice(), rg::kDescriptorSetIndexView);
+        const auto result = pipeline.allocateDescriptorSet(
+            device.getLogicalDevice(), rg::kDescriptorSetIndexView, set);
+        if (result != VK_SUCCESS)
+        {
+            return result;
+        }
+
         set.writeBuffer(0, uboBuffers[frame]->descriptorInfo());
     }
+
     std::vector<VkDescriptorImageInfo> images;
     std::vector<Scene::GpuMaterial> materials;
     auto result = GlobalScene->collectMaterialResources(sceneModels, images, materials);
-    if (result != VK_SUCCESS) return result;
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
     if (materials.size() > properties.limits.maxStorageBufferRange / sizeof(Scene::GpuMaterial))
+    {
         return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+    }
 
     materialBuffer = std::make_unique<Buffer>(device, sizeof(Scene::GpuMaterial),
         static_cast<uint32_t>(materials.size()), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     result = materialBuffer->map();
-    if (result != VK_SUCCESS) return result;
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+
     materialBuffer->writeToBuffer(materials.data());
     result = materialBuffer->flush();
-    if (result != VK_SUCCESS) return result;
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
 
-    bindlessDescriptorSet = pipeline.allocateDescriptorSet(device.getLogicalDevice(),
-        rg::kDescriptorSetIndexBindless, VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT);
+    result = pipeline.allocateDescriptorSet(
+        device.getLogicalDevice(), rg::kDescriptorSetIndexBindless, bindlessDescriptorSet,
+        VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT);
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+
     VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
     write.dstSet = bindlessDescriptorSet.handle;
     write.dstBinding = 0;
@@ -513,7 +554,12 @@ void JHBApplication::ensureFrameGraph()
 
 VkResult JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
 {
-    recordIBL(commandBuffer);
+    const auto iblResult = recordIBL(commandBuffer);
+    if (iblResult != VK_SUCCESS)
+    {
+        return iblResult;
+    }
+
     const bool resized = frameGraph && graphGeneration != renderer.getSwapChainGeneration();
     ensureFrameGraph();
     const int frameIndex = renderer.getFrameIndex();
@@ -661,7 +707,12 @@ VkResult JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
         readback.generation = graphGeneration;
     }
     presentPass->addPass(previewColor);
-    graph.prepare();
+    const auto prepareResult = graph.prepare();
+    if (prepareResult != VK_SUCCESS)
+    {
+        return prepareResult;
+    }
+
     const auto descriptorResult = prepareDescriptors(graph.resources().pipeline(geometryPipeline));
     if (descriptorResult != VK_SUCCESS) return descriptorResult;
 
@@ -682,7 +733,12 @@ VkResult JHBApplication::recordFrame(VkCommandBuffer commandBuffer)
     {
         context.viewDescriptorSets.push_back(set.handle);
     }
-    graph.render(renderer, commandBuffer, context, presentImage);
+    const auto renderResult = graph.render(renderer, commandBuffer, context, presentImage);
+    if (renderResult != VK_SUCCESS)
+    {
+        return renderResult;
+    }
+
     if (pickPixel)
     {
         auto &readback = pickingReadbacks[frameIndex];

@@ -24,8 +24,10 @@ struct DescriptorSet
     VkDescriptorPool pool{VK_NULL_HANDLE};
 
     // Owns its pool and set, but borrows a pipeline-owned layout.
-    static DescriptorSet allocate(VkDevice device, VkDescriptorSetLayout layout,
+    // On failure, output is unchanged. Replacing output requires its old set to be idle.
+    static VkResult allocate(VkDevice device, VkDescriptorSetLayout layout,
                                   const std::vector<VkDescriptorType> &types,
+                                  DescriptorSet &output,
                                   VkDescriptorPoolCreateFlags flags = 0);
     void writeBuffer(uint32_t binding, const VkDescriptorBufferInfo &info,
                      VkDescriptorType type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) const;

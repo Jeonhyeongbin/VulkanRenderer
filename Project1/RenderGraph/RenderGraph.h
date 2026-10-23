@@ -268,8 +268,8 @@ class RenderGraph
                           vk_sync::AccessType initialAccess = vk_sync::AccessType::Nothing);
     PipelineId createPipeline(PipelineDesc pipelineDesc);
 
-    void prepare();
-    void render(Renderer &renderer, VkCommandBuffer commandBuffer, RenderContext &context,
+    VkResult prepare();
+    VkResult render(Renderer &renderer, VkCommandBuffer commandBuffer, RenderContext &context,
                 const Image &presentImage);
 
     [[nodiscard]] const GraphResources &resources() const
@@ -301,8 +301,8 @@ class RenderGraph
     friend class PassBuilder;
 
     void finishPass(PassBuilder &&builder);
-    void createReadResourcesDescriptorSet(RenderPass &pass);
-    void createUniformDescriptorSet(RenderPass &pass);
+    VkResult createReadResourcesDescriptorSet(RenderPass &pass);
+    VkResult createUniformDescriptorSet(RenderPass &pass);
     void updateUniformBuffer(RenderPass &pass);
     void
     prepareRenderPass(Renderer &renderer, VkCommandBuffer commandBuffer, const RenderPass &pass,

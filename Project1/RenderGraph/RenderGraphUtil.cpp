@@ -75,34 +75,28 @@ void RenderGraph::finishPass(PassBuilder &&b)
     passes_[currentFrame_].push_back(std::move(p));
 }
 
-void RenderGraph::createReadResourcesDescriptorSet(RenderPass &p)
+VkResult RenderGraph::createReadResourcesDescriptorSet(RenderPass &p)
 {
     if (p.reads.empty())
     {
         p.readResourcesDescriptorSet.reset();
-        return;
+        return VK_SUCCESS;
     }
     const auto &pipeline = resources_.pipeline(p.pipelineHandle);
-    std::vector<VkDescriptorType> types;
-    // Size the pool for the entire layout, not just the bindings written below.
-    for (const auto &b : pipeline.desc.bindings)
-    {
-        if (b.set == kDescriptorSetIndexInputResources)
-        {
-            for (uint32_t i = 0; i < b.count; ++i)
-            {
-                types.push_back(b.type);
-            }
-        }
-    }
 
     // The vector index is the shader set number, not a binding number.
     // Set 0 is reserved for bindless resources; set 1 is the per-frame view.
     if (!p.readResourcesDescriptorSet)
     {
-        p.readResourcesDescriptorSet = DescriptorSet::allocate(
-            device_.handle(), pipeline.descriptorSetLayouts.at(kDescriptorSetIndexInputResources),
-            types, device_.descriptorPoolFlags());
+        DescriptorSet set;
+        const auto result = pipeline.allocateDescriptorSet(
+            device_.handle(), kDescriptorSetIndexInputResources, set, device_.descriptorPoolFlags());
+        if (result != VK_SUCCESS)
+        {
+            return result;
+        }
+
+        p.readResourcesDescriptorSet = std::move(set);
     }
     const auto &set = *p.readResourcesDescriptorSet;
     for (uint32_t i = 0; i < p.reads.size(); ++i)
@@ -143,14 +137,16 @@ void RenderGraph::createReadResourcesDescriptorSet(RenderPass &p)
         }
         vkUpdateDescriptorSets(device_.handle(), 1, &w, 0, nullptr);
     }
+
+    return VK_SUCCESS;
 }
 
-void RenderGraph::createUniformDescriptorSet(RenderPass &p)
+VkResult RenderGraph::createUniformDescriptorSet(RenderPass &p)
 {
     if (p.uniforms.empty())
     {
         p.uniformsDescriptorSet.reset();
-        return;
+        return VK_SUCCESS;
     }
     const auto &pipeline = resources_.pipeline(p.pipelineHandle);
     const auto &binding = pipeline.namedBindings.at(p.uniforms.begin()->second.first);
@@ -159,22 +155,17 @@ void RenderGraph::createUniformDescriptorSet(RenderPass &p)
     {
         throw std::invalid_argument("Pass uniform must use its own uniform-buffer set above set 2");
     }
-    std::vector<VkDescriptorType> types;
-    for (const auto &b : pipeline.desc.bindings)
-    {
-        if (b.set == binding.set)
-        {
-            for (uint32_t i = 0; i < b.count; ++i)
-            {
-                types.push_back(b.type);
-            }
-        }
-    }
     if (!p.uniformsDescriptorSet)
     {
-        p.uniformsDescriptorSet = DescriptorSet::allocate(
-            device_.handle(), pipeline.descriptorSetLayouts.at(binding.set),
-            types, device_.descriptorPoolFlags());
+        DescriptorSet set;
+        const auto result = pipeline.allocateDescriptorSet(
+            device_.handle(), binding.set, set, device_.descriptorPoolFlags());
+        if (result != VK_SUCCESS)
+        {
+            return result;
+        }
+
+        p.uniformsDescriptorSet = std::move(set);
     }
     const auto &set = *p.uniformsDescriptorSet;
     const auto &b = resources_.buffer(p.uniformBuffer.value()).buffer;
@@ -186,6 +177,7 @@ void RenderGraph::createUniformDescriptorSet(RenderPass &p)
     w.descriptorCount = 1;
     w.pBufferInfo = &info;
     vkUpdateDescriptorSets(device_.handle(), 1, &w, 0, nullptr);
+    return VK_SUCCESS;
 }
 
 void RenderGraph::updateUniformBuffer(RenderPass &p)

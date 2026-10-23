@@ -67,10 +67,10 @@ class JHBApplication
 #endif
 
   private:
-    void init();
+    VkResult init();
     void collectSceneModels();
-    void prepareIBL();
-    void recordIBL(VkCommandBuffer commandBuffer);
+    VkResult prepareIBL();
+    VkResult recordIBL(VkCommandBuffer commandBuffer);
     VkResult prepareDescriptors(const rg::Pipeline &pipeline);
     void releaseDescriptors();
     void updateViewBuffer(int frameIndex);
